@@ -1,6 +1,6 @@
 # Phase 00 必须保留功能清单
 
-执行时间：2026-06-11
+执行时间：2026-06-12
 
 说明：保留的是业务能力，不代表必须保留旧实现方式、旧命名或旧页面结构。
 
@@ -23,8 +23,14 @@
 | API / 物流 / 免押配置 | 必须保留 | 外部依赖运行基础 | `Settings.vue`, `sfShippingService.js`, `depositClient.js`, `mysqlConfig.js` | `config`, env files | 配置项分域管理 |
 | 日志与运行状态 | 必须保留 | 运维和排障基础 | `Dashboard.vue`, `LogViewer.vue`, `python/bridge.py`, startup scripts | `data/logs`, IPC events | 后续形成系统健康检查页 |
 | 当前启动流程 | 必须保留 | 当前工作产品可运行基础 | `electron/scripts/dev-launch.js`, `scripts/start_xianyu_desktop.sh`, `electron/main/index.js`, `pythonManager.js` | runtime data dir, MySQL, Python bridge | 不破坏，后续改名需同步 launcher |
-| 当前已有有效数据 | 必须保留 | 业务连续性底线 | `data/db-backups`, `data/local/db-backups`, `scripts/mysql_schema.sql` | MySQL、备份、导入文件、SQLite chat history | 迁移前做备份/回滚/验证 |
+| 当前已有有效数据 | 必须保留 | 业务连续性底线 | `data/`, `config/`, `scripts/mysql_schema.sql` | MySQL、备份、导入文件、SQLite chat history | 迁移前做备份/回滚/验证 |
 | 店铺经营拆分 | 优先保留 | 未来门店/多商户基础 | `Reports.vue`, `OrderFulfillment.vue`, `dbManager.js` | `stores`, `rental_orders.store_id` | Phase 03 再扩成商户隔离 |
 | 商品/型号绑定 | legacy 包装后保留 | 闲鱼商品到业务型号的映射有迁移价值 | `ItemModelMapping.vue`, `item_model_mapping` 相关 DAO | `item_model_mapping`, `xianyu_item_listings`, `item_cache` | 抽象为渠道商品映射 |
 | 知识库 | legacy 包装后保留 | 可沉淀员工话术和产品知识 | `KnowledgeBase.vue`, `python/knowledge_base/` | `knowledge`, `knowledge_index_state` | 改为运营知识库，不以自动回复为核心 |
 
+## 保留原则
+
+- 保留“租赁商户运营能力”，不等于保留旧闲鱼命名。
+- 保留“现有业务数据”，不等于现在执行迁移。
+- 保留“启动可用性”，不等于现在重构启动链路。
+- 保留“legacy 可用性”，不等于继续把闲鱼作为新产品核心。

@@ -1,6 +1,6 @@
 # Phase 00 可舍弃 / 可降级 / Legacy 功能清单
 
-执行时间：2026-06-11
+执行时间：2026-06-12
 
 说明：本文件只做标记，不代表删除。任何删除、迁移、重构都必须在后续阶段另行确认。
 
@@ -11,7 +11,7 @@
 | 闲鱼 WebSocket | `python/main.py` | legacy | 只服务闲鱼 IM | 保留为 Xianyu channel |
 | 闲鱼 token/cookies | `python/main.py`, `login_browser.py`, `Settings.vue` | legacy | 不应驱动 SaaS 登录和业务架构 | 保留兼容，不作为核心 |
 | 浏览器模式闲鱼 IM 扫描 | `python/channels/browser_runner.py` | legacy | 只围绕闲鱼会话 | 保留采集/历史导入能力待确认 |
-| classify/price/tech/default Agent | `python/XianyuAgent.py`, `Prompts.vue`, `DEFAULT_PROMPTS` | legacy | 当前围绕电商自动回复 | 转为客户沟通辅助/话术模板候选 |
+| classify/price/tech/default Agent | `python/XianyuAgent.py`, `Prompts.vue`, 默认 prompt | legacy | 当前围绕电商自动回复 | 转为客户沟通辅助/话术模板候选 |
 | 手动接管/人工接管客服流 | `TakeoverBoard.vue`, `takeover_tasks`, `session_reply_state` | legacy 包装后保留 | 员工待办有价值，但当前强消息流 | 后续判断是否并入 SOP |
 | 消息审批 | `FeishuPending.vue`, `feishu_pending_replies` | 待确认 | 若只服务闲鱼聊天则 legacy；若多渠道客服可保留 | 用户确认 |
 | 学习审核中的浏览器历史同步 | `LearningReview.vue`, `browser:sync_history`, `learning:extract_history` | legacy | 强依赖闲鱼聊天历史 | 转知识沉淀候选 |
@@ -22,7 +22,7 @@
 | `xianyu_agent` 数据库名 | `scripts/mysql_schema.sql`, `mysqlConfig.js` | legacy 命名 | 与新产品不一致 | 不直接改，未来迁移 |
 | `XianyuAgentPro` 产品/打包名 | `index.js`, `electron-builder.yml` | legacy 命名 | 与小狗相机助手商户版不一致 | 后续统一命名，需同步 launcher |
 | `start_xianyu_desktop*` 脚本 | `scripts/` | legacy 命名 | 启动脚本名历史遗留 | 不动，未来启动阶段统一 |
-| localStorage `xianyu.deposit*` key | `depositApiService.js`, `depositMockService.js`, `depositSettingsService.js` | legacy 命名 | 免押能力不应叫 xianyu | 保留兼容，后续迁移 key |
+| localStorage `xianyu.deposit*` key | deposit renderer services | legacy 命名 | 免押能力不应叫 xianyu | 保留兼容，后续迁移 key |
 
 ## 未来可删除候选
 
@@ -41,3 +41,9 @@
 - 闲管家是否仍是实际订单/商品渠道。
 - 是否保留浏览器只读采集模式用于知识库沉淀。
 
+## Phase 00 限制
+
+- 不删除任何 legacy 模块。
+- 不重命名旧字段。
+- 不移动旧数据。
+- 不把 legacy 标记理解为立即舍弃。

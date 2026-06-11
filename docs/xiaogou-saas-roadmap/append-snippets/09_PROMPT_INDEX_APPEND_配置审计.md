@@ -1,26 +1,3 @@
-# 09 Prompt 索引
-
-更多模板位于：
-
-```text
-docs/xiaogou-saas-roadmap/prompt-templates/
-```
-
-建议优先使用：
-
-1. `00_通用_启动当前阶段_计划模式.md`
-2. `01_通用_执行已确认计划.md`
-3. `02_通用_阶段验收.md`
-4. `03_通用_更新阶段状态.md`
-5. `04_Figma_创建设计系统.md`
-6. `05_Figma_迭代当前页面.md`
-7. `06_Code_分析项目不改代码.md`
-8. `07_Code_安全改造开发.md`
-9. `08_Review_复盘并沉淀规则.md`
-
-
-<!-- CONFIG_GOVERNANCE_PATCH_START -->
-
 # 09_PROMPT_INDEX 追加片段：配置审计 Prompt
 
 建议追加到 `docs/xiaogou-saas-roadmap/09_PROMPT_INDEX_提示词索引.md`。
@@ -36,5 +13,3 @@ docs/xiaogou-saas-roadmap/prompt-templates/
 | `prompt-templates/12_Config_配置治理开发计划.md` | 基于审计结果生成配置中心开发计划 |
 | `prompts-for-sessions/05_配置审计与配置治理会话初始化Prompt.md` | 初始化配置审计专用 Codex 会话 |
 ```
-
-<!-- CONFIG_GOVERNANCE_PATCH_END -->

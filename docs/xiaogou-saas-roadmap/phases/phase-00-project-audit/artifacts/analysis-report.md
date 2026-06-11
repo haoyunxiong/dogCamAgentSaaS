@@ -1,120 +1,78 @@
 # Phase 00 项目盘点总报告
 
-执行时间：2026-06-11
+执行日期：2026-06-12
 
-## 阶段目标
+执行目录：`/Users/lishuangshuang/Documents/租赁SAAS系统`
 
-Phase 00：当前项目盘点与旧逻辑冻结。
+正式 Git remote：`git@github.com:haoyunxiong/dogCamAgentSaaS.git`
 
-本阶段只盘点当前项目，不修改业务代码；识别现有功能、路由页面、组件结构、核心能力、legacy 闲鱼强绑定逻辑和风险点，并准备 Phase 00 artifacts。
+基线 commit：`492ef0a`
 
-## 本次产物
+## 本次结论
 
-- [current-structure.md](./current-structure.md)：当前目录、Electron、Vue、Python、scripts、data、docs 结构说明。
-- [routes-pages-components.md](./routes-pages-components.md)：当前路由、页面、导航分组、关键组件和页面迁移判断。
-- [core-capabilities.md](./core-capabilities.md)：现有可保留业务能力及对应代码/数据位置。
-- [legacy-xianyu-bindings.md](./legacy-xianyu-bindings.md)：闲鱼强绑定模块、字段、页面、文案、配置和接口。
-- [data-model-audit.md](./data-model-audit.md)：数据库、配置、表、DAO、storage、数据访问位置和多商户字段判断。
-- [risk-list.md](./risk-list.md)：业务耦合、数据库、启动、历史功能、UI、命名风险。
-- [keep-function-list.md](./keep-function-list.md)：必须保留功能清单。
-- [discard-or-legacy-list.md](./discard-or-legacy-list.md)：可舍弃/可降级/legacy 功能清单。
-- [questions-to-user.md](./questions-to-user.md)：需要用户确认的问题。
-- [phase-00-verification.md](./phase-00-verification.md)：执行前后状态与验收核对。
+当前项目是一个已经可运行的 Electron 桌面应用，前端为 Vue 3 + Vite，主进程承担启动、IPC、MySQL 数据访问、移动网关、顺丰、免押、报表等能力，Python 侧承担旧闲鱼会话通道、自动回复、知识库、学习、报价、档期、订单草稿等逻辑。
 
-## 当前项目总体判断
+项目已经具备明显的租赁商户运营系统雏形：
 
-当前项目已经不是单一闲鱼自动回复 bot。它是一个已有可运行的 Electron 桌面应用，已经包含租赁商户运营系统的多项核心能力：
+- 订单履约：创建、查看、分组、编辑、批量发货、批量归还、续租、删除、导入。
+- 档期能力：型号/单台设备占用、月视图、可用性查询、发货/租期/缓冲占用。
+- 设备管理：型号、单台设备、编号、状态、成本、残值。
+- 免押能力：免押订单创建、状态查询、通知、来源绑定、本地存储。
+- 顺丰物流：寄件草稿、预校验、下单、查询路由、费用、时效、批量寄件。
+- 数据报表：经营概览、收入报表、询单统计、设备效率。
+- 配置能力：模型、提示词、顺丰、免押、闲管家、询单优化、市场监控等配置。
+- 日志和运行状态：系统检查、机器人状态、运行日志、启动快照备份。
 
-- 订单履约
-- 租赁档期
-- 设备管理
-- 顺丰寄件
-- 免押管理
-- 租赁定价
-- 报表中心
-- 询单分析
-- 配置、日志、启动、备份
+同时，项目仍然存在强闲鱼 legacy 绑定：
 
-同时，系统仍保留大量闲鱼自动回复时代的核心结构：
+- 包名、窗口标题、数据库名、环境变量、启动脚本仍以 Xianyu/XIANYU/xianyu 命名。
+- Python 主链路仍以 `XianyuLive`、闲鱼 WebSocket、cookies、token、闲鱼 IM 浏览器模式为核心。
+- 多个字段和表仍以 `item_id`、`chat_id`、`session_id`、`xianyu_item_listings` 组织。
+- 自动回复、提示词、消息审批、学习审核、市场监控、闲管家开放平台仍带有闲鱼客服/渠道属性。
 
-- 闲鱼 WebSocket / cookies / token
-- Python `XianyuLive` / `XianyuApis` / `XianyuAgent`
-- classify/price/tech/default 自动回复 agent
-- 浏览器模式闲鱼 IM 扫描
-- `item_id`, `chat_id`, `session_id` 等渠道字段
-- `xianyu_agent` 数据库名和 `XIANYU_*` 配置命名
-- 人工接管、消息审批、学习审核等客服消息流页面
+Phase 00 的判断是：这些 legacy 模块不能直接删除。凡是能服务租赁业务主线的能力，应保留并在后续阶段去闲鱼化；只服务闲鱼消息流或闲鱼账号连接的逻辑，应降级为 legacy channel。
 
-## 当前核心能力
+## artifacts 清单
 
-### 必须保留
+- [current-structure.md](./current-structure.md)：当前目录结构与 Electron / Vue / Python / scripts / config / docs 说明。
+- [routes-pages-components.md](./routes-pages-components.md)：前端路由、页面、组件和迁移判断。
+- [core-capabilities.md](./core-capabilities.md)：当前可保留的核心业务能力。
+- [legacy-xianyu-bindings.md](./legacy-xianyu-bindings.md)：旧闲鱼强绑定模块、字段、文案和处理建议。
+- [data-model-audit.md](./data-model-audit.md)：数据库、配置、表、DAO/storage 位置与多商户预留判断。
+- [risk-list.md](./risk-list.md)：改造风险清单。
+- [keep-function-list.md](./keep-function-list.md)：必须保留/优先保留功能清单。
+- [discard-or-legacy-list.md](./discard-or-legacy-list.md)：可舍弃、可降级、legacy 功能清单。
+- [questions-to-user.md](./questions-to-user.md)：需要用户判断的问题。
+- [phase-00-verification.md](./phase-00-verification.md)：本次执行前后 Git 状态和只改 artifacts 验证。
 
-- 查档期：`ScheduleCalendar.vue`, `OrderFulfillment.vue`, `schedule_units`, `schedule_blocks`
-- 发档期/报价：`Pricing.vue`, `QuoteService`, `RentalAgentService`, `rental_pricing`
-- 订单履约：`OrderFulfillment.vue`, `rental_orders`
-- 免押/押金：`DepositManagement.vue`, `deposit_orders`, `deposit_exemption_rules`
-- 顺丰物流：`SfShippingWorkbench.vue`, `sf_shipments`, `shipping_records`
-- 归还/完结：`OrderFulfillment.vue`, `rental_orders`, `schedule_blocks`
-- 设备管理：`DeviceManagement.vue`, `schedule_units`
-- 报表统计：`Reports.vue`, `InquiryAnalytics.vue`
-- 配置、日志、启动流程、现有数据
+## Phase 00 验收状态
 
-### Legacy 包装后可保留
+| 验收项 | 当前状态 | 说明 |
+|---|---|---|
+| 项目结构说明完成 | 已完成 | 见 `current-structure.md` |
+| 保留功能清单完成 | 已完成 | 见 `keep-function-list.md` |
+| 废弃/legacy 功能清单完成 | 已完成 | 见 `discard-or-legacy-list.md` 与 `legacy-xianyu-bindings.md` |
+| AGENTS.md 生效 | 已完成 | 本次先读真源，再计划，确认后只写 artifacts |
+| 无业务代码改动 | 已完成 | `git diff --name-only` 全部位于 Phase 00 artifacts 目录 |
+| 没有跨阶段开发 | 已完成 | 未开发 Phase 01+ 功能 |
+| 必要结果写入 artifacts | 已完成 | 本目录多文件清单已更新 |
+| 用户确认验收结果 | 待用户确认 | Codex 不自动进入 Phase 01 |
 
-- 知识库：转为运营知识库/话术资料。
-- 商品业务绑定：从闲鱼 `item_id` 映射改造成渠道商品映射。
-- 人工接管：从闲鱼客服任务改造成员工待办/SOP 候选。
-- 学习审核：从历史聊天抽取改造成知识沉淀候选。
-- 自动回复 agent：不作为主产品核心，可作为客户沟通辅助。
+## 关键判断
 
-### 待确认
-
-- 市场监控是否继续保留为行情工具。
-- 闲管家开放平台是否仍是实际业务渠道。
-- 消息审批是否发展为多渠道客服审批。
-- 浏览器只读采集是否仍保留。
-
-## 数据模型结论
-
-当前代码现实：
-
-- Electron 主业务数据主要通过 MySQL。
-- Python 业务服务也通过 MySQL wrapper。
-- Python 聊天历史仍保留 SQLite `chat_history.db` 逻辑。
-- `DATABASE.md` 仍描述 SQLite `app_config.db` 为主库，已经落后。
-
-当前已有 `stores`、`rental_orders.store_id`、`inquiry_events.store_id`、`source_channel` 等多门店/多来源雏形，但没有完整 `merchant_id` 和 SaaS 级数据隔离。
-
-## Legacy 冻结原则
-
-本阶段不删除任何 legacy 功能。
-
-处理原则：
-
-- 来自闲鱼但本质是租赁业务能力：保留，但需要去闲鱼化。
-- 只服务闲鱼平台：标记 legacy。
-- 未来可多渠道复用：标记渠道化改造候选。
-- 无法判断：写入 `questions-to-user.md`。
-
-## Phase 00 验收条件
-
-| 验收项 | 当前状态 |
-|---|---|
-| 项目结构说明完成 | 已完成，见 `current-structure.md` |
-| 保留功能清单完成 | 已完成，见 `keep-function-list.md` |
-| 废弃/legacy 功能清单完成 | 已完成，见 `discard-or-legacy-list.md` 和 `legacy-xianyu-bindings.md` |
-| AGENTS.md 生效 | 已生效，本次先读取真源并仅写 artifacts |
-| 无业务代码改动 | 已按执行记录确认；当前目录非 Git 仓库，无法用 Git diff 证明，见 `phase-00-verification.md` |
-| 必要结果写入 artifacts | 已写入 |
-| 用户确认验收结果 | 待用户确认 |
+1. 新产品主线应围绕订单、档期、设备、物流、免押、员工 SOP、经营数据展开。
+2. 闲鱼不应继续作为产品核心架构，只能作为 legacy channel 或渠道集成候选。
+3. 当前数据模型已有 `stores`、`store_id`、`source_channel`、`source_name` 等 SaaS/多渠道线索，但还不是完整多商户隔离。
+4. 当前配置和敏感配置分散在 MySQL config、env、`mysql-connection.json`、前端设置页、第三方平台配置里，后续需要统一治理。
+5. `CR-0001_配置中心与敏感配置治理` 建议进入 Phase 03 SaaS 底座阶段，不在 Phase 00 开发。
 
 ## 是否建议进入 Phase 01
 
-建议：可以准备 Phase 00 验收，但不自动进入 Phase 01。
+暂不自动进入 Phase 01。
 
-进入 Phase 01 前建议用户先确认：
+建议流程：
 
-1. `questions-to-user.md` 中的关键业务问题。
-2. 哪些 legacy 页面在 Phase 01 导航中隐藏、降级或保留入口。
-3. 当前数据库现实是否以 MySQL 为准。
-4. 是否接受“先固定产品定位/导航/模块，不改底层业务逻辑”的 Phase 01 执行方式。
+1. 用户先阅读本次 artifacts。
+2. 用户确认 `questions-to-user.md` 中的问题。
+3. 用户执行 Phase 00 验收确认。
+4. 只有用户明确确认“本阶段通过验收，可以进入下一阶段”后，才更新阶段状态并准备 Phase 01。

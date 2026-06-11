@@ -1,24 +1,3 @@
-# Phase 03 验收标准：SaaS 底座：登录、商户、门店、员工、权限、数据隔离
-
-本阶段通过验收需要满足：
-
-- [ ] 可登录
-- [ ] 旧数据可见
-- [ ] 核心数据绑定 merchant_id
-- [ ] 未登录不能进业务页
-- [ ] 完成备份和回滚验证
-
-## 通用验收
-
-- [ ] Codex 没有跨阶段开发。
-- [ ] Codex 没有破坏现有核心流程。
-- [ ] 必要结果已写入 artifacts/。
-- [ ] 必要决策已写入总决策记录。
-- [ ] 用户已确认验收结果。
-
-
-<!-- CONFIG_GOVERNANCE_PATCH_START -->
-
 # Phase 03 验收标准追加片段：配置治理验收
 
 建议追加到 `docs/xiaogou-saas-roadmap/phases/phase-03-saas-base/06_ACCEPTANCE_CRITERIA_验收标准.md`。
@@ -38,5 +17,3 @@
 - [ ] 有 ConfigService / CredentialService 设计建议；
 - [ ] 如需数据库改动，已有迁移和回滚方案。
 ```
-
-<!-- CONFIG_GOVERNANCE_PATCH_END -->

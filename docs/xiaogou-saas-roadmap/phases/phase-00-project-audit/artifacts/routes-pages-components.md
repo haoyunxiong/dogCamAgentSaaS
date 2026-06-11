@@ -1,121 +1,112 @@
 # Phase 00 路由、页面与组件清单
 
-执行时间：2026-06-11
+执行日期：2026-06-12
 
-## 当前路由
+## 前端路由
 
-来源：`electron/renderer/src/router/index.js`
+路由定义：`electron/renderer/src/router/index.js`
 
-| 路由 | 页面组件 | 当前定位 | Phase 00 分类 |
+| 路由 | 页面 | 当前能力 | 分类 |
 |---|---|---|---|
-| `/` | `views/Dashboard.vue` | 控制台、今日待办、系统状态 | 保留，需去闲鱼入口化 |
-| `/settings` | `views/Settings.vue` | 系统设置、模型、通知、顺丰、闲鱼接入 | 保留配置能力，拆分 legacy 配置 |
-| `/prompts` | `views/Prompts.vue` | classify/price/tech/default 提示词编辑 | legacy，未来可转话术助手 |
-| `/knowledge` | `views/KnowledgeBase.vue` | 知识库管理 | legacy 包装后保留 |
-| `/takeovers` | `views/rental/TakeoverBoard.vue` | 人工接管任务 | legacy 客服流，部分可转 SOP/待办 |
-| `/devices` | `views/rental/DeviceManagement.vue` | 设备管理 | 必须保留 |
-| `/schedule` | `views/rental/ScheduleCalendar.vue` | 租赁档期与可用性查询 | 必须保留 |
-| `/orders` | `views/rental/OrderFulfillment.vue` | 订单履约工作台 | 必须保留 |
-| `/learning` | `views/rental/LearningReview.vue` | 历史聊天学习审核 | legacy，部分可转话术/知识沉淀 |
-| `/pending` | `views/rental/FeishuPending.vue` | 消息审批 | legacy 客服流，待确认 |
-| `/reports` | `views/rental/Reports.vue` | 报表中心 | 必须保留 |
-| `/inquiries` | `views/rental/InquiryAnalytics.vue` | 询单/订单分析与优化建议 | 优先保留，需渠道化 |
-| `/market` | `views/rental/MarketMonitor.vue` | 闲鱼同类帖子价格监控 | legacy / 渠道化候选 |
-| `/pricing` | `views/rental/Pricing.vue` | 租赁定价与免押规则 | 必须保留 |
-| `/item-mapping` | `views/rental/ItemModelMapping.vue` | 闲鱼 item_id 到业务商品/型号绑定 | legacy 包装后保留为渠道映射候选 |
-| `/sf-shipping` | `views/rental/SfShippingWorkbench.vue` | 顺丰寄件 | 必须保留 |
-| `/deposits` | `views/rental/DepositManagement.vue` | 免押管理 | 必须保留 |
+| `/` | `views/Dashboard.vue` | 控制台、今日待办、运营概览、系统状态、历史学习入口 | 保留，需去闲鱼核心入口化 |
+| `/settings` | `views/Settings.vue` | 模型、智能体、通知、顺丰、闲管家、市场监控、询单优化、免押配置 | 保留配置能力，拆分 legacy 渠道配置 |
+| `/prompts` | `views/Prompts.vue` | classify/price/tech/default 提示词编辑与生成 | legacy 包装后可转话术助手 |
+| `/knowledge` | `views/KnowledgeBase.vue` | FAQ/知识库管理、图片/聊天生成知识 | 保留，需去闲鱼化 |
+| `/takeovers` | `views/rental/TakeoverBoard.vue` | 人工接管、会话状态重置 | legacy 包装后可保留为客服/协同 |
+| `/devices` | `views/rental/DeviceManagement.vue` | 设备型号、单台设备、状态、成本、残值 | 必须保留 |
+| `/schedule` | `views/rental/ScheduleCalendar.vue` | 档期甘特图、可用性查询、订单详情、热力图 | 必须保留 |
+| `/orders` | `views/rental/OrderFulfillment.vue` | 订单履约、建单、导入、物流、归还、续租、批量操作 | 必须保留 |
+| `/learning` | `views/rental/LearningReview.vue` | 聊天历史学习审核、结构化建议、浏览器历史同步 | 待确认 / legacy 包装 |
+| `/pending` | `views/rental/FeishuPending.vue` | AI 草稿消息审批 | 待确认，若多渠道客服可保留 |
+| `/reports` | `views/rental/Reports.vue` | 经营报表、库存、订单、收入、设备使用 | 必须保留 |
+| `/inquiries` | `views/rental/InquiryAnalytics.vue` | 询单统计、转化、优化建议、成本配置入口 | 保留 |
+| `/market` | `views/rental/MarketMonitor.vue` | 闲鱼同类帖子价格和趋势监控 | legacy / 外部行情候选 |
+| `/pricing` | `views/rental/Pricing.vue` | 租赁定价、免押规则 | 必须保留 |
+| `/item-mapping` | `views/rental/ItemModelMapping.vue` | 闲鱼 item_id 到业务商品/型号绑定、帖子审核 | 渠道化改造候选 |
+| `/sf-shipping` | `views/rental/SfShippingWorkbench.vue` | 顺丰寄件、查件、费用、时效、批量发货 | 必须保留 |
+| `/deposits` | `views/rental/DepositManagement.vue` | 免押订单管理、审核状态、邀约文本、详情 | 必须保留 |
 
-## 导航分组
+## 侧边栏分组
 
 来源：`electron/renderer/src/components/AppSidebar.vue`
 
-| 分组 | 页面 | 判断 |
+| 分组 | 页面 |
+|---|---|
+| 工作台 | 控制台 |
+| 订单与履约 | 订单履约、顺丰寄件、免押管理、设备管理、租赁档期、租赁定价 |
+| 会话协同 | 人工接管、消息审批、学习审核 |
+| 数据与运营 | 询单分析、商品型号绑定、报表中心、市场监控 |
+| 系统设置 | 设置、提示词、知识库 |
+
+判断：当前导航已经接近租赁运营后台，但会话协同和数据运营里仍有明显闲鱼客服/渠道模块，需要后续在 Phase 01 固定导航主线时重新分层。
+
+## 关键基础组件
+
+| 组件 | 作用 | 判断 |
 |---|---|---|
-| 工作台 | 控制台 | 保留 |
-| 订单与履约 | 订单履约、顺丰寄件、免押管理、设备管理、租赁档期、租赁定价 | 新 SaaS 核心 |
-| 会话协同 | 人工接管、消息审批、学习审核 | legacy 客服流，部分可转员工 SOP |
-| 数据与运营 | 询单分析、商品型号绑定、报表中心、市场监控 | 报表/询单可保留，商品绑定/市场监控需渠道化 |
-| 系统设置 | 设置、提示词、知识库 | 配置能力保留，提示词和知识库需弱化自动回复中心 |
+| `BaseButton.vue` | 通用按钮 | 保留 |
+| `BaseCard.vue` | 通用卡片 | 保留 |
+| `BaseBadge.vue` | 通用 badge | 保留 |
+| `BaseDialog.vue` | 弹窗 | 保留 |
+| `BaseDrawer.vue` | 抽屉 | 保留 |
+| `DataTable.vue` | 表格 | 保留 |
+| `EmptyState.vue` | 空状态 | 保留 |
+| `FilterBar.vue` | 筛选条 | 保留 |
+| `StatusBadge.vue` | 状态标签 | 保留 |
+| `ToastHost.vue` | 全局 toast | 保留 |
+| `PageHeader.vue` | 页面头部 | 保留 |
+| `KpiStrip.vue`, `StatsCard.vue`, `InsightCard.vue` | 指标展示 | 保留 |
+| `AdvancedFilterDrawer.vue`, `BatchActionBar.vue`, `RowActionMenu.vue` | 高密度后台操作组件 | 保留 |
+| `CreateDepositDrawer.vue`, `AddressCard.vue` | 免押/地址业务组件 | 保留 |
+| `RentDateRangePicker.vue`, `RentDaysInput.vue`, `ClickOpenDateInput.vue` | 租期/日期输入 | 保留 |
 
-## 关键页面判断
+## 关键业务子组件
 
-### 必须保留 / 优先保留页面
+| 路径 | 作用 |
+|---|---|
+| `views/rental/order-fulfillment/OrderDetailDrawer.vue` | 订单详情 |
+| `views/rental/order-fulfillment/OrderFilters.vue` | 订单筛选 |
+| `views/rental/order-fulfillment/OrderTable.vue` | 订单表格 |
+| `views/rental/order-fulfillment/useOrderActions.js` | 订单操作逻辑 |
+| `views/rental/order-fulfillment/useOrderFilters.js` | 订单筛选逻辑 |
+| `views/rental/sf-shipping/SfCreateForm.vue` | 顺丰下单表单 |
+| `views/rental/sf-shipping/SfShipmentRecords.vue` | 顺丰记录 |
+| `views/rental/sf-shipping/SfSummaryPanel.vue` | 顺丰摘要 |
+| `views/rental/sf-shipping/useSfShipmentActions.js` | 顺丰操作逻辑 |
 
-| 页面 | 代码位置 | 保留原因 |
-|---|---|---|
-| 订单履约 | `electron/renderer/src/views/rental/OrderFulfillment.vue` | 覆盖建单、查档期、订单状态、待发货、待归还、逾期、物流、免押联动 |
-| 租赁档期 | `electron/renderer/src/views/rental/ScheduleCalendar.vue` | 覆盖设备甘特图、月度热力、可用性查询、型号档期 |
-| 设备管理 | `electron/renderer/src/views/rental/DeviceManagement.vue` | 覆盖型号、单台设备、状态、成本、残值、城市 |
-| 顺丰寄件 | `electron/renderer/src/views/rental/SfShippingWorkbench.vue` | 覆盖寄件、寄件记录、运单追踪、批量寄件 |
-| 免押管理 | `electron/renderer/src/views/rental/DepositManagement.vue` | 覆盖免押单列表、详情、创建、状态、订单绑定 |
-| 租赁定价 | `electron/renderer/src/views/rental/Pricing.vue` | 覆盖阶梯报价、续租日价、免押规则 |
-| 报表中心 | `electron/renderer/src/views/rental/Reports.vue` | 覆盖店铺经营、库存、订单趋势、设备资产、费用 |
-| 询单分析 | `electron/renderer/src/views/rental/InquiryAnalytics.vue` | 覆盖询单趋势、转化、型号收入、优化建议 |
-| 系统设置 | `electron/renderer/src/views/Settings.vue` | 覆盖模型、通知、顺丰、免押、外部依赖等配置 |
+## 页面迁移判断
 
-### Legacy / 待渠道化页面
+### 必须保留并作为新 SaaS 主线
 
-| 页面 | 代码位置 | 闲鱼绑定点 | 建议 |
-|---|---|---|---|
-| 控制台 | `electron/renderer/src/views/Dashboard.vue` | 有“打开闲鱼 IM”、抽取历史学习等入口 | 保留运营控制台，移除闲鱼核心入口感 |
-| 人工接管 | `electron/renderer/src/views/rental/TakeoverBoard.vue` | 会话、机器人、自动回复、人工接管 | 可降级为 legacy 客服任务，未来可并入员工待办 |
-| 消息审批 | `electron/renderer/src/views/rental/FeishuPending.vue` | AI 草稿审核后发送给买家 | 如果只服务闲鱼聊天，标 legacy；若扩展多渠道可保留 |
-| 学习审核 | `electron/renderer/src/views/rental/LearningReview.vue` | 同步浏览器历史、抽取历史聊天、知识候选 | legacy，未来可转知识沉淀/话术优化 |
-| 商品业务绑定 | `electron/renderer/src/views/rental/ItemModelMapping.vue` | `item_id`、当前账号帖子审核、同步本地帖子 | 改造成渠道商品映射候选 |
-| 市场监控 | `electron/renderer/src/views/rental/MarketMonitor.vue` | 文案明确“追踪闲鱼同类机型帖子” | 可作为渠道市场情报，不应是核心 |
-| 提示词编辑 | `electron/renderer/src/views/Prompts.vue` | classify/price/tech/default 自动回复 agent | legacy，未来可转为话术模板 |
-| 知识库管理 | `electron/renderer/src/views/KnowledgeBase.vue` | 文案为“机器人命中相似问题优先回复” | 保留知识能力，改变核心定位 |
+- `OrderFulfillment.vue`
+- `ScheduleCalendar.vue`
+- `DeviceManagement.vue`
+- `SfShippingWorkbench.vue`
+- `DepositManagement.vue`
+- `Pricing.vue`
+- `Reports.vue`
+- `InquiryAnalytics.vue`
+- `Settings.vue` 中的业务配置能力
 
-## 关键组件
+### 保留但需要去闲鱼化
 
-### 通用 UI 组件
+- `Dashboard.vue`：控制台保留，但“打开闲鱼 IM”等入口降级为渠道入口。
+- `KnowledgeBase.vue`：知识库保留，但文案和数据范围应从闲鱼客服转为租赁 SOP/FAQ。
+- `Prompts.vue`：提示词能力可转为话术助手，不作为产品主线。
+- `TakeoverBoard.vue`：人工接管可转为多渠道客服/员工协作。
+- `FeishuPending.vue`：消息审批可转为多渠道客户沟通审批。
+- `LearningReview.vue`：学习审核可转为 SOP/知识沉淀，但浏览器历史同步属于 legacy。
+- `ItemModelMapping.vue`：商品型号绑定有价值，但 `item_id` 应抽象为渠道商品 ID。
 
-| 组件 | 代码位置 | 用途 |
-|---|---|---|
-| `BaseButton.vue` | `electron/renderer/src/components/BaseButton.vue` | 基础按钮 |
-| `BaseCard.vue` | `electron/renderer/src/components/BaseCard.vue` | 基础卡片 |
-| `BaseBadge.vue` | `electron/renderer/src/components/BaseBadge.vue` | 基础徽标 |
-| `StatusBadge.vue` | `electron/renderer/src/components/StatusBadge.vue` | 状态标签 |
-| `BaseDrawer.vue` | `electron/renderer/src/components/BaseDrawer.vue` | 抽屉 |
-| `BaseDialog.vue` | `electron/renderer/src/components/BaseDialog.vue` | 对话框 |
-| `DataTable.vue` | `electron/renderer/src/components/DataTable.vue` | 表格容器 |
-| `FilterBar.vue` | `electron/renderer/src/components/FilterBar.vue` | 筛选区 |
-| `BatchActionBar.vue` | `electron/renderer/src/components/BatchActionBar.vue` | 批量操作条 |
-| `EmptyState.vue` | `electron/renderer/src/components/EmptyState.vue` | 空状态 |
-| `Skeleton.vue` | `electron/renderer/src/components/Skeleton.vue` | 骨架屏 |
-| `ToastHost.vue` | `electron/renderer/src/components/ToastHost.vue` | Toast |
-| `PageHeader.vue` | `electron/renderer/src/components/PageHeader.vue` | 页面标题/操作区 |
-| `AppSidebar.vue` | `electron/renderer/src/components/AppSidebar.vue` | 主导航 |
-| `AppTopBar.vue` | `electron/renderer/src/components/AppTopBar.vue` | 顶栏 |
+### legacy / 待确认
 
-### 业务组件
+- `MarketMonitor.vue`：当前文案明确追踪闲鱼帖子；可作为外部行情工具，不应进入新产品核心。
+- `Settings.vue` 中闲管家、闲鱼 cookies/token、Xianyu channel 配置：应移入 legacy channel 配置。
 
-| 组件 | 代码位置 | 用途 |
-|---|---|---|
-| `RentDateRangePicker.vue` | `electron/renderer/src/components/RentDateRangePicker.vue` | 租期选择 |
-| `RentDaysInput.vue` | `electron/renderer/src/components/RentDaysInput.vue` | 租赁天数输入 |
-| `CreateDepositDrawer.vue` | `electron/renderer/src/components/CreateDepositDrawer.vue` | 创建免押单抽屉 |
-| `PriceConfigCard.vue` | `electron/renderer/src/components/PriceConfigCard.vue` | 定价配置卡 |
-| `AddressCard.vue` | `electron/renderer/src/components/AddressCard.vue` | 地址卡 |
-| `KpiStrip.vue` | `electron/renderer/src/components/KpiStrip.vue` | KPI 横条 |
-| `StatsCard.vue` | `electron/renderer/src/components/StatsCard.vue` | 数据统计卡 |
-| `InsightCard.vue` | `electron/renderer/src/components/InsightCard.vue` | 分析建议卡 |
-| `LogViewer.vue` | `electron/renderer/src/components/LogViewer.vue` | 日志展示 |
-| `BrowserPreviewNotice.vue` | `electron/renderer/src/components/BrowserPreviewNotice.vue` | 普通浏览器无 preload 提示 |
-| `SfCreateForm.vue` | `electron/renderer/src/views/rental/sf-shipping/SfCreateForm.vue` | 顺丰寄件创建表单 |
-| `SfSummaryPanel.vue` | `electron/renderer/src/views/rental/sf-shipping/SfSummaryPanel.vue` | 顺丰寄件摘要 |
-| `SfShipmentRecords.vue` | `electron/renderer/src/views/rental/sf-shipping/SfShipmentRecords.vue` | 顺丰寄件记录 |
-| `SfShipmentDetailDrawer.vue` | `electron/renderer/src/views/rental/sf-shipping/SfShipmentDetailDrawer.vue` | 顺丰详情抽屉 |
-| `SfBatchShipmentDrawer.vue` | `electron/renderer/src/views/rental/sf-shipping/SfBatchShipmentDrawer.vue` | 批量寄件抽屉 |
-| `OrderTable.vue` | `electron/renderer/src/views/rental/order-fulfillment/OrderTable.vue` | 订单表格 |
-| `OrderDetailDrawer.vue` | `electron/renderer/src/views/rental/order-fulfillment/OrderDetailDrawer.vue` | 订单详情 |
-| `OrderFilters.vue` | `electron/renderer/src/views/rental/order-fulfillment/OrderFilters.vue` | 订单筛选 |
+## 当前路由风险
 
-## 页面迁移建议
-
-- 新 SaaS 第一优先级页面：订单履约、租赁档期、设备管理、顺丰寄件、免押管理、租赁定价、报表中心。
-- 可渠道化页面：询单分析、商品业务绑定、市场监控、知识库。
-- legacy 包装页面：人工接管、消息审批、学习审核、提示词编辑。
-- 控制台应保留为运营总览，但后续需把“打开闲鱼 IM”降级为渠道入口，而不是主操作。
-
+1. 新产品主线页面和 legacy 客服页面混在同一侧边栏层级。
+2. `询单分析` 页面 title 为“订单分析”，命名存在不一致。
+3. `商品业务绑定` 文案直接写“闲鱼商品 item_id”，后续需要渠道抽象。
+4. `市场监控` 当前强绑定闲鱼行情，需要用户确认是否保留。
+5. `提示词` 和 `知识库` 仍服务自动回复，后续应收敛为员工 SOP/客户沟通辅助。
