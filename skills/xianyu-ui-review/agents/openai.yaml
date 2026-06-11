@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xianyu UI Review"
+  short_description: "闲鱼智能体工作台 UI 评审与实现规范"
+  default_prompt: "按 XianyuAgentPro 运营工作台规范，帮我评审并优化当前 UI。"

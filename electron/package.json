@@ -1,0 +1,36 @@
+{
+  "name": "xianyu-auto-agent",
+  "version": "1.0.0",
+  "description": "小狗相机助手桌面版 - 相机租赁运营与 AI 客服工作台",
+  "main": "main/index.js",
+  "scripts": {
+    "predev": "node -e \"try{require('child_process').execSync('powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/kill-port.ps1')}catch(e){}\"",
+    "dev": "node ./scripts/dev-launch.js",
+    "build:renderer": "vite build --config vite.config.js",
+    "build:electron": "electron-builder --config electron-builder.yml",
+    "build": "npm run build:renderer && npm run build:electron",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "concurrently": "^8.2.0",
+    "cross-env": "^7.0.3",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.9.0",
+    "electron-rebuild": "^3.2.9",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.16.0",
+    "better-sqlite3": "^9.4.0",
+    "mysql2": "^3.22.1",
+    "pinia": "^2.1.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0",
+    "xlsx": "^0.18.5"
+  }
+}

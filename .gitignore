@@ -1,0 +1,113 @@
+# macOS
+.DS_Store
+
+# Editor and local workspace noise
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local project/bootstrap backups
+.xiaogou_init_backup/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!*.example.env
+config/environments/local.env
+config/environments/*.local.env
+mysql-connection.json
+
+# Node / Electron dependencies and outputs
+node_modules/
+electron/node_modules/
+electron/renderer/node_modules/
+dist/
+electron/renderer/dist/
+release/
+out/
+
+# Build outputs and logs
+build/
+electron/build/
+python/build/
+*.log
+logs/
+
+# Codex/local downloaded binaries
+electron/.codex-bin/
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Runtime data, browser sessions, cookies, and backups
+data/logs/
+data/local/
+data/db-backups/
+data/electron-session-data/
+data/imports/
+data/**/Cookies
+data/**/Cookies-journal
+data/**/Session Storage/
+data/**/Network Persistent State
+data/**/Trust Tokens
+data/**/Trust Tokens-journal
+
+# Database/runtime artifacts
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+
+# Packaged app artifacts
+*.dmg
+*.exe
+*.zip
+*.tar.gz
+
+# Runtime data and local state
+data/
+data/**
+
+# Local planning scratch files
+task_plan.md
+findings.md
+progress.md
+
+# Local gitignore backups
+.gitignore.backup.*
+
+# Required first-commit safety additions
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+electron/dist/
+python/dist/
+*.bak
+*.backup
+electron-session-data/
+session/
+cookies/
+*connection*.json
+*credentials*.json
+*secret*.json
+*token*.json
+.codex-bin/
+*.tar
+*.tgz
+*.rar
+*.7z
+tmp/
+temp/

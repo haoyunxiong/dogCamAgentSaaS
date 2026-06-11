@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>闲鱼租赁手机工作台原型</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-2: #f6f8fb;
+      --text: #15181d;
+      --muted: #667085;
+      --line: #dde3ec;
+      --blue: #2563eb;
+      --blue-soft: #e8efff;
+      --green: #16805a;
+      --green-soft: #e3f7ed;
+      --orange: #b75d12;
+      --orange-soft: #fff0dd;
+      --red: #c23d2c;
+      --red-soft: #ffe8e4;
+      --ink: #111827;
+      --shadow: 0 12px 34px rgba(21, 24, 29, .08);
+      --shadow-soft: 0 6px 18px rgba(21, 24, 29, .06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 36%, #e9edf3 100%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app {
+      min-height: 100vh;
+      padding-bottom: 84px;
+      background:
+        linear-gradient(180deg, rgba(37,99,235,.05), rgba(22,128,90,.04) 28%, transparent 54%),
+        var(--bg);
+    }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(248,251,255,.92);
+      border-bottom: 1px solid rgba(221,227,236,.75);
+      backdrop-filter: blur(18px);
+    }
+    .top-inner {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    .brand small {
+      color: var(--muted);
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+    }
+    .status-pill {
+      border: 1px solid #c8d7f5;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      padding: 7px 10px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .metric {
+      background: linear-gradient(180deg, #fff, #f8faff);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px;
+      min-height: 62px;
+      box-shadow: var(--shadow-soft);
+    }
+    .metric b {
+      display: block;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .metric span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    main {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+    .view { display: none; }
+    .view.active { display: grid; gap: 12px; }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 4px 0 2px;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+    .section-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .surface {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+    }
+    .surface-pad { padding: 12px; }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .row:active { background: #f7faff; }
+    .row:last-child { border-bottom: 0; }
+    .row-main { min-width: 0; flex: 1; }
+    .row-title {
+      font-weight: 700;
+      font-size: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: var(--surface-2);
+      color: #455468;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag.green { background: var(--green-soft); color: var(--green); }
+    .tag.orange { background: var(--orange-soft); color: var(--orange); }
+    .tag.red { background: var(--red-soft); color: var(--red); }
+    .tag.blue { background: var(--blue-soft); color: var(--blue); }
+    .icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+    .icon.green { background: var(--green-soft); color: var(--green); }
+    .icon.orange { background: var(--orange-soft); color: var(--orange); }
+    .icon.red { background: var(--red-soft); color: var(--red); }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .btn {
+      border: 1px solid var(--ink);
+      border-radius: 8px;
+      background: var(--ink);
+      color: #fff;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .btn.secondary {
+      border-color: var(--line);
+      background: var(--surface);
+      color: var(--text);
+    }
+    .btn.blue {
+      border-color: var(--blue);
+      background: linear-gradient(180deg, #2f6df0, var(--blue));
+    }
+    .btn.green {
+      border-color: var(--green);
+      background: linear-gradient(180deg, #1e9668, var(--green));
+    }
+    .btn.full { width: 100%; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .field label {
+      color: #475467;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cfd7e3;
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+      color: var(--text);
+      outline: 0;
+    }
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+    .result-panel {
+      display: none;
+      border-top: 1px solid var(--line);
+      background: #fbfcfe;
+      padding: 12px;
+    }
+    .result-panel.show { display: block; }
+    .timeline {
+      display: grid;
+      gap: 0;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .step:last-child { border-bottom: 0; }
+    .dot {
+      width: 10px;
+      height: 10px;
+      margin: 6px auto 0;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+    .step strong { display: block; font-size: 14px; }
+    .step span { color: var(--muted); font-size: 12px; }
+    .tabs {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      background: rgba(255,255,255,.92);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 -12px 30px rgba(21, 24, 29, .08);
+    }
+    .tabs-inner {
+      max-width: 480px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+      padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+    }
+    .tab {
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tab.active {
+      background: linear-gradient(180deg, #1d2430, var(--ink));
+      color: #fff;
+    }
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      align-items: flex-end;
+      background: rgba(15,23,42,.42);
+    }
+    .sheet-backdrop.show { display: flex; }
+    .sheet {
+      width: min(480px, 100%);
+      max-height: 88vh;
+      margin: 0 auto;
+      overflow: auto;
+      border-radius: 8px 8px 0 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      box-shadow: 0 -18px 42px rgba(15,23,42,.18);
+    }
+    .sheet-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.96);
+      backdrop-filter: blur(12px);
+    }
+    .sheet-head h3 { margin: 0; font-size: 18px; }
+    .close {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 8px 10px;
+    }
+    .link-line {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 92px;
+      z-index: 60;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: #fff;
+      border-radius: 999px;
+      padding: 9px 12px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .16s ease;
+    }
+    .toast.show { opacity: 1; }
+    @media (min-width: 760px) {
+      body { background: #e9edf3; }
+      .app { max-width: 480px; margin: 0 auto; background: var(--bg); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="top-inner">
+        <div class="brand">
+          <div>
+            <h1>租赁运营工作台</h1>
+            <small>手机端交互原型</small>
+          </div>
+          <span class="status-pill">今天 4 项待处理</span>
+        </div>
+        <div class="summary">
+          <div class="metric"><b>2</b><span>待发货</span></div>
+          <div class="metric"><b>3</b><span>将归还</span></div>
+          <div class="metric"><b>1</b><span>免押待办</span></div>
+          <div class="metric"><b>1</b><span>寄件异常</span></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="view active" id="view-desk">
+        <div class="section-head"><h2>工作台</h2><span>按紧急程度排序</span></div>
+        <div class="surface">
+          <div class="row">
+            <div class="icon orange">发</div>
+            <div class="row-main">
+              <div class="row-title">今日 18:00 前发货</div>
+              <div class="row-sub">A7C2 · 杭州西湖区 · 预计明天到</div>
+            </div>
+            <span class="tag orange">待寄件</span>
+          </div>
+          <div class="row">
+            <div class="icon red">回</div>
+            <div class="row-main">
+              <div class="row-title">明天归还，需提醒客户</div>
+              <div class="row-sub">#1024 · ZV-E10 · 上海浦东</div>
+            </div>
+            <span class="tag red">高优先</span>
+          </div>
+          <div class="row">
+            <div class="icon green">押</div>
+            <div class="row-main">
+              <div class="row-title">免押已通过，待创建寄件</div>
+              <div class="row-sub">#1028 · 小王 · FX3</div>
+            </div>
+            <span class="tag green">可推进</span>
+          </div>
+        </div>
+
+        <div class="section-head"><h2>快捷动作</h2><span>不必先进订单</span></div>
+        <div class="grid-2">
+          <button class="btn secondary full" data-jump="schedule">查档期</button>
+          <button class="btn secondary full" data-jump="tools">单独建免押</button>
+          <button class="btn secondary full" data-jump="fulfillment">创建寄件</button>
+          <button class="btn secondary full" data-open-order="1028">打开订单</button>
+        </div>
+      </section>
+
+      <section class="view" id="view-schedule">
+        <div class="section-head"><h2>档期</h2><span>查档期和记档期</span></div>
+        <div class="surface">
+          <div class="surface-pad">
+            <div class="field">
+              <label>型号</label>
+              <select><option>Sony A7C2</option><option>Sony ZV-E10</option><option>Canon R6 II</option></select>
+            </div>
+            <div class="grid-2">
+              <div class="field"><label>开始</label><input type="date" value="2026-06-12" /></div>
+              <div class="field"><label>天数</label><input inputmode="numeric" value="4" /></div>
+            </div>
+            <div class="field">
+              <label>模糊地址</label>
+              <textarea>四川省绵阳市涪城区</textarea>
+            </div>
+            <button class="btn blue full" id="checkSchedule">查询档期和时效</button>
+          </div>
+          <div class="result-panel" id="scheduleResult">
+            <div class="row" style="padding:0 0 10px;border-bottom:0">
+              <div class="row-main">
+                <div class="row-title">有档期，可用 3 台</div>
+                <div class="row-sub">推荐 6月11日 发货，顺丰陆运预计 2 天到</div>
+              </div>
+              <span class="tag green">可建单</span>
+            </div>
+            <div class="actions">
+              <button class="btn green" data-toast="已记录档期占用">记档期</button>
+              <button class="btn" data-open-order="new">创建订单</button>
+              <button class="btn secondary" data-toast="已复制客户回复">复制回复</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-head"><h2>设备余量</h2><span>未来 7 天</span></div>
+        <div class="surface">
+          <div class="row"><div class="row-main"><div class="row-title">Sony A7C2</div><div class="row-sub">12日余 3 台 · 13日余 2 台 · 14日满租</div></div><span class="tag blue">热门</span></div>
+          <div class="row"><div class="row-main"><div class="row-title">Sony ZV-E10</div><div class="row-sub">连续 7 天均有余量</div></div><span class="tag green">充足</span></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-orders">
+        <div class="section-head"><h2>订单</h2><span>串联档期、免押、寄件</span></div>
+        <div class="surface">
+          <div class="row" data-open-order="1028">
+            <div class="icon green">#</div>
+            <div class="row-main">
+              <div class="row-title">#1028 小王 · Sony FX3</div>
+              <div class="row-sub">免押已通过 · 待创建寄件 · 6月12日起租</div>
+            </div>
+            <span class="tag green">下一步</span>
+          </div>
+          <div class="row" data-open-order="1024">
+            <div class="icon orange">#</div>
+            <div class="row-main">
+              <div class="row-title">#1024 林同学 · ZV-E10</div>
+              <div class="row-sub">明天归还 · 需提醒 · 已发货</div>
+            </div>
+            <span class="tag orange">将归还</span>
+          </div>
+          <div class="row" data-open-order="1019">
+            <div class="icon red">#</div>
+            <div class="row-main">
+              <div class="row-title">#1019 张姐 · Canon R6 II</div>
+              <div class="row-sub">寄件异常 · 地址缺少区县</div>
+            </div>
+            <span class="tag red">异常</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-fulfillment">
+        <div class="section-head"><h2>履约</h2><span>发货和归还</span></div>
+        <div class="surface">
+          <div class="row">
+            <div class="icon orange">寄</div>
+            <div class="row-main">
+              <div class="row-title">#1028 待创建顺丰寄件</div>
+              <div class="row-sub">免押已通过 · 地址完整 · 可直接下单</div>
+              <div class="actions">
+                <button class="btn green" data-toast="已创建寄件草稿">创建寄件</button>
+                <button class="btn secondary" data-toast="预计 6月12日 18:00 前到达">查时效</button>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="icon red">回</div>
+            <div class="row-main">
+              <div class="row-title">#1024 明天应归还</div>
+              <div class="row-sub">预计 6月10日归还 · 可提前提醒</div>
+              <div class="actions">
+                <button class="btn secondary" data-toast="已生成提醒文案">提醒归还</button>
+                <button class="btn" data-toast="已标记归还并释放档期">标记归还</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-tools">
+        <div class="section-head"><h2>工具</h2><span>可单独使用，也可绑定订单</span></div>
+        <div class="surface">
+          <div class="row" data-tool="depositCreate">
+            <div class="icon green">押</div>
+            <div class="row-main"><div class="row-title">创建免押</div><div class="row-sub">输入客户、金额、租期，生成邀约链接</div></div>
+          </div>
+          <div class="row" data-tool="depositFinish">
+            <div class="icon blue">完</div>
+            <div class="row-main"><div class="row-title">完结免押</div><div class="row-sub">按免押单号查询并完结</div></div>
+          </div>
+          <div class="row" data-tool="shipmentCreate">
+            <div class="icon orange">寄</div>
+            <div class="row-main"><div class="row-title">单独创建寄件</div><div class="row-sub">没有订单也能先建寄件，稍后绑定</div></div>
+          </div>
+          <div class="row" data-tool="expressTime">
+            <div class="icon">时</div>
+            <div class="row-main"><div class="row-title">查快递时效</div><div class="row-sub">支持模糊地址、省市区估算</div></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabs">
+      <div class="tabs-inner">
+        <button class="tab active" data-view="desk">工作台</button>
+        <button class="tab" data-view="schedule">档期</button>
+        <button class="tab" data-view="orders">订单</button>
+        <button class="tab" data-view="fulfillment">履约</button>
+        <button class="tab" data-view="tools">工具</button>
+      </div>
+    </nav>
+  </div>
+
+  <div class="sheet-backdrop" id="orderSheet">
+    <div class="sheet">
+      <div class="sheet-head">
+        <div><h3 id="sheetTitle">#1028 小王</h3><div class="row-sub">Sony FX3 · 6月12日-6月16日</div></div>
+        <button class="close" data-close>关闭</button>
+      </div>
+      <div class="link-line">
+        <div class="row-title">档期</div>
+        <div class="row-sub">已占用 FX3-02，推荐 6月11日发货，预计 6月12日到达</div>
+        <div class="actions"><button class="btn secondary" data-toast="进入档期调整">调整档期</button></div>
+      </div>
+      <div class="link-line">
+        <div class="row-title">免押</div>
+        <div class="row-sub">已通过 · 免押单 M20260609018 · 可进入寄件</div>
+        <div class="actions"><button class="btn secondary" data-toast="已复制免押链接">复制链接</button><button class="btn" data-toast="已完结免押">完结免押</button></div>
+      </div>
+      <div class="link-line">
+        <div class="row-title">寄件</div>
+        <div class="row-sub">未创建 · 地址完整 · 建议顺丰陆运</div>
+        <div class="actions"><button class="btn green" data-toast="已创建寄件草稿">创建寄件</button><button class="btn secondary" data-toast="预计 2 天到达">查时效</button></div>
+      </div>
+      <div class="link-line">
+        <div class="row-title">归还</div>
+        <div class="row-sub">预计 6月16日归还，归还物流自动占用 1 天</div>
+        <div class="actions"><button class="btn secondary" data-toast="已生成归还提醒">提醒归还</button><button class="btn" data-toast="已标记归还">标记归还</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-backdrop" id="toolSheet">
+    <div class="sheet">
+      <div class="sheet-head">
+        <div><h3 id="toolTitle">创建免押</h3><div class="row-sub">独立工具，可在完成后绑定订单</div></div>
+        <button class="close" data-close>关闭</button>
+      </div>
+      <div class="surface-pad">
+        <div class="field"><label>客户信息</label><input value="小王 138****8821" /></div>
+        <div class="grid-2">
+          <div class="field"><label>金额</label><input value="6000" /></div>
+          <div class="field"><label>关联订单</label><select><option>暂不绑定</option><option>#1028 小王</option></select></div>
+        </div>
+        <div class="field"><label>备注</label><textarea>FX3 租赁免押，授权通过后创建寄件。</textarea></div>
+        <button class="btn blue full" data-toast="工具动作已完成">确认执行</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">已完成</div>
+
+  <script>
+    const views = document.querySelectorAll('.view')
+    const tabs = document.querySelectorAll('.tab')
+    const toast = document.getElementById('toast')
+    const orderSheet = document.getElementById('orderSheet')
+    const toolSheet = document.getElementById('toolSheet')
+    const toolTitle = document.getElementById('toolTitle')
+    const toolNames = {
+      depositCreate: '创建免押',
+      depositFinish: '完结免押',
+      shipmentCreate: '单独创建寄件',
+      expressTime: '查快递时效',
+    }
+
+    function showView(name) {
+      views.forEach((view) => view.classList.toggle('active', view.id === 'view-' + name))
+      tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.view === name))
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    function showToast(text) {
+      toast.textContent = text
+      toast.classList.add('show')
+      setTimeout(() => toast.classList.remove('show'), 1500)
+    }
+
+    document.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-view]')
+      if (tab) showView(tab.dataset.view)
+
+      const jump = event.target.closest('[data-jump]')
+      if (jump) showView(jump.dataset.jump)
+
+      const order = event.target.closest('[data-open-order]')
+      if (order) orderSheet.classList.add('show')
+
+      const tool = event.target.closest('[data-tool]')
+      if (tool) {
+        toolTitle.textContent = toolNames[tool.dataset.tool] || '工具'
+        toolSheet.classList.add('show')
+      }
+
+      const close = event.target.closest('[data-close]')
+      if (close) {
+        orderSheet.classList.remove('show')
+        toolSheet.classList.remove('show')
+      }
+
+      const toastTarget = event.target.closest('[data-toast]')
+      if (toastTarget) showToast(toastTarget.dataset.toast)
+    })
+
+    document.getElementById('checkSchedule').addEventListener('click', () => {
+      document.getElementById('scheduleResult').classList.add('show')
+      showToast('已查询档期和顺丰时效')
+    })
+  </script>
+</body>
+</html>

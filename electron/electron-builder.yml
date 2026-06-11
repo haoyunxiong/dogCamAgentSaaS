@@ -1,0 +1,39 @@
+appId: com.xianyu.autoagent
+productName: XianyuAgentPro
+copyright: Copyright © 2024
+
+directories:
+  output: ../build/electron-dist
+  buildResources: assets
+
+files:
+  - main/**/*
+  - preload/**/*
+  - renderer/dist/**/*
+  - assets/**/*
+  - node_modules/**/*
+  - "!node_modules/.cache"
+
+extraResources:
+  - from: ../build/python-dist/bridge/
+    to: python-dist/bridge/
+    filter:
+      - "**/*"
+
+win:
+  icon: assets/icon.icns
+  signAndEditExecutable: false
+  target:
+    - target: dir
+      arch:
+        - x64
+
+mac:
+  icon: assets/icon.icns
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - zh_CN
+  language: 2052
