@@ -3,8 +3,8 @@
 ## 当前阶段
 
 ```text
-当前阶段：Phase 02 - 设计系统与 Figma 基础组件
-当前状态：未开始
+当前阶段：Phase UI-V2 Demo - 新产品体验独立验证
+当前状态：规划中
 是否允许写代码：否
 是否允许操作 Figma：否
 是否允许改数据库：否
@@ -13,13 +13,35 @@
 
 ## 当前阶段待办
 
-- [ ] 颜色/字体/组件确认
-- [ ] 订单卡和档期块确认
-- [ ] 移动端工作台初稿确认
-- [ ] PC 端后台基础框架初稿确认
-- [ ] Figma 文件可编辑
-- [ ] 设计系统可复用
-- [ ] Phase 02 artifacts 输出
+- [x] Phase 02A Product Design / 产品设计输入整理完成
+- [x] Phase 02A checkpoint commit：04f65c9
+- [x] Phase 02B Figma Design System 已完成并保留为设计资产
+- [x] Phase 02C-01 / 02C-02 已完成 Token、基础组件、App Shell、Sidebar、Topbar 初步改造
+- [x] Phase 02C 真实系统 UI 改造暂停
+- [ ] UI-V2 Demo 产品设计方案确认
+- [ ] `prototypes/ui-v2-demo` 独立 Demo 范围确认
+- [ ] PC 端 Demo 体验结构确认
+- [ ] Mobile 端 Demo 体验结构确认
+- [ ] Demo mock 数据范围确认
+- [ ] Demo 视觉和交互评审通过
+
+## 当前下一步
+
+```text
+Phase UI-V2 Demo - Product Design / 新产品 Demo 定风格
+```
+
+当前暂停继续修改真实业务页面。
+
+未获得用户明确授权前，不允许创建 Demo、不允许操作 Figma、不允许提交 Git。
+
+## Phase 02 路线调整记录
+
+- [x] Phase 02B Figma Design System 已完成并保留。
+- [x] Phase 02C 真实系统 UI 改造暂停在 02C-02。
+- [x] 暂停 Phase 02C-03 订单中心真实系统改造。
+- [x] 不继续在 `electron/renderer/src/views` 上做页面重构。
+- [x] 后续先通过独立 UI-V2 Demo 验证最终产品体验。
 
 ## Phase 00 验收结果
 
@@ -39,13 +61,14 @@
 - [x] 用户同意先做内部提效系统
 - [x] 用户确认可以进入 Phase 02
 
-## 进入 Phase 03 条件
+## 进入后续迁移阶段条件
 
-- [ ] 颜色/字体/组件确认
-- [ ] 订单卡和档期块确认
-- [ ] 移动端工作台初稿确认
-- [ ] Figma 文件可编辑
-- [ ] 设计系统可复用
+- [ ] UI-V2 Demo 的 PC 端体验通过评审
+- [ ] UI-V2 Demo 的 Mobile 端体验通过评审
+- [ ] 新产品整体视觉风格确认
+- [ ] 新产品交互结构确认
+- [ ] 明确旧系统业务能力迁移范围和顺序
+- [ ] 用户确认可以进入后续迁移阶段
 
 ## 阶段状态更新规则
 

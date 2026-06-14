@@ -8,6 +8,26 @@
 - 创建 PC 端后台基础框架
 - 输出设计验收报告
 
+## 2026-06-14 路线调整后的任务
+
+- 登记 Phase 02B Figma Design System 已完成并保留。
+- 登记 Phase 02C 真实系统 UI 改造暂停在 02C-02。
+- 停止继续推进 Phase 02C-03 订单中心真实系统改造。
+- 新增 Phase UI-V2 Demo 阶段文档。
+- 启动 UI-V2 Product Design 会话前，先输出计划。
+- UI-V2 Demo 创建前必须等待用户确认。
+
+## 当前明确不做
+
+- 不继续修改真实业务页面。
+- 不继续修改 `electron/renderer/src/views`。
+- 不改 Electron main / preload / IPC。
+- 不改 Python backend。
+- 不改数据库 schema。
+- 不接真实 MySQL。
+- 不接旧系统 API。
+- 不提交 Git，除非用户明确要求。
+
 ## 执行前必须输出
 
 ```text
