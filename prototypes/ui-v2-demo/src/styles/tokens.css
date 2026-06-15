@@ -1,0 +1,124 @@
+:root {
+  color-scheme: light;
+
+  /* Design System v1 tokens from Frontend Design Spec v1.1 */
+  --color-primary-900: #06211f;
+  --color-primary-800: #07312d;
+  --color-primary-700: #06443d;
+  --color-primary-600: #007f6d;
+  --color-primary-500: #00a889;
+  --color-primary-100: #e8f7f3;
+
+  --color-bg-page: #f6f8fa;
+  --color-bg-surface: #ffffff;
+  --color-surface: var(--color-bg-surface);
+  --color-bg-sidebar: #06211f;
+  --color-bg-muted: #f9fafb;
+  --color-bg-soft: #f3f6f8;
+
+  --color-border: #d0d5dd;
+  --color-border-subtle: #e7edf2;
+  --color-border-strong: #b8c1cc;
+
+  --color-text-primary: #101828;
+  --color-text-secondary: #667085;
+  --color-text-tertiary: #98a2b3;
+  --color-text-inverse: #ffffff;
+
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-danger: #ef4444;
+  --color-status-info: #3b82f6;
+
+  --status-order-pending-shipping: #f59e0b;
+  --status-order-in-use: #3b82f6;
+  --status-order-overdue: #ef4444;
+  --status-order-completed: #98a2b3;
+  --status-device-available: #10b981;
+  --status-device-rented: #3b82f6;
+  --status-deposit-pending: #f59e0b;
+  --status-deposit-approved: #10b981;
+  --status-schedule-available: #10b981;
+  --status-schedule-conflict: #ef4444;
+  --status-shipping-exception: #ef4444;
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-20: 20px;
+  --radius-pill: 999px;
+
+  --font-family-base: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-pc-page-title-size: 28px;
+  --font-pc-page-title-line: 36px;
+  --font-pc-section-title-size: 18px;
+  --font-pc-section-title-line: 26px;
+  --font-pc-table-size: 13px;
+  --font-pc-table-line: 20px;
+  --font-mobile-nav-title-size: 20px;
+  --font-mobile-nav-title-line: 28px;
+  --font-mobile-card-title-size: 16px;
+  --font-mobile-card-title-line: 24px;
+  --font-caption-size: 12px;
+  --font-caption-line: 18px;
+
+  --shadow-subtle: 0 1px 4px #1018280a;
+  --shadow-card: 0 6px 18px #1018280f;
+  --shadow-drawer: -8px 0 32px #10182824;
+
+  /* Compatibility aliases for the existing ui-v2-demo components. */
+  --bg: var(--color-bg-page);
+  --bg-elevated: var(--color-bg-surface);
+  --bg-subtle: var(--color-bg-soft);
+  --surface: var(--color-bg-surface);
+  --surface-soft: var(--color-bg-muted);
+  --surface-strong: #edf2f7;
+  --surface-tint: var(--color-primary-100);
+  --text: var(--color-text-primary);
+  --text-soft: #344054;
+  --text-muted: var(--color-text-secondary);
+  --border: var(--color-border-subtle);
+  --border-strong: var(--color-border);
+  --brand: var(--color-primary-600);
+  --brand-strong: var(--color-primary-900);
+  --brand-soft: var(--color-primary-100);
+  --ink: var(--color-primary-900);
+  --success: var(--color-status-success);
+  --success-soft: #ecfdf3;
+  --warning: var(--color-status-warning);
+  --warning-soft: #fffaeb;
+  --danger: var(--color-status-danger);
+  --danger-soft: #fef3f2;
+  --info: var(--color-status-info);
+  --info-soft: #eff6ff;
+  --neutral-soft: #f2f4f7;
+  --accent: var(--color-primary-500);
+  --accent-soft: var(--color-primary-100);
+  --canvas-line: rgba(16, 24, 40, 0.04);
+  --shadow-pop: var(--shadow-card);
+  --radius-xs: var(--radius-4);
+  --radius-sm: var(--radius-8);
+  --radius-md: var(--radius-8);
+  --radius-lg: var(--radius-12);
+  --sidebar: var(--color-bg-sidebar);
+  --sidebar-soft: var(--color-primary-800);
+  --sidebar-active: var(--color-primary-500);
+  --sidebar-text: #e7f3f1;
+  --sidebar-muted: #9db5b2;
+  --font: var(--font-family-base);
+  --display-font: var(--font-family-base);
+}
+
+:root[data-experience="c"] {
+  color-scheme: light;
+}
