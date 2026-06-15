@@ -4,54 +4,62 @@
       <header class="page-header">
         <div>
           <h1 class="page-title">档期中心</h1>
-          <p class="page-desc">按型号查看未来 7 天可租、占用、冲突和维修状态。</p>
+          <p class="page-desc">按型号和日期查看设备可安排、满租、冲突和维修状态。</p>
         </div>
+        <ScheduleLegend />
       </header>
 
-      <section class="schedule-command">
-        <div>
-          <BaseBadge :label="`方案 ${variantMeta.label} · ${variantMeta.shortName}`" tone="info" />
-          <h2>{{ scheduleHeadline }}</h2>
-          <p>{{ scheduleCopy }}</p>
-        </div>
-        <div class="schedule-radar">
-          <span v-for="item in availabilitySummary" :key="item.model" :style="{ '--rate': `${Math.round((item.free / item.total) * 100)}%` }">
-            {{ item.short }}
-          </span>
-        </div>
+      <section class="metric-grid">
+        <MetricCard v-for="metric in scheduleMetrics" :key="metric.key" :metric="metric" />
       </section>
 
-      <section class="availability-row">
-        <article v-for="item in availabilitySummary" :key="item.model" class="availability-card">
-          <span>{{ item.short }}</span>
-          <strong>{{ item.free }} / {{ item.total }}</strong>
-          <small>今日可租 / 总数</small>
-        </article>
-      </section>
-
-      <section class="panel">
-        <div class="panel-body schedule-filters">
-          <BaseSelect v-model="model" label="型号" :options="['全部型号', ...deviceModels]" />
-          <BaseSelect v-model="status" label="档期状态" :options="['全部状态', '可租', '占用', '冲突', '维修']" />
-          <div class="date-strip">
-            <FilterChip v-for="date in sevenDates" :key="date" :label="date.slice(5)" :active="activeDate === date" @click="activeDate = date" />
-          </div>
+      <FilterBar>
+        <BaseSelect v-model="model" label="型号" :options="['全部型号', ...deviceModels]" />
+        <BaseSelect v-model="status" label="档期状态" :options="['全部状态', '可租', '占用', '冲突', '维修']" />
+        <div class="date-strip">
+          <FilterChip
+            v-for="date in sevenDates"
+            :key="date"
+            :label="date.slice(5)"
+            :active="activeDate === date"
+            @click="activeDate = date"
+          />
         </div>
-      </section>
+      </FilterBar>
 
-      <ScheduleGrid :dates="sevenDates" :groups="filteredGroups" :schedule="filteredSchedule" @slot-click="selectedSlot = $event" />
+      <section class="schedule-layout">
+        <ScheduleGrid
+          :dates="sevenDates"
+          :groups="filteredGroups"
+          :schedule="filteredSchedule"
+          @slot-click="selectSlot"
+        />
+        <aside class="summary-panel">
+          <h2>今日可用热力</h2>
+          <article v-for="item in availabilitySummary" :key="item.model">
+            <div class="row-between">
+              <strong>{{ item.short }}</strong>
+              <StatusTag :label="item.status" />
+            </div>
+            <div class="heat-bar" aria-hidden="true">
+              <span :style="{ width: `${item.rate}%` }" />
+            </div>
+            <small>{{ item.free }} / {{ item.total }} 台可安排</small>
+          </article>
+        </aside>
+      </section>
     </div>
 
     <Drawer
       :open="Boolean(selectedSlot)"
       title="档期详情"
       :description="selectedSlot ? `${selectedSlot.assetNo} · ${selectedSlot.date}` : ''"
-      width="480px"
+      width="500px"
       @close="selectedSlot = null"
     >
       <div v-if="selectedSlot" class="drawer-stack">
         <section class="detail-hero">
-          <BaseBadge :label="selectedSlot.status" />
+          <StatusTag :label="selectedSlot.status" />
           <h3>{{ selectedSlot.model }}</h3>
           <p>{{ selectedSlot.assetNo }} · {{ selectedSlot.date }}</p>
         </section>
@@ -59,12 +67,18 @@
           <div>
             <span>关联订单</span>
             <strong>{{ selectedSlot.orderId || '无' }}</strong>
-            <small>{{ selectedOrder?.customerName || '当前可分配' }}</small>
+          </div>
+          <div>
+            <span>客户</span>
+            <strong>{{ selectedOrder?.customerName || '可分配' }}</strong>
+          </div>
+          <div>
+            <span>档期状态</span>
+            <strong>{{ selectedSlot.label }}</strong>
           </div>
           <div>
             <span>建议动作</span>
             <strong>{{ actionText }}</strong>
-            <small>{{ selectedSlot.status === '冲突' ? '请调整发货或更换设备' : '可继续处理' }}</small>
           </div>
         </section>
         <section v-if="selectedSlot.conflictType" class="panel">
@@ -82,31 +96,47 @@
 <script setup>
 import { computed, ref } from 'vue'
 import AppShell from '../../components/AppShell.vue'
-import BaseSelect from '../../components/BaseSelect.vue'
-import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
-import FilterChip from '../../components/FilterChip.vue'
-import ScheduleGrid from '../../components/ScheduleGrid.vue'
+import BaseSelect from '../../components/BaseSelect.vue'
 import Drawer from '../../components/Drawer.vue'
+import FilterBar from '../../components/FilterBar.vue'
+import FilterChip from '../../components/FilterChip.vue'
+import MetricCard from '../../components/MetricCard.vue'
+import ScheduleGrid from '../../components/ScheduleGrid.vue'
+import ScheduleLegend from '../../components/ScheduleLegend.vue'
+import StatusTag from '../../components/StatusTag.vue'
 import { deviceModels } from '../../mock/devices.js'
-import { schedule, scheduleDates, scheduleModelGroups } from '../../mock/schedule.js'
 import { orders } from '../../mock/orders.js'
-import { useExperienceVariant } from '../../composables/useExperienceVariant.js'
+import { schedule, scheduleDates, scheduleModelGroups } from '../../mock/schedule.js'
 
-const { variant, variantMeta } = useExperienceVariant()
 const model = ref('全部型号')
 const status = ref('全部状态')
 const activeDate = ref(scheduleDates[0])
 const selectedSlot = ref(null)
 const sevenDates = scheduleDates.slice(0, 7)
 
-const availabilitySummary = computed(() => deviceModels.slice(0, 4).map((item) => {
-  const todaySlots = schedule.filter((slot) => slot.date === sevenDates[0] && slot.model === item)
+const scheduleMetrics = computed(() => {
+  const todaySlots = schedule.filter((item) => item.date === activeDate.value)
+  return [
+    { key: 'free', label: '可安排', value: todaySlots.filter((item) => item.status === '可租').length, unit: '台', trend: activeDate.value, tone: 'success' },
+    { key: 'busy', label: '已占用', value: todaySlots.filter((item) => item.status === '占用').length, unit: '台', trend: '含在租订单', tone: 'info' },
+    { key: 'conflict', label: '冲突', value: todaySlots.filter((item) => item.status === '冲突').length, unit: '项', trend: '需人工调整', tone: 'danger' },
+    { key: 'repair', label: '维修', value: todaySlots.filter((item) => item.status === '维修').length, unit: '台', trend: '不可分配', tone: 'warning' }
+  ]
+})
+
+const availabilitySummary = computed(() => deviceModels.map((item) => {
+  const todaySlots = schedule.filter((slot) => slot.date === activeDate.value && slot.model === item)
+  const free = todaySlots.filter((slot) => slot.status === '可租').length
+  const total = todaySlots.length || 1
+  const statusLabel = free === 0 ? '满租' : free < 3 ? '余量不足' : '可安排'
   return {
     model: item,
     short: item.replace('Canon ', '').replace(' Mark II', '').replace('大疆 ', '').replace('富士 ', ''),
-    free: todaySlots.filter((slot) => slot.status === '可租').length,
-    total: todaySlots.length
+    free,
+    total,
+    status: statusLabel,
+    rate: Math.round((free / total) * 100)
   }
 }))
 
@@ -135,154 +165,114 @@ const actionText = computed(() => {
   return statusMap[selectedSlot.value?.status] || '查看详情'
 })
 
-const scheduleHeadline = computed(() => variant.value === 'c'
-  ? '先看今天能不能接单，再看哪台设备最稳'
-  : '把未来 7 天设备占用压缩成可调度资源图'
-)
-
-const scheduleCopy = computed(() => variant.value === 'c'
-  ? '移动运营优先看可租数量、冲突提醒和可立即分配设备。'
-  : 'PC 端保留设备 × 日期结构，但把冲突、维修、占用关系产品化表达。'
-)
+function selectSlot(slot) {
+  if (slot) selectedSlot.value = slot
+}
 </script>
 
 <style scoped>
-.schedule-command {
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 32%),
-    linear-gradient(90deg, color-mix(in srgb, var(--surface) 96%, transparent), color-mix(in srgb, var(--brand-soft) 62%, transparent));
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
-  gap: 18px;
-  align-items: center;
-}
-
-.schedule-command h2 {
-  margin: 10px 0 4px;
-  font-size: 23px;
-}
-
-.schedule-command p {
-  margin: 0;
-  color: var(--text-soft);
-}
-
-.schedule-radar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.schedule-radar span {
-  min-height: 42px;
-  padding: 9px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--brand) 17%, transparent) var(--rate), rgba(255, 255, 255, 0.5) var(--rate)),
-    color-mix(in srgb, var(--surface) 82%, transparent);
-  color: var(--text-soft);
-  font-size: 12px;
-  font-weight: 780;
-}
-
-.availability-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.availability-card {
-  padding: 12px 13px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: rgba(251, 251, 250, 0.86);
-  display: grid;
-  gap: 5px;
-}
-
-.availability-card span,
-.availability-card small {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.availability-card strong {
-  color: var(--brand-strong);
-  font-size: 23px;
-}
-
-.schedule-filters {
-  display: flex;
-  align-items: end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .date-strip {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding-bottom: 1px;
+  gap: var(--space-8);
   flex-wrap: wrap;
+}
+
+.schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-16);
+  align-items: start;
+}
+
+.summary-panel {
+  padding: var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8);
+  background: var(--surface);
+  box-shadow: var(--shadow-subtle);
+  display: grid;
+  gap: var(--space-12);
+}
+
+.summary-panel h2 {
+  margin: 0;
+  font-size: var(--font-pc-section-title-size);
+}
+
+.summary-panel article {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.summary-panel small {
+  color: var(--text-muted);
+  font-size: var(--font-caption-size);
+}
+
+.heat-bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.heat-bar span {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  background: var(--success);
 }
 
 .drawer-stack {
   display: grid;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .detail-hero {
-  padding: 14px;
+  padding: var(--space-16);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--brand-soft);
+  border-radius: var(--radius-8);
+  background: var(--surface-soft);
 }
 
 .detail-hero h3 {
-  margin: 10px 0 4px;
+  margin: var(--space-12) 0 var(--space-4);
 }
 
 .detail-hero p,
 .panel p {
-  margin: 4px 0 0;
+  margin: var(--space-4) 0 0;
   color: var(--text-muted);
 }
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-10, 10px);
 }
 
 .detail-grid div {
-  padding: 12px;
+  padding: var(--space-12);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-8);
   background: var(--surface);
 }
 
-.detail-grid span,
-.detail-grid small {
+.detail-grid span {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
 }
 
 .detail-grid strong {
   display: block;
-  margin: 4px 0 2px;
+  margin-top: var(--space-4);
 }
 
-:global([data-experience="c"]) .schedule-command {
-  grid-template-columns: minmax(0, 1fr) 260px;
-  border-radius: 18px;
-}
-
-:global([data-experience="c"]) .schedule-radar span {
-  border-radius: 14px;
+@media (max-width: 1160px) {
+  .schedule-layout {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

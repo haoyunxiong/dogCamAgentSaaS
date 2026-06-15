@@ -49,12 +49,46 @@ checkFiles('foundation components', [
   'src/components/Pagination.vue'
 ])
 
-checkFiles('P0 pages', [
+checkFiles('P1 support components', [
+  'src/components/StatusTabs.vue',
+  'src/components/ScheduleLegend.vue',
+  'src/components/TrackingTimeline.vue',
+  'src/components/ChartCard.vue',
+  'src/components/InsightPanel.vue',
+  'src/components/SettingsCard.vue',
+  'src/components/ToggleSwitch.vue'
+])
+
+checkFiles('mobile core pages', [
   'src/views/mobile/MobileHome.vue',
   'src/views/mobile/MobileOrders.vue',
   'src/views/mobile/MobileOrderDetail.vue',
+  'src/views/mobile/MobileSchedule.vue',
+  'src/views/mobile/MobileDevices.vue',
+  'src/views/mobile/MobileMine.vue'
+])
+
+checkFiles('desktop core pages', [
   'src/views/desktop/Dashboard.vue',
-  'src/views/desktop/Orders.vue'
+  'src/views/desktop/Orders.vue',
+  'src/views/desktop/Schedule.vue',
+  'src/views/desktop/Devices.vue',
+  'src/views/desktop/Customers.vue',
+  'src/views/desktop/Deposit.vue',
+  'src/views/desktop/Logistics.vue',
+  'src/views/desktop/Reports.vue',
+  'src/views/desktop/Settings.vue'
+])
+
+checkFiles('mock data', [
+  'src/mock/orders.js',
+  'src/mock/devices.js',
+  'src/mock/schedule.js',
+  'src/mock/customers.js',
+  'src/mock/deposits.js',
+  'src/mock/logistics.js',
+  'src/mock/reports.js',
+  'src/mock/settings.js'
 ])
 
 checkFiles('root files', [
@@ -69,13 +103,39 @@ addCheck('App.vue renders RouterView', fileIncludes('src/App.vue', 'RouterView')
 const routeChecks = [
   ['desktop workbench route', "path: '/'"],
   ['desktop orders route', "path: '/orders'"],
+  ['desktop schedule route', "path: '/schedule'"],
+  ['desktop devices route', "path: '/devices'"],
+  ['desktop customers route', "path: '/customers'"],
+  ['desktop deposit route', "path: '/deposit'"],
+  ['desktop logistics route', "path: '/logistics'"],
+  ['desktop reports route', "path: '/reports'"],
+  ['desktop settings route', "path: '/settings'"],
   ['mobile workbench route', "path: '/mobile'"],
   ['mobile orders route', "path: '/mobile/orders'"],
-  ['mobile order detail route', "path: '/mobile/orders/:id'"]
+  ['mobile order detail route', "path: '/mobile/orders/:id'"],
+  ['mobile schedule route', "path: '/mobile/schedule'"],
+  ['mobile devices route', "path: '/mobile/devices'"],
+  ['mobile mine route', "path: '/mobile/mine'"]
 ]
 
 for (const [name, text] of routeChecks) {
-  addCheck(`router P0 navigation: ${name}`, fileIncludes('src/router.js', text), text)
+  addCheck(`router 15-page navigation: ${name}`, fileIncludes('src/router.js', text), text)
+}
+
+const sidebarChecks = [
+  '经营工作台',
+  '订单中心',
+  '档期中心',
+  '设备中心',
+  '客户中心',
+  '免押管理',
+  '物流发货',
+  '报表中心',
+  '系统设置'
+]
+
+for (const label of sidebarChecks) {
+  addCheck(`sidebar navigation: ${label}`, fileIncludes('src/components/Sidebar.vue', label), label)
 }
 
 const tokenChecks = [
@@ -97,6 +157,25 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 
 for (const scriptName of ['build', 'smoke', 'lint', 'typecheck', 'test']) {
   addCheck(`package script: ${scriptName}`, Boolean(packageJson.scripts?.[scriptName]), `npm run ${scriptName}`)
 }
+
+addCheck('page coverage: 15 / 15', routeChecks.length === 15, '6 mobile + 9 desktop routes')
+addCheck(
+  'Devices pagination: no legacy @change binding',
+  !fileIncludes('src/views/desktop/Devices.vue', '@change="page = $event"'),
+  'Pagination emits update:page, not change'
+)
+addCheck(
+  'Devices pagination: binds update:page',
+  fileIncludes('src/views/desktop/Devices.vue', 'v-model:page="page"') ||
+    fileIncludes('src/views/desktop/Devices.vue', '@update:page="page = $event"'),
+  'v-model:page or @update:page'
+)
+addCheck(
+  'Pagination API: emits update:page',
+  fileIncludes('src/components/Pagination.vue', "defineEmits(['update:page'])") &&
+    fileIncludes('src/components/Pagination.vue', "$emit('update:page'"),
+  'Pagination.vue API remains update:page'
+)
 
 const failed = checks.filter((check) => !check.passed)
 const label = {

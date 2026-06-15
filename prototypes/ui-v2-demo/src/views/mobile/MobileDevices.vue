@@ -4,24 +4,21 @@
       <header class="mobile-header">
         <div>
           <span>设备快查</span>
-          <h1>搜索 / 扫码</h1>
+          <h1>设备中心</h1>
         </div>
-        <BaseButton variant="secondary" @click="keyword = 'DEV-001'">扫码 mock</BaseButton>
+        <BaseButton variant="secondary" size="sm" @click="keyword = 'DEV-001'">扫码 mock</BaseButton>
       </header>
 
-      <BaseInput v-model="keyword" placeholder="输入设备编号、型号或序列号" />
-
-      <section class="scan-panel">
-        <strong>{{ filteredDevices.length }}</strong>
-        <span>台匹配设备</span>
-        <p>扫码或搜索后优先判断是否可租、是否在租、是否维修。</p>
+      <section class="overview-grid">
+        <article v-for="item in overview" :key="item.label">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.note }}</small>
+        </article>
       </section>
 
-      <div class="chip-row">
-        <FilterChip v-for="item in statuses" :key="item" :label="item" :active="status === item" @click="status = item" />
-      </div>
-
-      <RiskAlert v-if="abnormalDevice" :risk="deviceRisk" />
+      <BaseInput v-model="keyword" placeholder="搜索设备编号、型号或序列号" />
+      <StatusTabs v-model="status" :items="statusTabs" />
 
       <section class="stack">
         <DeviceCard v-for="device in filteredDevices" :key="device.id" :device="device" />
@@ -35,83 +32,86 @@ import { computed, ref } from 'vue'
 import MobileShell from '../../components/MobileShell.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BaseInput from '../../components/BaseInput.vue'
-import FilterChip from '../../components/FilterChip.vue'
 import DeviceCard from '../../components/DeviceCard.vue'
-import RiskAlert from '../../components/RiskAlert.vue'
-import { devices } from '../../mock/devices.js'
+import StatusTabs from '../../components/StatusTabs.vue'
+import { devices, deviceStatuses } from '../../mock/devices.js'
 
-const statuses = ['全部', '可租', '在租', '待清洁', '维修中', '异常']
 const keyword = ref('')
 const status = ref('全部')
+const primaryStatuses = ['全部', '可租', '在租', '维修中', '待清洁']
+
+const overview = computed(() => [
+  { label: '可用', value: devices.filter((item) => item.status === '可租').length, note: '可立即分配' },
+  { label: '在租', value: devices.filter((item) => item.status === '在租').length, note: '关注归还' },
+  { label: '维修', value: devices.filter((item) => ['维修中', '异常'].includes(item.status)).length, note: '不可分配' }
+])
+
+const statusTabs = computed(() => primaryStatuses.map((item) => ({
+  label: item,
+  value: item,
+  count: item === '全部' ? devices.length : devices.filter((device) => device.status === item).length
+})).concat(deviceStatuses
+  .filter((item) => !primaryStatuses.includes(item))
+  .map((item) => ({ label: item, value: item, count: devices.filter((device) => device.status === item).length }))))
 
 const filteredDevices = computed(() => devices.filter((device) => {
   const matchStatus = status.value === '全部' || device.status === status.value
   const text = `${device.id}${device.assetNo}${device.model}${device.serialNo}`
   return matchStatus && (!keyword.value || text.includes(keyword.value))
 }).slice(0, 12))
-
-const abnormalDevice = computed(() => filteredDevices.value.find((device) => ['异常', '维修中'].includes(device.status)))
-const deviceRisk = computed(() => ({
-  level: abnormalDevice.value?.status === '异常' ? 'high' : 'medium',
-  type: abnormalDevice.value?.status || '设备异常',
-  title: `${abnormalDevice.value?.assetNo || '设备'} 当前不可直接分配`,
-  relatedOrderId: abnormalDevice.value?.currentOrderId || '无',
-  description: abnormalDevice.value?.conditionNote || '设备需要先完成维护或复检。',
-  suggestedAction: '查看设备'
-}))
 </script>
 
 <style scoped>
 .mobile-page {
   display: grid;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .mobile-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-12);
 }
 
 .mobile-header span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: 720;
 }
 
 .mobile-header h1 {
-  margin: 3px 0 0;
-  font-size: 23px;
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-mobile-nav-title-size);
+  line-height: var(--font-mobile-nav-title-line);
 }
 
-.chip-row {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
 }
 
-.scan-panel {
-  padding: 12px 13px;
+.overview-grid article {
+  min-height: 92px;
+  padding: var(--space-12);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   background: var(--surface);
+  box-shadow: var(--shadow-subtle);
+  display: grid;
+  align-content: space-between;
 }
 
-.scan-panel strong {
+.overview-grid span,
+.overview-grid small {
+  color: var(--text-muted);
+  font-size: var(--font-caption-size);
+}
+
+.overview-grid strong {
   color: var(--brand-strong);
   font-size: 24px;
-}
-
-.scan-panel span {
-  margin-left: 6px;
-  color: var(--text-soft);
-  font-weight: 760;
-}
-
-.scan-panel p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
+  line-height: 1;
 }
 </style>

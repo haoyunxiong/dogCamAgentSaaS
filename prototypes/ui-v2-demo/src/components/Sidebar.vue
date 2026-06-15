@@ -17,8 +17,8 @@
 
     <div class="sidebar-note">
       <span>Design System v1</span>
-      <strong>P0 前端改造</strong>
-      <p>当前为 UI demo，数据来自本地 mock，不接真实统计接口。</p>
+      <strong>P1 页面补齐</strong>
+      <p>15 个核心页面均使用本地 mock 数据。</p>
     </div>
   </aside>
 </template>
@@ -29,6 +29,10 @@ const navItems = [
   { to: '/orders', label: '订单中心' },
   { to: '/schedule', label: '档期中心' },
   { to: '/devices', label: '设备中心' },
+  { to: '/customers', label: '客户中心' },
+  { to: '/deposit', label: '免押管理' },
+  { to: '/logistics', label: '物流发货' },
+  { to: '/reports', label: '报表中心' },
   { to: '/settings', label: '系统设置' }
 ]
 </script>
