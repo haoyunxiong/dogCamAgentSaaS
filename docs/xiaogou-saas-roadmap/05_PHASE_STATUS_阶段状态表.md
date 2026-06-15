@@ -16,6 +16,9 @@
 - [x] Phase 02A Product Design / 产品设计输入整理完成
 - [x] Phase 02A checkpoint commit：04f65c9
 - [x] Phase 02B Figma Design System 已完成并保留为设计资产
+- [x] 最终 UI 风格归档已完成
+- [x] 最终 UI 风格归档 docs checkpoint commit：582bda7
+- [x] 网页端和手机端 UI 方向已冻结
 - [x] Phase 02C-01 / 02C-02 已完成 Token、基础组件、App Shell、Sidebar、Topbar 初步改造
 - [x] Phase 02C 真实系统 UI 改造暂停
 - [ ] UI-V2 Demo 产品设计方案确认
@@ -28,12 +31,22 @@
 ## 当前下一步
 
 ```text
-Phase UI-V2 Demo - Product Design / 新产品 Demo 定风格
+Figma 组件审计与校准 + Frontend Design Spec / UI 改造计划
 ```
 
 当前暂停继续修改真实业务页面。
 
 未获得用户明确授权前，不允许创建 Demo、不允许操作 Figma、不允许提交 Git。
+
+后续 UI/UX、Figma 校准、前端 UI 改造必须以最终 UI 归档为准，核心文档包括：
+
+- `docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/final-ui-style-lock.md`
+- `docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/frontend-implementation-brief.md`
+- `docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/page-component-mapping.md`
+- `docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/mobile-ui-guidelines.md`
+- `docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/final-ui-assets-index.md`
+
+当前工作区存在执行前遗留的 `electron/` 和 `prototypes/` 变更，需要单独审查处理，不属于最终 UI 风格归档。
 
 ## Phase 02 路线调整记录
 
