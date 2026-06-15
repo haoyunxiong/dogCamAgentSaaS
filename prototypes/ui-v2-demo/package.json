@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5188",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5188"
+    "preview": "vite preview --host 0.0.0.0 --port 5188",
+    "smoke": "node scripts/smoke.mjs",
+    "lint": "node scripts/smoke.mjs --mode=lint-lite",
+    "typecheck": "node scripts/smoke.mjs --mode=typecheck-lite",
+    "test": "node scripts/smoke.mjs --mode=test-lite"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
