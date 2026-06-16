@@ -139,12 +139,13 @@ function cancel() {
   background: var(--bg-subtle, #f3f4f6);
 }
 .dialog-btn--primary {
-  background: var(--color-primary, #2563eb);
+  background: var(--color-primary, #007f6d);
   color: #fff;
-  border-color: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, #007f6d);
 }
 .dialog-btn--primary:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--brand-primary-hover, #00a889);
+  border-color: var(--brand-primary-hover, #00a889);
 }
 .dialog-btn--danger {
   background: var(--color-danger, #dc2626);

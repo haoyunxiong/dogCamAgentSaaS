@@ -31,11 +31,11 @@ defineProps({
 <style scoped>
 .filter-bar {
   display: grid;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fff;
+  gap: var(--space-12, 12px);
+  padding: var(--space-12, 12px) var(--space-16, 16px);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-12, 12px);
+  background: var(--color-surface, #fff);
 }
 
 .filter-bar__head {
@@ -48,13 +48,13 @@ defineProps({
 .filter-bar__copy h3 {
   margin: 0;
   font-size: 15px;
-  color: var(--text-primary, #111827);
+  color: var(--color-text, #111827);
 }
 
 .filter-bar__copy p {
   margin: 4px 0 0;
   font-size: 12px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--color-text-muted, #6b7280);
 }
 
 .filter-bar__body,

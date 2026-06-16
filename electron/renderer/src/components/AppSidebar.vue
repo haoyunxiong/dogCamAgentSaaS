@@ -82,6 +82,16 @@ const ui = useUiStore()
 
 const groups = [
   {
+    label: 'UI-V2 Mock',
+    items: [
+      { to: '/ui-v2', label: 'V2 工作台', icon: Home, exact: true },
+      { to: '/ui-v2/orders', label: 'V2 订单中心', icon: Package },
+      { to: '/ui-v2/schedule', label: 'V2 档期中心', icon: CalendarDays },
+      { to: '/ui-v2/devices', label: 'V2 设备中心', icon: Boxes },
+      { to: '/ui-v2/mobile', label: 'V2 手机端', icon: MessageSquareText },
+    ],
+  },
+  {
     label: '核心运营',
     items: [
       { to: '/',         label: '控制台 / 工作台', icon: Home, exact: true },

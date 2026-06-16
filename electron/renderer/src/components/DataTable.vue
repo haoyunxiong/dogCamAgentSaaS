@@ -2,7 +2,35 @@
   <div class="data-table-shell" :class="{ compact: isDense, loading, empty }">
     <div class="data-table-shell__scroll" :style="{ minWidth }">
       <table class="data-table-shell__table">
-        <slot />
+        <template v-if="hasColumns">
+          <thead>
+            <tr>
+              <th
+                v-for="column in columns"
+                :key="column.key"
+                :style="{ width: column.width || undefined }"
+              >
+                {{ column.label }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in rows"
+              :key="row[rowKey]"
+              :class="{ 'is-selected': selectedKey && row[rowKey] === selectedKey }"
+              :aria-selected="selectedKey && row[rowKey] === selectedKey ? 'true' : undefined"
+              @click="$emit('row-click', row)"
+            >
+              <td v-for="column in columns" :key="column.key">
+                <slot :name="column.key" :row="row" :value="row[column.key]">
+                  {{ row[column.key] }}
+                </slot>
+              </td>
+            </tr>
+          </tbody>
+        </template>
+        <slot v-else />
       </table>
     </div>
     <div v-if="loading" class="data-table-state data-table-state--loading" aria-live="polite">
@@ -30,9 +58,17 @@ const props = defineProps({
   empty: { type: Boolean, default: false },
   emptyTitle: { type: String, default: '暂无数据' },
   emptyHint: { type: String, default: '' },
+  columns: { type: Array, default: () => [] },
+  rows: { type: Array, default: () => [] },
+  rowKey: { type: String, default: 'id' },
+  selectedKey: { type: [String, Number], default: '' },
 })
 
+defineEmits(['row-click'])
+
 const isDense = computed(() => props.compact || props.dense)
+const hasColumns = computed(() => props.columns.length > 0)
+const empty = computed(() => props.empty || (hasColumns.value && !props.loading && props.rows.length === 0))
 </script>
 
 <style scoped>
@@ -80,6 +116,15 @@ const isDense = computed(() => props.compact || props.dense)
 
 :deep(tbody tr:hover td) {
   background: #f8fafc;
+}
+
+.data-table-shell__table tbody tr {
+  cursor: default;
+}
+
+.data-table-shell__table tbody tr[aria-selected],
+.data-table-shell__table tbody tr:hover {
+  cursor: pointer;
 }
 
 :deep(tbody tr.selected td),

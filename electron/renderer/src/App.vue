@@ -1,11 +1,14 @@
 <template>
-  <div class="app-layout app-shell" :class="{ 'sidebar-collapsed': ui.sidebarCollapsed }">
-    <AppSidebar class="app-shell-sidebar" />
+  <div
+    class="app-layout app-shell"
+    :class="{ 'sidebar-collapsed': ui.sidebarCollapsed, 'ui-v2-mobile-preview': isUiV2MobileRoute }"
+  >
+    <AppSidebar v-if="!isUiV2MobileRoute" class="app-shell-sidebar" />
 
     <div class="app-main app-shell-main">
-      <AppTopBar />
+      <AppTopBar v-if="!isUiV2MobileRoute" />
       <main class="app-main-inner app-content-scroll" role="main">
-        <BrowserPreviewNotice v-if="browserPreviewMode" :route-path="route.path" />
+        <BrowserPreviewNotice v-if="showBrowserPreviewNotice" :route-path="route.path" />
         <router-view v-else v-slot="{ Component, route: viewRoute }">
           <transition name="page">
             <component :is="Component" :key="viewRoute.path" />
@@ -54,6 +57,9 @@ const configStore = useConfigStore()
 const ui = useUiStore()
 const route = useRoute()
 const browserPreviewMode = computed(() => isBrowserPreview())
+const isUiV2MockRoute = computed(() => route.path.startsWith('/ui-v2'))
+const isUiV2MobileRoute = computed(() => route.path.startsWith('/ui-v2/mobile'))
+const showBrowserPreviewNotice = computed(() => browserPreviewMode.value && !isUiV2MockRoute.value)
 const { state: confirmState, resolveConfirm } = useConfirmDialog()
 
 async function loadUiConfig() {
@@ -97,7 +103,7 @@ async function refreshBadges() {
 onMounted(async () => {
   if (browserPreviewMode.value) {
     if (route.path === '/') {
-      window.location.replace('/mobile')
+      window.location.replace('/#/ui-v2')
     }
     return
   }
@@ -155,6 +161,22 @@ onUnmounted(() => {
 
 .app-content-scroll {
   position: relative;
+}
+
+.ui-v2-mobile-preview {
+  justify-content: center;
+  background: #dfe7e5;
+}
+
+.ui-v2-mobile-preview .app-main {
+  flex: 0 1 430px;
+  width: min(430px, 100vw);
+  background: transparent;
+}
+
+.ui-v2-mobile-preview .app-main-inner {
+  padding: 0;
+  overflow: auto;
 }
 
 .page-enter-from { opacity: 0; transform: translateY(10px) scale(0.995); }

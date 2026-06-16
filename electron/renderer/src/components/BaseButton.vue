@@ -7,7 +7,7 @@
       { 'base-btn--loading': loading, 'base-btn--block': block }
     ]"
     :disabled="disabled || loading"
-    :type="nativeType"
+    :type="buttonType"
     :aria-busy="loading ? 'true' : 'false'"
     @click="$emit('click', $event)"
   >
@@ -20,7 +20,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   variant: {
     type: String,
     default: 'secondary',
@@ -35,10 +37,13 @@ defineProps({
   loading: { type: Boolean, default: false },
   block: { type: Boolean, default: false },
   icon: { type: String, default: '' },
-  nativeType: { type: String, default: 'button' },
+  type: { type: String, default: 'button' },
+  nativeType: { type: String, default: '' },
 })
 
 defineEmits(['click'])
+
+const buttonType = computed(() => props.nativeType || props.type || 'button')
 </script>
 
 <style scoped>

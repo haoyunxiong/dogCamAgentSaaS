@@ -3,7 +3,7 @@
     type="button"
     class="filter-chip"
     :class="{
-      'is-selected': selected,
+      'is-selected': isActive,
       'is-removable': removable,
       'is-disabled': disabled,
     }"
@@ -26,15 +26,20 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   label: { type: String, default: '' },
   count: { type: [Number, String], default: null },
   selected: { type: Boolean, default: false },
+  active: { type: Boolean, default: false },
   removable: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
 })
 
 defineEmits(['click', 'remove'])
+
+const isActive = computed(() => props.selected || props.active)
 </script>
 
 <style scoped>

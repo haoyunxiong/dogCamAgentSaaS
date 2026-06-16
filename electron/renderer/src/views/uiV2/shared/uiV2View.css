@@ -1,0 +1,119 @@
+.ui-v2-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+.ui-v2-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+  gap: var(--space-16);
+  align-items: start;
+}
+
+.ui-v2-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-16);
+}
+
+.ui-v2-stack {
+  display: grid;
+  gap: var(--space-12);
+}
+
+.ui-v2-row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.ui-v2-cell-stack strong,
+.ui-v2-cell-stack small {
+  display: block;
+}
+
+.ui-v2-cell-stack small {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-caption-size);
+}
+
+.ui-v2-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+.ui-v2-detail-grid > div {
+  padding: var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+}
+
+.ui-v2-detail-grid span,
+.ui-v2-detail-grid small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-caption-size);
+}
+
+.ui-v2-detail-grid strong {
+  display: block;
+  margin-top: var(--space-token-4);
+  color: var(--color-text);
+}
+
+.ui-v2-tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-token-4);
+  flex-wrap: wrap;
+}
+
+.ui-v2-mobile-page {
+  display: grid;
+  gap: var(--space-12);
+}
+
+.ui-v2-mobile-card {
+  padding: 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-12);
+  background: var(--ui-surface);
+  box-shadow: var(--shadow-subtle);
+}
+
+.ui-v2-mobile-card h2 {
+  margin: 0 0 var(--space-token-8);
+  color: var(--ui-text);
+  font-size: var(--font-mobile-card-title-size);
+  line-height: var(--font-mobile-card-title-line);
+}
+
+.ui-v2-mobile-card p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1280px) {
+  .ui-v2-metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ui-v2-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .ui-v2-metric-grid,
+  .ui-v2-grid-3,
+  .ui-v2-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

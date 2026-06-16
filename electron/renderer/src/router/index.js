@@ -16,6 +16,21 @@ import ItemModelMapping from '../views/rental/ItemModelMapping.vue'
 import InquiryAnalytics from '../views/rental/InquiryAnalytics.vue'
 import SfShippingWorkbench from '../views/rental/SfShippingWorkbench.vue'
 import DepositManagement from '../views/rental/DepositManagement.vue'
+import UiV2Dashboard from '../views/uiV2/desktop/Dashboard.vue'
+import UiV2Orders from '../views/uiV2/desktop/Orders.vue'
+import UiV2Schedule from '../views/uiV2/desktop/Schedule.vue'
+import UiV2Devices from '../views/uiV2/desktop/Devices.vue'
+import UiV2Customers from '../views/uiV2/desktop/Customers.vue'
+import UiV2Deposit from '../views/uiV2/desktop/Deposit.vue'
+import UiV2Logistics from '../views/uiV2/desktop/Logistics.vue'
+import UiV2Reports from '../views/uiV2/desktop/Reports.vue'
+import UiV2Settings from '../views/uiV2/desktop/Settings.vue'
+import UiV2MobileHome from '../views/uiV2/mobile/MobileHome.vue'
+import UiV2MobileOrders from '../views/uiV2/mobile/MobileOrders.vue'
+import UiV2MobileOrderDetail from '../views/uiV2/mobile/MobileOrderDetail.vue'
+import UiV2MobileSchedule from '../views/uiV2/mobile/MobileSchedule.vue'
+import UiV2MobileDevices from '../views/uiV2/mobile/MobileDevices.vue'
+import UiV2MobileMine from '../views/uiV2/mobile/MobileMine.vue'
 
 const routes = [
   { path: '/', component: Dashboard },
@@ -35,6 +50,21 @@ const routes = [
   { path: '/item-mapping', component: ItemModelMapping },
   { path: '/sf-shipping', component: SfShippingWorkbench },
   { path: '/deposits', component: DepositManagement },
+  { path: '/ui-v2', component: UiV2Dashboard, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/orders', component: UiV2Orders, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/schedule', component: UiV2Schedule, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/devices', component: UiV2Devices, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/customers', component: UiV2Customers, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/deposit', component: UiV2Deposit, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/logistics', component: UiV2Logistics, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/reports', component: UiV2Reports, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/settings', component: UiV2Settings, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/mobile', component: UiV2MobileHome, meta: { uiV2Mock: true, uiV2Mobile: true } },
+  { path: '/ui-v2/mobile/orders', component: UiV2MobileOrders, meta: { uiV2Mock: true, uiV2Mobile: true } },
+  { path: '/ui-v2/mobile/orders/:id', component: UiV2MobileOrderDetail, meta: { uiV2Mock: true, uiV2Mobile: true } },
+  { path: '/ui-v2/mobile/schedule', component: UiV2MobileSchedule, meta: { uiV2Mock: true, uiV2Mobile: true } },
+  { path: '/ui-v2/mobile/devices', component: UiV2MobileDevices, meta: { uiV2Mock: true, uiV2Mobile: true } },
+  { path: '/ui-v2/mobile/mine', component: UiV2MobileMine, meta: { uiV2Mock: true, uiV2Mobile: true } },
 ]
 
 export default createRouter({
