@@ -8,10 +8,11 @@
     ]"
     :disabled="disabled || loading"
     :type="nativeType"
+    :aria-busy="loading ? 'true' : 'false'"
     @click="$emit('click', $event)"
   >
     <span v-if="loading" class="base-btn__spinner" aria-hidden="true"></span>
-    <slot v-if="icon && !loading" name="icon">
+    <slot v-if="($slots.icon || icon) && !loading" name="icon">
       <span class="base-btn__icon" aria-hidden="true">{{ icon }}</span>
     </slot>
     <span v-if="$slots.default" class="base-btn__label"><slot /></span>
@@ -45,11 +46,12 @@ defineEmits(['click'])
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-token-8, 8px);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
+  letter-spacing: 0;
   transition: background var(--duration-fast, 100ms) var(--ease-standard, ease),
               border-color var(--duration-fast, 100ms) var(--ease-standard, ease),
               color var(--duration-fast, 100ms) var(--ease-standard, ease),
@@ -58,34 +60,34 @@ defineEmits(['click'])
 }
 
 /* sizes */
-.base-btn--sm { min-height: 28px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
-.base-btn--md { min-height: 32px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
-.base-btn--lg { min-height: 36px; padding: 0 16px; font-size: 14px; border-radius: 8px; }
+.base-btn--sm { min-height: 28px; padding: 0 var(--space-token-8, 8px); font-size: 12px; border-radius: var(--radius-4, 4px); }
+.base-btn--md { min-height: 32px; padding: 0 var(--space-12, 12px); font-size: 13px; border-radius: var(--radius-8, 8px); }
+.base-btn--lg { min-height: 40px; padding: 0 var(--space-16, 16px); font-size: 14px; border-radius: var(--radius-8, 8px); }
 
 /* block */
 .base-btn--block { width: 100%; }
 
 /* primary */
 .base-btn--primary {
-  background: var(--brand-primary, #0f766e);
+  background: var(--color-primary, #007f6d);
   color: #fff;
-  border-color: var(--brand-primary, #0f766e);
-  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.16);
+  border-color: var(--color-primary, #007f6d);
+  box-shadow: var(--shadow-subtle, 0 1px 2px rgba(16,24,40,0.04));
 }
 .base-btn--primary:hover:not(:disabled) {
-  background: var(--brand-primary-hover, #0d9488);
-  border-color: var(--brand-primary-hover, #0d9488);
+  background: var(--brand-primary-hover, #00a889);
+  border-color: var(--brand-primary-hover, #00a889);
 }
 .base-btn--primary:active:not(:disabled) {
-  background: var(--brand-primary-active, #115e59);
+  background: var(--brand-primary-active, #06443d);
 }
 
 /* secondary */
 .base-btn--secondary {
-  background: var(--bg-surface, #fff);
-  color: var(--text-secondary, #52615b);
-  border-color: var(--border-subtle, #e5e7eb);
-  box-shadow: var(--shadow-card, 0 1px 2px rgba(16,24,40,0.04));
+  background: var(--color-surface, #fff);
+  color: var(--color-text-secondary, #4b5563);
+  border-color: var(--color-border, #e5e7eb);
+  box-shadow: var(--shadow-none, none);
 }
 .base-btn--secondary:hover:not(:disabled) {
   background: var(--bg-subtle, #f3f4f6);
@@ -95,7 +97,7 @@ defineEmits(['click'])
 /* ghost */
 .base-btn--ghost {
   background: transparent;
-  color: var(--text-secondary, #52615b);
+  color: var(--color-text-secondary, #4b5563);
 }
 .base-btn--ghost:hover:not(:disabled) {
   background: var(--bg-subtle, #f3f4f6);
@@ -106,7 +108,7 @@ defineEmits(['click'])
   background: var(--color-danger, #dc2626);
   color: #fff;
   border-color: var(--color-danger, #dc2626);
-  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.16);
+  box-shadow: var(--shadow-subtle, 0 1px 2px rgba(16,24,40,0.04));
 }
 .base-btn--danger:hover:not(:disabled) {
   background: #b91c1c;
@@ -116,7 +118,7 @@ defineEmits(['click'])
 /* link */
 .base-btn--link {
   background: transparent;
-  color: var(--brand-primary, #0f766e);
+  color: var(--color-primary, #007f6d);
   padding: 0;
   min-height: auto;
   box-shadow: none;
@@ -129,6 +131,7 @@ defineEmits(['click'])
 .base-btn:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* loading spinner */

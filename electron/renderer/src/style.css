@@ -58,17 +58,98 @@
   --font-mono: "IBM Plex Mono", "SF Mono", "Consolas", monospace;
 
   /* ============================================
+     Phase 02C Design System Tokens
+     Figma: 小狗相机助手商户版 - Design System
+     保留上方旧变量 alias；新组件优先使用本组语义 token。
+     注意：旧版 --space-4 / --space-8 已被页面当作 16px / 32px 使用，
+     本阶段不重定义它们，避免破坏现有页面布局。
+     ============================================ */
+
+  /* UI-V2 Design System Tokens */
+  --color-primary-900: #06211f;
+  --color-primary-800: #07312d;
+  --color-primary-700: #06443d;
+  --color-primary-600: #007f6d;
+  --color-primary-500: #00a889;
+  --color-primary-100: #e8f7f3;
+
+  --color-bg-page: #f6f8fa;
+  --color-bg-surface: #ffffff;
+  --color-bg-sidebar: #06211f;
+  --color-border-subtle: #e7edf2;
+  --color-text-primary: #101828;
+  --color-text-secondary: #667085;
+  --color-text-tertiary: #98a2b3;
+
+  /* Compatibility names used by existing Electron components. */
+  --color-primary: var(--color-primary-600);
+  --color-background: var(--color-bg-page);
+  --color-surface: var(--color-bg-surface);
+  --color-border: var(--color-border-subtle);
+  --color-text: var(--color-text-primary);
+  --color-text-muted: var(--color-text-secondary);
+  --color-text-faint: var(--color-text-tertiary);
+
+  /* Spacing Tokens: strict Figma scale for new Foundation components */
+  --space-token-4: 4px;
+  --space-token-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+
+  /* Radius Tokens */
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+
+  /* Shadow Tokens */
+  --shadow-none: none;
+  --shadow-subtle: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-floating: 0 12px 32px rgba(16, 24, 40, 0.12);
+
+  /* Semantic Status Tokens */
+  --status-order-pending-shipping: #f59e0b;
+  --status-order-in-use: #3b82f6;
+  --status-order-pending-return: #f59e0b;
+  --status-order-overdue: #ef4444;
+  --status-order-completed: #98a2b3;
+
+  --status-schedule-available: #10b981;
+  --status-schedule-occupied: #3b82f6;
+  --status-schedule-conflict: #ef4444;
+  --status-schedule-maintenance: #f59e0b;
+
+  --status-device-available: #10b981;
+  --status-device-rented: #3b82f6;
+  --status-device-maintenance: #f59e0b;
+  --status-device-exception: #ef4444;
+
+  --status-deposit-pending: #f59e0b;
+  --status-deposit-approved: #10b981;
+  --status-deposit-rejected: #ef4444;
+  --status-deposit-exception: #ef4444;
+
+  --status-shipping-pending: #f59e0b;
+  --status-shipping-in-transit: #3b82f6;
+  --status-shipping-signed: #10b981;
+  --status-shipping-exception: #ef4444;
+
+  /* ============================================
      v2 Design Tokens — 新组件 / 新页面使用
      与 ui-redesign-template.md 对齐。
      命名不与旧变量冲突。
      ============================================ */
 
   /* 品牌主色 */
-  --brand-primary: #0f766e;
-  --brand-primary-hover: #0d9488;
-  --brand-primary-active: #115e59;
-  --brand-primary-soft: rgba(20, 184, 166, 0.1);
-  --brand-primary-border: rgba(20, 184, 166, 0.24);
+  --brand-primary: var(--color-primary-600);
+  --brand-primary-hover: var(--color-primary-500);
+  --brand-primary-active: var(--color-primary-700);
+  --brand-primary-soft: var(--color-primary-100);
+  --brand-primary-border: rgba(0, 127, 109, 0.24);
 
   /* 状态色 */
   --color-success: #16a34a;
@@ -83,7 +164,7 @@
   --color-danger-soft: #fef2f2;
   --color-danger-border: #fecaca;
 
-  --color-info: #2563eb;
+  --color-info: #3b82f6;
   --color-info-soft: #eff6ff;
   --color-info-border: #bfdbfe;
 
@@ -101,8 +182,8 @@
   --border-default: #d1d5db;
 
   /* 阴影（克制） */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-popover: 0 12px 32px rgba(16, 24, 40, 0.12);
+  --shadow-card: var(--shadow-subtle);
+  --shadow-popover: var(--shadow-floating);
 
   /* 动效 */
   --duration-fast: 100ms;
@@ -200,7 +281,7 @@ input[type='radio'] {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  accent-color: #2563eb;
+  accent-color: var(--color-primary);
   cursor: pointer;
 }
 

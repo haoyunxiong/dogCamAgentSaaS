@@ -1,17 +1,17 @@
 <template>
-  <div class="app-layout" :class="{ 'sidebar-collapsed': ui.sidebarCollapsed }">
-    <AppSidebar />
+  <div class="app-layout app-shell" :class="{ 'sidebar-collapsed': ui.sidebarCollapsed }">
+    <AppSidebar class="app-shell-sidebar" />
 
-    <div class="app-main">
+    <div class="app-main app-shell-main">
       <AppTopBar />
-      <div class="app-main-inner">
+      <main class="app-main-inner app-content-scroll" role="main">
         <BrowserPreviewNotice v-if="browserPreviewMode" :route-path="route.path" />
         <router-view v-else v-slot="{ Component, route: viewRoute }">
           <transition name="page">
             <component :is="Component" :key="viewRoute.path" />
           </transition>
         </router-view>
-      </div>
+      </main>
     </div>
 
     <ToastHost />
@@ -131,7 +131,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg-app, #f7f8fa);
+  background: var(--color-background, #f6f8fb);
 }
 
 .app-main {
@@ -140,7 +140,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: transparent;
+  background: var(--color-background, #f6f8fb);
 }
 
 .app-main-inner {
@@ -148,7 +148,13 @@ onUnmounted(() => {
   min-height: 0;
   overflow: auto;
   width: 100%;
-  padding: 16px 18px 20px;
+  padding: var(--space-20, 20px) var(--space-24, 24px) var(--space-24, 24px);
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
+
+.app-content-scroll {
+  position: relative;
 }
 
 .page-enter-from { opacity: 0; transform: translateY(10px) scale(0.995); }

@@ -10,6 +10,11 @@
         <span v-if="pageLabel" class="tb-crumb-sep">/</span>
         <span v-if="pageLabel" class="tb-crumb-page">{{ pageLabel }}</span>
       </div>
+      <div class="tb-context" aria-label="当前工作区信息">
+        <span>成都小狗相机租赁</span>
+        <span>本地运行</span>
+        <span class="tb-context-ok">系统正常</span>
+      </div>
     </div>
 
     <div class="tb-center">
@@ -63,18 +68,23 @@ const ui = useUiStore()
 const pending = ref(false)
 
 const META = {
-  '/':          { section: '概览',     page: '控制台' },
-  '/orders':    { section: '经营管理', page: '订单履约' },
-  '/devices':   { section: '经营管理', page: '设备管理' },
-  '/schedule':  { section: '经营管理', page: '租赁档期' },
-  '/reports':   { section: '经营管理', page: '报表中心' },
-  '/takeovers': { section: '对话中心', page: '人工接管' },
-  '/pending':   { section: '对话中心', page: '消息审批' },
-  '/learning':  { section: '对话中心', page: '学习审核' },
-  '/market':    { section: '运营工具', page: '市场监控' },
-  '/settings':  { section: '配置中心', page: '设置' },
-  '/prompts':   { section: '配置中心', page: '提示词' },
-  '/knowledge': { section: '配置中心', page: '知识库' },
+  '/':            { section: '核心运营',   page: '控制台 / 工作台' },
+  '/orders':      { section: '核心运营',   page: '订单履约' },
+  '/schedule':    { section: '核心运营',   page: '租赁档期' },
+  '/devices':     { section: '核心运营',   page: '设备管理' },
+  '/sf-shipping': { section: '核心运营',   page: '顺丰寄件' },
+  '/deposits':    { section: '核心运营',   page: '免押管理' },
+  '/reports':     { section: '增长与分析', page: '报表中心' },
+  '/inquiries':   { section: '增长与分析', page: '询单分析' },
+  '/market':      { section: '增长与分析', page: '市场监控' },
+  '/pricing':     { section: '增长与分析', page: '定价' },
+  '/prompts':     { section: '自动化与知识', page: '提示词' },
+  '/knowledge':   { section: '自动化与知识', page: '知识库' },
+  '/takeovers':   { section: '自动化与知识', page: '人工接管' },
+  '/pending':     { section: '自动化与知识', page: '消息审批' },
+  '/learning':    { section: '自动化与知识', page: '学习审核' },
+  '/settings':    { section: '系统配置',   page: '设置' },
+  '/item-mapping': { section: '系统配置',  page: '商品型号绑定' },
 }
 
 const sectionLabel = computed(() => META[route.path]?.section || '工作台')
@@ -122,11 +132,11 @@ function openPalette() {
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 56px;
-  padding: 0 14px;
-  background: var(--bg-surface, #fff);
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  gap: var(--space-16, 16px);
+  height: 60px;
+  padding: 0 var(--space-20, 20px);
+  background: var(--color-surface, #fff);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
   box-shadow: none;
 }
 
@@ -135,19 +145,22 @@ function openPalette() {
   align-items: center;
   gap: 10px;
 }
+.tb-left {
+  min-width: 0;
+}
 .tb-center { flex: 1; min-width: 0; }
 
 .tb-search {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: min(360px, 100%);
+  width: min(380px, 100%);
   height: 32px;
   padding: 0 10px 0 11px;
-  background: #fff;
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  border-radius: 8px;
-  color: #98a2b3;
+  background: #f8fafc;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-8, 8px);
+  color: var(--color-text-muted, #6b7280);
   font-size: 13px;
   cursor: pointer;
   box-shadow: none;
@@ -156,22 +169,22 @@ function openPalette() {
 }
 .tb-search:hover {
   background: #fff;
-  border-color: var(--border-default, #d1d5db);
+  border-color: var(--brand-primary-border, rgba(0, 127, 109, 0.24));
 }
-.tb-search-icon { color: #94a3b8; }
+.tb-search-icon { color: var(--color-text-faint, #9ca3af); }
 .tb-search-text {
   flex: 1;
   text-align: left;
-  color: #a1aab7;
+  color: var(--color-text-muted, #6b7280);
   user-select: none;
 }
 .tb-search-kbd {
   padding: 3px 8px;
   font-size: 11px; font-family: 'Consolas', monospace;
-  color: #667085;
-  background: #f8fafc;
+  color: var(--color-text-muted, #6b7280);
+  background: #fff;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 6px;
+  border-radius: var(--radius-4, 4px);
   box-shadow: none;
 }
 
@@ -183,16 +196,16 @@ function openPalette() {
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-8, 8px);
   background: transparent;
-  color: var(--text-secondary, #52615b);
+  color: var(--color-text-secondary, #4b5563);
   font-size: 16px;
   border: 1px solid transparent;
 }
 .tb-icon-btn:hover {
-  background: var(--bg-subtle, #f3f4f6);
-  color: var(--text-main, #27342f);
-  border-color: var(--border-subtle, #e5e7eb);
+  background: #f8fafc;
+  color: var(--color-text, #111827);
+  border-color: var(--brand-primary-border, rgba(0, 127, 109, 0.24));
 }
 
 .tb-crumb {
@@ -200,10 +213,35 @@ function openPalette() {
   align-items: center;
   gap: 6px;
   font-size: 13px;
+  min-width: 0;
 }
-.tb-crumb-section { color: var(--text-muted); font-weight: 600; }
-.tb-crumb-sep { color: var(--text-faint); }
-.tb-crumb-page { color: var(--text-strong); font-weight: 600; }
+.tb-crumb-section { color: var(--color-text-muted, #6b7280); font-weight: 600; }
+.tb-crumb-sep { color: var(--color-text-faint, #9ca3af); }
+.tb-crumb-page { color: var(--color-text, #111827); font-weight: 700; white-space: nowrap; }
+
+.tb-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 12px;
+}
+.tb-context span {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border, #e5e7eb);
+  white-space: nowrap;
+}
+.tb-context-ok {
+  color: var(--color-success, #16a34a);
+  background: var(--color-success-soft, #f0fdf4) !important;
+  border-color: var(--color-success-border, #bbf7d0) !important;
+}
 
 .tb-status {
   display: inline-flex;
@@ -241,7 +279,7 @@ function openPalette() {
   min-width: 68px;
   height: 32px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-8, 8px);
   font-size: 12px;
   font-weight: 600;
   color: #fff;
@@ -287,6 +325,9 @@ function openPalette() {
 
 @media (max-width: 1120px) {
   .tb-status-txt {
+    display: none;
+  }
+  .tb-context {
     display: none;
   }
 }

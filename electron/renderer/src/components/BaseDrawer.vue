@@ -4,13 +4,16 @@
       <div v-if="modelValue" class="drawer-overlay" @click.self="handleOverlayClick">
         <div
           class="drawer-panel anim-slide-in-right"
+          :class="[`drawer-panel--${placement}`]"
           :style="{ width: drawerWidth }"
         >
           <div class="drawer-header">
-            <div class="drawer-heading">
-              <h2 class="drawer-title">{{ title }}</h2>
-              <p v-if="subtitle" class="drawer-subtitle">{{ subtitle }}</p>
-            </div>
+            <slot name="header">
+              <div class="drawer-heading">
+                <h2 class="drawer-title">{{ title }}</h2>
+                <p v-if="subtitle" class="drawer-subtitle">{{ subtitle }}</p>
+              </div>
+            </slot>
             <button class="drawer-close-btn" @click="close" aria-label="关闭" title="关闭">
               ✕
             </button>
@@ -28,17 +31,27 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
   width: { type: [String, Number], default: 640 },
+  placement: {
+    type: String,
+    default: 'right',
+    validator: (v) => ['right', 'bottom'].includes(v),
+  },
   closeOnOverlay: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'close'])
 
-const drawerWidth = typeof props.width === 'number' ? `${props.width}px` : props.width
+const drawerWidth = computed(() => props.placement === 'bottom'
+  ? '100%'
+  : (typeof props.width === 'number' ? `${props.width}px` : props.width)
+)
 
 function handleOverlayClick() {
   if (props.closeOnOverlay) close()
@@ -58,23 +71,33 @@ function close() {
   background: rgba(16, 24, 40, 0.32);
   display: flex;
   justify-content: flex-end;
+  align-items: stretch;
 }
 .drawer-panel {
   height: 100%;
   max-width: calc(100vw - 32px);
-  background: var(--bg-surface, #fff);
-  box-shadow: var(--shadow-popover, 0 12px 32px rgba(16,24,40,0.12));
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-floating, 0 12px 32px rgba(16,24,40,0.12));
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
+.drawer-panel--bottom {
+  align-self: flex-end;
+  height: auto;
+  max-height: min(82vh, 720px);
+  max-width: none;
+  border-radius: var(--radius-16, 16px) var(--radius-16, 16px) 0 0;
+}
+
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  gap: var(--space-12, 12px);
+  padding: var(--space-16, 16px) var(--space-20, 20px);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
 }
 .drawer-heading {
@@ -83,12 +106,12 @@ function close() {
 .drawer-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-strong, #17211d);
+  color: var(--color-text, #111827);
   margin: 0;
 }
 .drawer-subtitle {
   margin: 3px 0 0;
-  color: var(--text-muted, #6f8078);
+  color: var(--color-text-muted, #6b7280);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -96,15 +119,15 @@ function close() {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 20px;
+  padding: var(--space-20, 20px);
 }
 .drawer-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 20px;
-  border-top: 1px solid var(--border-subtle, #e5e7eb);
+  gap: var(--space-token-8, 8px);
+  padding: var(--space-12, 12px) var(--space-20, 20px);
+  border-top: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
 }
 
@@ -125,14 +148,14 @@ function close() {
   height: 32px;
   flex: 0 0 auto;
   background: transparent;
-  color: var(--text-secondary, #52615b);
+  color: var(--color-text-secondary, #4b5563);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-8, 8px);
   cursor: pointer;
   font-size: 14px;
 }
 .drawer-close-btn:hover {
   background: var(--bg-subtle, #f3f4f6);
-  border-color: var(--border-subtle, #e5e7eb);
+  border-color: var(--color-border, #e5e7eb);
 }
 </style>

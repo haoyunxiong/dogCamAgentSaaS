@@ -40,12 +40,18 @@
     </div>
 
     <div class="sb-bottom">
-      <div v-if="!ui.sidebarCollapsed" class="sb-hint">
-        <div class="sb-hint-head">
-          <span class="sb-hint-title">待办总览</span>
-          <span class="sb-hint-count">{{ ui.totalPending }}</span>
+      <div v-if="!ui.sidebarCollapsed" class="sb-account">
+        <div class="sb-account-main">
+          <div class="sb-account-avatar">小</div>
+          <div class="sb-account-copy">
+            <div class="sb-account-store">成都小狗相机租赁</div>
+            <div class="sb-account-role">当前账号 / 店长</div>
+          </div>
         </div>
-        <div class="sb-hint-txt">接管、审批、学习审核会在这里统一汇总。</div>
+        <div class="sb-account-meta">
+          <span>本地运行</span>
+          <span v-if="ui.totalPending > 0" class="sb-pending-pill">待办 {{ ui.totalPending > 99 ? '99+' : ui.totalPending }}</span>
+        </div>
       </div>
     </div>
   </aside>
@@ -76,45 +82,40 @@ const ui = useUiStore()
 
 const groups = [
   {
-    label: '工作台',
+    label: '核心运营',
     items: [
-      { to: '/', label: '控制台', icon: Home, exact: true },
-    ],
-  },
-  {
-    label: '订单与履约',
-    items: [
+      { to: '/',         label: '控制台 / 工作台', icon: Home, exact: true },
       { to: '/orders',   label: '订单履约', icon: Package, badgeKey: 'orders' },
+      { to: '/schedule', label: '租赁档期', icon: CalendarDays },
+      { to: '/devices',  label: '设备管理', icon: Boxes },
       { to: '/sf-shipping', label: '顺丰寄件', icon: Truck },
       { to: '/deposits', label: '免押管理', icon: FileCheck },
-      { to: '/devices',  label: '设备管理', icon: Boxes },
-      { to: '/schedule', label: '租赁档期', icon: CalendarDays },
-      { to: '/pricing',  label: '租赁定价', icon: CircleDollarSign },
     ],
   },
   {
-    label: '会话协同',
+    label: '增长与分析',
     items: [
+      { to: '/reports',  label: '报表中心', icon: ChartNoAxesCombined },
+      { to: '/inquiries', label: '询单分析', icon: ChartNoAxesCombined },
+      { to: '/market', label: '市场监控', icon: Radar },
+      { to: '/pricing',  label: '定价', icon: CircleDollarSign },
+    ],
+  },
+  {
+    label: '自动化与知识',
+    items: [
+      { to: '/prompts',   label: '提示词',  icon: SquarePen },
+      { to: '/knowledge', label: '知识库',  icon: BookOpen },
       { to: '/takeovers', label: '人工接管', icon: MessageSquareText, badgeKey: 'takeovers' },
       { to: '/pending',   label: '消息审批', icon: Mail, badgeKey: 'pending' },
       { to: '/learning',  label: '学习审核', icon: Flag, badgeKey: 'learning' },
     ],
   },
   {
-    label: '数据与运营',
-    items: [
-      { to: '/inquiries', label: '询单分析', icon: ChartNoAxesCombined },
-      { to: '/item-mapping', label: '商品型号绑定', icon: Link2 },
-      { to: '/reports',  label: '报表中心', icon: ChartNoAxesCombined },
-      { to: '/market', label: '市场监控', icon: Radar },
-    ],
-  },
-  {
-    label: '系统设置',
+    label: '系统配置',
     items: [
       { to: '/settings',  label: '设置',    icon: Settings },
-      { to: '/prompts',   label: '提示词',  icon: SquarePen },
-      { to: '/knowledge', label: '知识库',  icon: BookOpen },
+      { to: '/item-mapping', label: '商品型号绑定', icon: Link2 },
     ],
   },
 ]
@@ -128,10 +129,13 @@ const groups = [
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 14px 10px 12px;
-  background: #0f172a;
-  color: var(--text-on-dark);
-  border-right: 1px solid rgba(148, 163, 184, 0.08);
+  padding: var(--space-16, 16px) var(--space-12, 12px) var(--space-12, 12px);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(0, 168, 137, 0.16), transparent 30%),
+    var(--color-bg-sidebar, #06211f);
+  color: var(--text-on-dark, #edf3f0);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 1px 0 0 rgba(6, 33, 31, 0.28);
   transition: width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease;
 }
 .app-sidebar-v2.collapsed {
@@ -141,7 +145,7 @@ const groups = [
   padding: 20px 8px 16px;
 }
 
-.sb-top { display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto; min-height: 0; }
+.sb-top { display: flex; flex-direction: column; gap: var(--space-12, 12px); flex: 1 1 auto; min-height: 0; }
 .sb-nav-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -150,16 +154,16 @@ const groups = [
 }
 .sb-nav-scroll::-webkit-scrollbar { width: 6px; }
 .sb-nav-scroll::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.24); border-radius: 3px; }
-.sb-nav-scroll::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
+.sb-nav-scroll::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.42); }
 
 .brand-card {
   display: flex;
-  gap: 12px;
+  gap: var(--space-12, 12px);
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px var(--space-12, 12px);
+  border-radius: var(--radius-12, 12px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .brand-card.mini { justify-content: center; padding: 10px; }
 
@@ -169,20 +173,19 @@ const groups = [
   border-radius: 10px;
   flex: 0 0 auto;
   object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
 }
-.brand-title  { font-size: 14px; font-weight: 700; color: #f8fafc; }
-.brand-subtitle { margin-top: 2px; font-size: 11px; color: rgba(226, 232, 240, 0.66); }
+.brand-title  { font-size: 14px; font-weight: 700; color: #f7fbfa; }
+.brand-subtitle { margin-top: 2px; font-size: 11px; color: rgba(231, 243, 241, 0.62); }
 
 .sb-nav { display: flex; flex-direction: column; gap: 2px; }
 
 .sb-group-label {
-  margin: 12px 10px 6px;
+  margin: 14px 10px 6px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(203, 213, 225, 0.72);
+  letter-spacing: 0;
+  color: rgba(231, 243, 241, 0.54);
 }
 
 .nav-item {
@@ -190,13 +193,13 @@ const groups = [
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0 10px;
-  border-radius: 8px;
-  color: rgba(226, 232, 240, 0.72);
+  border-radius: var(--radius-8, 8px);
+  color: rgba(231, 243, 241, 0.72);
   background: transparent;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   border: 1px solid transparent;
 }
 .app-sidebar-v2.collapsed .nav-item {
@@ -205,13 +208,14 @@ const groups = [
   height: 36px;
 }
 .nav-item:hover {
-  background: rgba(148, 163, 184, 0.1);
-  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7fbfa;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .nav-item.active {
-  background: rgba(20, 184, 166, 0.10);
-  color: #f1f5f9;
-  border-color: rgba(20, 184, 166, 0.12);
+  background: rgba(0, 168, 137, 0.14);
+  color: #f7fbfa;
+  border-color: rgba(0, 168, 137, 0.18);
 }
 .nav-item.active::before {
   content: '';
@@ -221,14 +225,14 @@ const groups = [
   bottom: 6px;
   width: 3px;
   border-radius: 2px;
-  background: var(--brand-primary, #14b8a6);
+  background: var(--color-primary-500, #00a889);
 }
 
 .nav-ic {
   width: 22px;
   display: inline-flex;
   justify-content: center;
-  color: rgba(226, 232, 240, 0.82);
+  color: rgba(231, 243, 241, 0.78);
 }
 .nav-icon-svg {
   width: 16px;
@@ -244,8 +248,8 @@ const groups = [
   height: 18px;
   padding: 0 6px;
   border-radius: 999px;
-  background: rgba(248, 113, 113, 0.18);
-  border: 1px solid rgba(248, 113, 113, 0.22);
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   color: #fff;
   font-size: 10px;
   font-weight: 800;
@@ -259,44 +263,68 @@ const groups = [
   width: 8px; height: 8px;
   border-radius: 50%;
   background: #fb7185;
-  box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.15);
+  box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.16);
 }
 
 .sb-bottom { padding: 8px 4px 0; flex-shrink: 0; }
-.sb-hint {
-  padding: 9px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+.sb-account {
+  padding: var(--space-12, 12px);
+  border-radius: var(--radius-12, 12px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.sb-hint-head {
+.sb-account-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-account-avatar {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-8, 8px);
+  background: var(--color-primary-500, #00a889);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.sb-account-copy {
+  min-width: 0;
+}
+.sb-account-store {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f7fbfa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-account-role {
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(231, 243, 241, 0.58);
+}
+.sb-account-meta {
+  margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  font-size: 11px;
+  color: rgba(231, 243, 241, 0.5);
 }
-.sb-hint-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(226, 232, 240, 0.9);
-}
-.sb-hint-count {
-  min-width: 24px;
+.sb-pending-pill {
   height: 20px;
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(20, 184, 166, 0.18);
-  color: #99f6e4;
-  font-size: 11px;
-  font-weight: 800;
-}
-.sb-hint-txt {
-  margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.45;
-  color: rgba(226, 232, 240, 0.6);
+  background: rgba(245, 158, 11, 0.14);
+  color: #fde68a;
+  font-weight: 700;
 }
 </style>
