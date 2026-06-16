@@ -1,9 +1,10 @@
 <template>
   <Teleport to="body">
     <transition name="dialog">
-      <div v-if="modelValue" class="dialog-overlay" @click.self="cancel">
-        <div class="dialog-panel anim-scale-in">
+      <div v-if="modelValue" class="dialog-overlay" @click.self="handleOverlayClick">
+        <div class="dialog-panel anim-scale-in" :class="`dialog-panel--${resolvedVariant}`">
           <h2 v-if="title" class="dialog-title">{{ title }}</h2>
+          <p v-if="subtitle" class="dialog-subtitle">{{ subtitle }}</p>
           <div class="dialog-body">
             <slot />
           </div>
@@ -12,7 +13,7 @@
               <button class="base-btn base-btn--secondary" style="min-height:32px;padding:0 12px;font-size:13px" @click="cancel">{{ cancelText }}</button>
               <button
                 class="base-btn dialog-btn--confirm"
-                :class="danger ? 'dialog-btn--danger' : 'dialog-btn--primary'"
+                :class="resolvedVariant === 'danger' ? 'dialog-btn--danger' : 'dialog-btn--primary'"
                 style="min-height:32px;padding:0 12px;font-size:13px"
                 :disabled="loading"
                 @click="confirm"
@@ -29,19 +30,33 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: '' },
+  subtitle: { type: String, default: '' },
+  variant: {
+    type: String,
+    default: 'confirm',
+    validator: (v) => ['confirm', 'warning', 'form', 'danger'].includes(v),
+  },
   confirmText: { type: String, default: '确认' },
   cancelText: { type: String, default: '取消' },
   danger: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
+  closeOnOverlay: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'close'])
 
+const resolvedVariant = computed(() => props.danger ? 'danger' : props.variant)
+
 function confirm() {
   emit('confirm')
+}
+function handleOverlayClick() {
+  if (props.closeOnOverlay) cancel()
 }
 function cancel() {
   emit('update:modelValue', false)
@@ -63,28 +78,44 @@ function cancel() {
 }
 .dialog-panel {
   width: min(440px, 100%);
-  background: var(--bg-surface, #fff);
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-popover, 0 12px 32px rgba(16,24,40,0.12));
-  padding: 24px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-12, 12px);
+  box-shadow: var(--shadow-floating, 0 12px 32px rgba(16,24,40,0.12));
+  padding: var(--space-24, 24px);
+}
+.dialog-panel--warning {
+  border-color: var(--color-warning-border, #fed7aa);
+}
+.dialog-panel--danger {
+  border-color: var(--color-danger-border, #fecaca);
+}
+.dialog-panel--form {
+  width: min(560px, 100%);
 }
 .dialog-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-strong, #17211d);
+  color: var(--color-text, #111827);
   margin: 0 0 8px;
+}
+.dialog-subtitle {
+  margin: -2px 0 var(--space-12, 12px);
+  color: var(--color-text-muted, #6b7280);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .dialog-body {
   font-size: 14px;
-  color: var(--text-secondary, #52615b);
+  color: var(--color-text-secondary, #4b5563);
   line-height: 1.6;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-20, 20px);
 }
 .dialog-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-token-8, 8px);
 }
 .base-btn {
   display: inline-flex;
@@ -100,20 +131,20 @@ function cancel() {
 }
 .base-btn:disabled { opacity: 0.48; cursor: not-allowed; }
 .base-btn--secondary {
-  background: var(--bg-surface, #fff);
-  color: var(--text-secondary, #52615b);
-  border-color: var(--border-subtle, #e5e7eb);
+  background: var(--color-surface, #fff);
+  color: var(--color-text-secondary, #4b5563);
+  border-color: var(--color-border, #e5e7eb);
 }
 .base-btn--secondary:hover:not(:disabled) {
   background: var(--bg-subtle, #f3f4f6);
 }
 .dialog-btn--primary {
-  background: var(--brand-primary, #0f766e);
+  background: var(--color-primary, #2563eb);
   color: #fff;
-  border-color: var(--brand-primary, #0f766e);
+  border-color: var(--color-primary, #2563eb);
 }
 .dialog-btn--primary:hover:not(:disabled) {
-  background: var(--brand-primary-hover, #0d9488);
+  background: #1d4ed8;
 }
 .dialog-btn--danger {
   background: var(--color-danger, #dc2626);
