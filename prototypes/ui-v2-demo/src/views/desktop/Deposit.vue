@@ -57,11 +57,14 @@
       @close="selectedReview = null"
     >
       <div v-if="selectedReview" class="drawer-stack">
-        <section class="detail-hero">
-          <StatusTag :label="selectedReview.reviewStatus" />
-          <h3>{{ selectedReview.customerName }}</h3>
-          <p>{{ selectedReview.model }} · {{ selectedReview.rentPeriod }}</p>
-        </section>
+        <DrawerSummary
+          :status="selectedReview.reviewStatus"
+          :title="selectedReview.customerName"
+          :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`"
+          :meta="`${selectedReview.orderNo} · ${selectedReview.phoneMasked}`"
+          primary-label="通过免押"
+          danger-label="驳回"
+        />
         <section class="detail-grid">
           <div><span>免押金额</span><strong>¥{{ selectedReview.requestedFreeAmount.toLocaleString() }}</strong></div>
           <div><span>押金状态</span><strong>{{ selectedReview.depositStatus }}</strong></div>
@@ -75,10 +78,6 @@
           </div>
           <div class="panel-body note-text">{{ selectedReview.riskReason }}</div>
         </section>
-        <div class="drawer-actions">
-          <BaseButton variant="secondary">驳回</BaseButton>
-          <BaseButton>通过免押</BaseButton>
-        </div>
       </div>
     </Drawer>
   </AppShell>
@@ -92,6 +91,7 @@ import BaseInput from '../../components/BaseInput.vue'
 import BaseSelect from '../../components/BaseSelect.vue'
 import BaseTable from '../../components/BaseTable.vue'
 import Drawer from '../../components/Drawer.vue'
+import DrawerSummary from '../../components/DrawerSummary.vue'
 import FilterBar from '../../components/FilterBar.vue'
 import MetricCard from '../../components/MetricCard.vue'
 import StatusTabs from '../../components/StatusTabs.vue'

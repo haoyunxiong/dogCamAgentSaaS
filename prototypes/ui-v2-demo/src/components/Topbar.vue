@@ -1,12 +1,14 @@
 <template>
   <header class="topbar">
     <div class="command-search">
+      <span class="search-prefix">全局搜索</span>
       <span>搜索订单、客户、设备编号、运单</span>
       <kbd>⌘K</kbd>
     </div>
     <div class="topbar-actions">
       <button class="context-button">深圳总仓</button>
       <button class="context-button">06/14 今日</button>
+      <button class="context-button">Mock 数据</button>
       <button class="notification-button"><span /> 风险 5</button>
       <div class="avatar">运营</div>
     </div>
@@ -29,7 +31,7 @@
 }
 
 .command-search {
-  width: min(560px, 48vw);
+  width: min(640px, 52vw);
   height: 36px;
   padding: 0 10px 0 12px;
   border: 1px solid var(--border);
@@ -56,6 +58,11 @@ kbd {
   display: flex;
   align-items: center;
   gap: 7px;
+}
+
+.search-prefix {
+  color: var(--brand);
+  font-weight: 780;
 }
 
 .context-button,

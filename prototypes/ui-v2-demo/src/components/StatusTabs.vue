@@ -35,6 +35,18 @@ const normalizedItems = computed(() => props.items.map((item) => (
   align-items: center;
   gap: var(--space-8);
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 2px 0 var(--space-4);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.status-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.status-tabs :deep(.filter-chip) {
+  flex: 0 0 auto;
+  min-height: 36px;
+  scroll-snap-align: start;
 }
 </style>

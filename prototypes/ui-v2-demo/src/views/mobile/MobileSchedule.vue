@@ -2,11 +2,11 @@
   <MobileShell>
     <div class="mobile-page">
       <header class="mobile-header">
-        <div>
-          <span>移动档期</span>
-          <h1>档期中心</h1>
-        </div>
-        <BaseButton variant="secondary" size="sm" @click="sheetOpen = true">筛选</BaseButton>
+        <MobileAppBar eyebrow="移动档期" title="档期中心" subtitle="按日期和型号快速判断可租余量">
+          <template #actions>
+            <BaseButton variant="secondary" size="sm" @click="sheetOpen = true">筛选</BaseButton>
+          </template>
+        </MobileAppBar>
       </header>
 
       <StatusTabs v-model="week" :items="weekTabs" />
@@ -71,6 +71,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import MobileShell from '../../components/MobileShell.vue'
+import MobileAppBar from '../../components/MobileAppBar.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BaseSelect from '../../components/BaseSelect.vue'
 import BottomSheet from '../../components/BottomSheet.vue'
@@ -153,22 +154,17 @@ const availableDevices = computed(() => {
 
 .mobile-header,
 .availability-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--space-12);
 }
 
-.mobile-header span {
-  color: var(--text-muted);
-  font-size: var(--font-caption-size);
-  font-weight: 720;
+.mobile-header {
+  display: block;
 }
 
-.mobile-header h1 {
-  margin: var(--space-4) 0 0;
-  font-size: var(--font-mobile-nav-title-size);
-  line-height: var(--font-mobile-nav-title-line);
+.availability-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .summary-card,

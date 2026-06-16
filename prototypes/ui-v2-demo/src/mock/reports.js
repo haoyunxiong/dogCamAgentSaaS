@@ -6,20 +6,35 @@ export const reportKpis = [
 ]
 
 export const revenueTrend = [
-  { label: '06/08', value: 42 },
-  { label: '06/09', value: 56 },
-  { label: '06/10', value: 48 },
-  { label: '06/11', value: 63 },
-  { label: '06/12', value: 78 },
-  { label: '06/13', value: 66 },
-  { label: '06/14', value: 84 }
+  { label: '06/08', value: 42, valueLabel: '4.2k' },
+  { label: '06/09', value: 56, valueLabel: '5.6k' },
+  { label: '06/10', value: 48, valueLabel: '4.8k' },
+  { label: '06/11', value: 63, valueLabel: '6.3k' },
+  { label: '06/12', value: 78, valueLabel: '7.8k' },
+  { label: '06/13', value: 66, valueLabel: '6.6k' },
+  { label: '06/14', value: 84, valueLabel: '8.4k' }
 ]
 
 export const channelTrend = [
-  { label: '闲鱼', value: 72 },
-  { label: '小红书', value: 54 },
-  { label: '抖音', value: 38 },
-  { label: '私域', value: 46 }
+  { label: '闲鱼', value: 72, valueLabel: '72单' },
+  { label: '小红书', value: 54, valueLabel: '54单' },
+  { label: '抖音', value: 38, valueLabel: '38单' },
+  { label: '私域', value: 46, valueLabel: '46单' }
+]
+
+export const utilizationTrend = [
+  { label: 'Pocket 3', value: 86, valueLabel: '86%' },
+  { label: 'G7X', value: 79, valueLabel: '79%' },
+  { label: 'X100V', value: 74, valueLabel: '74%' },
+  { label: 'CCD', value: 68, valueLabel: '68%' },
+  { label: 'A7M3', value: 71, valueLabel: '71%' }
+]
+
+export const reportPulse = [
+  { label: '订单增长', value: '+12.4%', note: '周末短租拉动' },
+  { label: '免押卡点', value: '17 单', note: '高价值设备需复核' },
+  { label: '设备缺口', value: '6 台', note: 'Pocket 3 最紧张' },
+  { label: '物流异常', value: '3 单', note: '需人工跟进' }
 ]
 
 export const modelRanking = [

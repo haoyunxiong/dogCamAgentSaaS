@@ -6,6 +6,7 @@
     </header>
     <ul>
       <li v-for="item in items" :key="item.title">
+        <span class="insight-dot" />
         <strong>{{ item.title }}</strong>
         <p>{{ item.desc }}</p>
       </li>
@@ -28,7 +29,7 @@ defineProps({
   border: 1px solid var(--border);
   border-radius: var(--radius-12);
   background: var(--surface);
-  box-shadow: var(--shadow-subtle);
+  box-shadow: var(--shadow-card);
   display: grid;
   gap: var(--space-12);
 }
@@ -56,6 +57,18 @@ li {
   padding: var(--space-12);
   border-radius: var(--radius-8);
   background: var(--surface-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.insight-dot {
+  position: absolute;
+  left: 0;
+  top: var(--space-12);
+  width: 3px;
+  height: 24px;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: var(--brand);
 }
 
 strong {

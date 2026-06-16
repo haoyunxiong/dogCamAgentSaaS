@@ -59,6 +59,11 @@ checkFiles('P1 support components', [
   'src/components/ToggleSwitch.vue'
 ])
 
+checkFiles('P1 visual hardening components', [
+  'src/components/MobileAppBar.vue',
+  'src/components/DrawerSummary.vue'
+])
+
 checkFiles('mobile core pages', [
   'src/views/mobile/MobileHome.vue',
   'src/views/mobile/MobileOrders.vue',
@@ -99,6 +104,23 @@ checkFiles('root files', [
 ])
 
 addCheck('App.vue renders RouterView', fileIncludes('src/App.vue', 'RouterView'), 'root app entry')
+addCheck('Mobile pages use MobileAppBar', [
+  'src/views/mobile/MobileHome.vue',
+  'src/views/mobile/MobileOrders.vue',
+  'src/views/mobile/MobileSchedule.vue',
+  'src/views/mobile/MobileDevices.vue',
+  'src/views/mobile/MobileMine.vue'
+].every((file) => fileIncludes(file, 'MobileAppBar')), '5 mobile top bars unified')
+addCheck('Desktop drawers use DrawerSummary', [
+  'src/views/desktop/Orders.vue',
+  'src/views/desktop/Devices.vue',
+  'src/views/desktop/Customers.vue',
+  'src/views/desktop/Deposit.vue',
+  'src/views/desktop/Logistics.vue'
+].every((file) => fileIncludes(file, 'DrawerSummary')), 'core desktop drawers unified')
+addCheck('Reports hardening: pulse section', fileIncludes('src/views/desktop/Reports.vue', 'report-pulse'), 'report pulse cards')
+addCheck('Reports hardening: utilization chart', fileIncludes('src/views/desktop/Reports.vue', 'utilizationTrend'), 'utilization chart data')
+addCheck('Mobile devices hardening: status tab panel', fileIncludes('src/views/mobile/MobileDevices.vue', 'device-tab-panel'), 'touch-friendly status tabs')
 
 const routeChecks = [
   ['desktop workbench route', "path: '/'"],

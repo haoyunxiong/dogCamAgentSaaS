@@ -76,14 +76,15 @@
     >
       <template v-if="selectedOrder">
         <div class="drawer-stack">
-          <section class="detail-hero">
-            <div>
-              <StatusTag :label="selectedOrder.status" />
-              <h3>{{ selectedOrder.nextAction }}</h3>
-              <p>{{ selectedOrder.rentStart }} 至 {{ selectedOrder.rentEnd }} · 租金 {{ selectedOrder.rentAmount }} 元</p>
-            </div>
-            <BaseButton @click="shippingOpen = true">创建顺丰寄件</BaseButton>
-          </section>
+          <DrawerSummary
+            :status="selectedOrder.status"
+            :title="selectedOrder.nextAction"
+            :description="`${selectedOrder.rentStart} 至 ${selectedOrder.rentEnd} · 租金 ${selectedOrder.rentAmount} 元`"
+            :meta="`${selectedOrder.customerName} · ${selectedOrder.channel}`"
+            primary-label="创建顺丰寄件"
+            secondary-label="标记已联系"
+            @primary="shippingOpen = true"
+          />
 
           <section class="fulfillment-steps">
             <div v-for="step in fulfillmentSteps" :key="step.label" :class="['fulfillment-step', { done: step.done }]">
@@ -145,13 +146,13 @@
     >
       <template v-if="selectedOrder">
         <div class="drawer-stack">
-          <section class="detail-hero">
-            <div>
-              <StatusTag :label="generated ? '待揽收' : '待下单'" :tone="generated ? 'info' : 'warning'" />
-              <h3>{{ generated ? '已生成顺丰 mock 运单' : '确认寄件信息' }}</h3>
-              <p>{{ selectedOrder.address }}</p>
-            </div>
-          </section>
+          <DrawerSummary
+            :status="generated ? '待揽收' : '待下单'"
+            :status-tone="generated ? 'info' : 'warning'"
+            :title="generated ? '已生成顺丰 mock 运单' : '确认寄件信息'"
+            :description="selectedOrder.address"
+            :meta="`${selectedOrder.orderNo} · ${selectedOrder.customerName}`"
+          />
           <ShippingSteps :steps="shippingSteps" />
           <section class="detail-grid one">
             <div>
@@ -185,6 +186,7 @@ import FilterBar from '../../components/FilterBar.vue'
 import OrderTable from '../../components/OrderTable.vue'
 import Pagination from '../../components/Pagination.vue'
 import Drawer from '../../components/Drawer.vue'
+import DrawerSummary from '../../components/DrawerSummary.vue'
 import DeviceCard from '../../components/DeviceCard.vue'
 import ShippingSteps from '../../components/ShippingSteps.vue'
 import RiskAlert from '../../components/RiskAlert.vue'

@@ -2,12 +2,7 @@
   <MobileShell>
     <div class="mobile-page">
       <header class="merchant-card">
-        <div class="avatar">运营</div>
-        <div>
-          <span>我的 / 商家中心</span>
-          <h1>小狗相机助手商户版</h1>
-          <p>阿宁 · 履约运营</p>
-        </div>
+        <MobileAppBar eyebrow="我的 / 商家中心" title="小狗相机助手商户版" subtitle="阿宁 · 履约运营" status-label="已启用" />
       </header>
 
       <section class="store-card">
@@ -42,6 +37,7 @@
 
 <script setup>
 import MobileShell from '../../components/MobileShell.vue'
+import MobileAppBar from '../../components/MobileAppBar.vue'
 import StatusTag from '../../components/StatusTag.vue'
 
 const tools = [
@@ -87,23 +83,13 @@ const settingGroups = [
 }
 
 .merchant-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.avatar {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-12);
-  background: var(--ink);
-  color: var(--color-text-inverse);
-  font-weight: 800;
-}
-
-.merchant-card span,
 .store-card span,
 .tool-grid span,
 .setting-row span {
@@ -111,13 +97,6 @@ const settingGroups = [
   font-size: var(--font-caption-size);
 }
 
-.merchant-card h1 {
-  margin: var(--space-4) 0 2px;
-  font-size: 18px;
-  line-height: var(--font-mobile-card-title-line);
-}
-
-.merchant-card p,
 .store-card p {
   margin: 0;
   color: var(--text-muted);

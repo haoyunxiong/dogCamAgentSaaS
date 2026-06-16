@@ -56,11 +56,14 @@
       @close="selectedDevice = null"
     >
       <div v-if="selectedDevice" class="drawer-stack">
-        <section class="detail-hero">
-          <StatusTag :label="selectedDevice.status" />
-          <h3>{{ selectedDevice.model }}</h3>
-          <p>{{ selectedDevice.location }} · 序列号 {{ selectedDevice.serialNo }}</p>
-        </section>
+        <DrawerSummary
+          :status="selectedDevice.status"
+          :title="selectedDevice.model"
+          :description="`${selectedDevice.location} · 序列号 ${selectedDevice.serialNo}`"
+          :meta="`资产编号 ${selectedDevice.assetNo}`"
+          primary-label="标记清洁完成"
+          secondary-label="查看订单"
+        />
         <section class="detail-grid">
           <div><span>当前订单</span><strong>{{ selectedDevice.currentOrderId || '无' }}</strong></div>
           <div><span>下一预约</span><strong>{{ selectedDevice.nextBookingDate }}</strong></div>
@@ -91,6 +94,7 @@ import BaseInput from '../../components/BaseInput.vue'
 import BaseSelect from '../../components/BaseSelect.vue'
 import BaseTable from '../../components/BaseTable.vue'
 import Drawer from '../../components/Drawer.vue'
+import DrawerSummary from '../../components/DrawerSummary.vue'
 import FilterBar from '../../components/FilterBar.vue'
 import MetricCard from '../../components/MetricCard.vue'
 import Pagination from '../../components/Pagination.vue'

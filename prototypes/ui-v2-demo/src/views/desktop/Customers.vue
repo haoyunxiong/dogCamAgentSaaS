@@ -53,11 +53,14 @@
       @close="selectedCustomer = null"
     >
       <div v-if="selectedCustomer" class="drawer-stack">
-        <section class="detail-hero">
-          <StatusTag :label="selectedCustomer.riskLevel" />
-          <h3>{{ selectedCustomer.name }}</h3>
-          <p>{{ selectedCustomer.city }} · {{ selectedCustomer.depositPreference }}</p>
-        </section>
+        <DrawerSummary
+          :status="selectedCustomer.riskLevel"
+          :title="selectedCustomer.name"
+          :description="`${selectedCustomer.city} · ${selectedCustomer.depositPreference}`"
+          :meta="`${selectedCustomer.channel} · ${selectedCustomer.phoneMasked}`"
+          primary-label="查看最近订单"
+          secondary-label="标记已联系"
+        />
         <section class="detail-grid">
           <div><span>累计订单</span><strong>{{ selectedCustomer.orderCount }} 单</strong></div>
           <div><span>累计租金</span><strong>¥{{ selectedCustomer.totalRent.toLocaleString() }}</strong></div>
@@ -83,6 +86,7 @@ import BaseInput from '../../components/BaseInput.vue'
 import BaseSelect from '../../components/BaseSelect.vue'
 import BaseTable from '../../components/BaseTable.vue'
 import Drawer from '../../components/Drawer.vue'
+import DrawerSummary from '../../components/DrawerSummary.vue'
 import FilterBar from '../../components/FilterBar.vue'
 import MetricCard from '../../components/MetricCard.vue'
 import StatusTabs from '../../components/StatusTabs.vue'

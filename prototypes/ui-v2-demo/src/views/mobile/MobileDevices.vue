@@ -2,11 +2,11 @@
   <MobileShell>
     <div class="mobile-page">
       <header class="mobile-header">
-        <div>
-          <span>设备快查</span>
-          <h1>设备中心</h1>
-        </div>
-        <BaseButton variant="secondary" size="sm" @click="keyword = 'DEV-001'">扫码 mock</BaseButton>
+        <MobileAppBar eyebrow="设备快查" title="设备中心" subtitle="扫码或搜索设备，快速判断能否流转">
+          <template #actions>
+            <BaseButton variant="secondary" size="sm" @click="keyword = 'DEV-001'">扫码 mock</BaseButton>
+          </template>
+        </MobileAppBar>
       </header>
 
       <section class="overview-grid">
@@ -18,7 +18,13 @@
       </section>
 
       <BaseInput v-model="keyword" placeholder="搜索设备编号、型号或序列号" />
-      <StatusTabs v-model="status" :items="statusTabs" />
+      <section class="device-tab-panel">
+        <div class="tab-panel-head">
+          <strong>状态快筛</strong>
+          <span>{{ filteredDevices.length }} 台匹配</span>
+        </div>
+        <StatusTabs v-model="status" :items="statusTabs" />
+      </section>
 
       <section class="stack">
         <DeviceCard v-for="device in filteredDevices" :key="device.id" :device="device" />
@@ -30,6 +36,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import MobileShell from '../../components/MobileShell.vue'
+import MobileAppBar from '../../components/MobileAppBar.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BaseInput from '../../components/BaseInput.vue'
 import DeviceCard from '../../components/DeviceCard.vue'
@@ -68,22 +75,7 @@ const filteredDevices = computed(() => devices.filter((device) => {
 }
 
 .mobile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
-}
-
-.mobile-header span {
-  color: var(--text-muted);
-  font-size: var(--font-caption-size);
-  font-weight: 720;
-}
-
-.mobile-header h1 {
-  margin: var(--space-4) 0 0;
-  font-size: var(--font-mobile-nav-title-size);
-  line-height: var(--font-mobile-nav-title-line);
+  display: block;
 }
 
 .overview-grid {
@@ -113,5 +105,42 @@ const filteredDevices = computed(() => devices.filter((device) => {
   color: var(--brand-strong);
   font-size: 24px;
   line-height: 1;
+}
+
+.device-tab-panel {
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-16);
+  background: var(--surface);
+  box-shadow: var(--shadow-subtle);
+  display: grid;
+  gap: var(--space-10, 10px);
+}
+
+.tab-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.tab-panel-head strong {
+  color: var(--text);
+  font-size: var(--font-mobile-card-title-size);
+}
+
+.tab-panel-head span {
+  color: var(--text-muted);
+  font-size: var(--font-caption-size);
+}
+
+.device-tab-panel :deep(.status-tabs) {
+  margin: 0 calc(var(--space-12) * -1);
+  padding: 0 var(--space-12) var(--space-4);
+}
+
+.device-tab-panel :deep(.filter-chip) {
+  min-height: 40px;
+  padding-inline: var(--space-14, 14px);
 }
 </style>

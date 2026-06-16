@@ -58,11 +58,14 @@
       @close="selectedSlot = null"
     >
       <div v-if="selectedSlot" class="drawer-stack">
-        <section class="detail-hero">
-          <StatusTag :label="selectedSlot.status" />
-          <h3>{{ selectedSlot.model }}</h3>
-          <p>{{ selectedSlot.assetNo }} · {{ selectedSlot.date }}</p>
-        </section>
+        <DrawerSummary
+          :status="selectedSlot.status"
+          :title="selectedSlot.model"
+          :description="`${selectedSlot.assetNo} · ${selectedSlot.date}`"
+          :meta="`${selectedSlot.orderId || '无关联订单'} · ${selectedOrder?.customerName || '可分配'} · ${selectedSlot.label}`"
+          primary-label="查看相关订单"
+          :secondary-label="selectedSlot.status === '冲突' ? '处理冲突' : '标记已核对'"
+        />
         <section class="detail-grid">
           <div>
             <span>关联订单</span>
@@ -87,7 +90,6 @@
             <p>{{ selectedSlot.conflictType }}</p>
           </div>
         </section>
-        <BaseButton variant="secondary">查看相关订单</BaseButton>
       </div>
     </Drawer>
   </AppShell>
@@ -96,9 +98,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import AppShell from '../../components/AppShell.vue'
-import BaseButton from '../../components/BaseButton.vue'
 import BaseSelect from '../../components/BaseSelect.vue'
 import Drawer from '../../components/Drawer.vue'
+import DrawerSummary from '../../components/DrawerSummary.vue'
 import FilterBar from '../../components/FilterBar.vue'
 import FilterChip from '../../components/FilterChip.vue'
 import MetricCard from '../../components/MetricCard.vue'
@@ -229,18 +231,6 @@ function selectSlot(slot) {
   gap: var(--space-12);
 }
 
-.detail-hero {
-  padding: var(--space-16);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-8);
-  background: var(--surface-soft);
-}
-
-.detail-hero h3 {
-  margin: var(--space-12) 0 var(--space-4);
-}
-
-.detail-hero p,
 .panel p {
   margin: var(--space-4) 0 0;
   color: var(--text-muted);

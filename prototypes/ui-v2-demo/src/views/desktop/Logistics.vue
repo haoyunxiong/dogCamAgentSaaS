@@ -53,11 +53,14 @@
       @close="selectedWaybill = null"
     >
       <div v-if="selectedWaybill" class="drawer-stack">
-        <section class="detail-hero">
-          <StatusTag :label="selectedWaybill.shippingStatus" />
-          <h3>{{ selectedWaybill.carrier }}</h3>
-          <p>{{ selectedWaybill.trackingNo || '待生成运单号' }}</p>
-        </section>
+        <DrawerSummary
+          :status="selectedWaybill.shippingStatus"
+          :title="selectedWaybill.carrier"
+          :description="selectedWaybill.trackingNo || '待生成运单号'"
+          :meta="`${selectedWaybill.orderId} · ${selectedWaybill.customerName}`"
+          primary-label="更新物流状态"
+          secondary-label="查看订单"
+        />
         <section class="detail-grid">
           <div><span>收件人</span><strong>{{ selectedWaybill.receiver }}</strong></div>
           <div><span>预约揽收</span><strong>{{ selectedWaybill.pickupTime }}</strong></div>
@@ -72,7 +75,6 @@
             <TrackingTimeline :steps="selectedWaybill.timeline" />
           </div>
         </section>
-        <BaseButton variant="secondary">查看订单</BaseButton>
       </div>
     </Drawer>
   </AppShell>
@@ -85,6 +87,7 @@ import BaseButton from '../../components/BaseButton.vue'
 import BaseInput from '../../components/BaseInput.vue'
 import BaseTable from '../../components/BaseTable.vue'
 import Drawer from '../../components/Drawer.vue'
+import DrawerSummary from '../../components/DrawerSummary.vue'
 import FilterBar from '../../components/FilterBar.vue'
 import MetricCard from '../../components/MetricCard.vue'
 import StatusTabs from '../../components/StatusTabs.vue'

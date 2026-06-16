@@ -2,11 +2,7 @@
   <MobileShell>
     <div class="mobile-page">
       <header class="mobile-page-header">
-        <div>
-          <span>深圳总仓 · 06/14</span>
-          <h1>移动端工作台</h1>
-        </div>
-        <StatusTag label="营业中" tone="success" />
+        <MobileAppBar eyebrow="深圳总仓 · 06/14" title="移动端工作台" subtitle="一线运营今日优先队列" status-label="营业中" status-tone="success" />
       </header>
 
       <section class="mobile-hero">
@@ -75,6 +71,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import MobileShell from '../../components/MobileShell.vue'
+import MobileAppBar from '../../components/MobileAppBar.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import RiskAlert from '../../components/RiskAlert.vue'
@@ -119,23 +116,7 @@ function countStatus(status) {
 }
 
 .mobile-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4) 0 0;
-}
-
-.mobile-page-header span {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: var(--font-caption-line);
-  font-weight: 700;
-}
-
-.mobile-page-header h1 {
-  margin: var(--space-4) 0 0;
-  font-size: var(--font-mobile-nav-title-size);
-  line-height: var(--font-mobile-nav-title-line);
+  display: block;
 }
 
 .mobile-hero {

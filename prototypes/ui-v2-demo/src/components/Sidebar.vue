@@ -10,7 +10,7 @@
 
     <nav class="nav">
       <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" class="nav-item">
-        <span class="nav-dot" />
+        <span class="nav-icon">{{ item.icon }}</span>
         <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
@@ -25,23 +25,25 @@
 
 <script setup>
 const navItems = [
-  { to: '/', label: '经营工作台' },
-  { to: '/orders', label: '订单中心' },
-  { to: '/schedule', label: '档期中心' },
-  { to: '/devices', label: '设备中心' },
-  { to: '/customers', label: '客户中心' },
-  { to: '/deposit', label: '免押管理' },
-  { to: '/logistics', label: '物流发货' },
-  { to: '/reports', label: '报表中心' },
-  { to: '/settings', label: '系统设置' }
+  { to: '/', label: '经营工作台', icon: 'D' },
+  { to: '/orders', label: '订单中心', icon: 'O' },
+  { to: '/schedule', label: '档期中心', icon: 'S' },
+  { to: '/devices', label: '设备中心', icon: 'A' },
+  { to: '/customers', label: '客户中心', icon: 'C' },
+  { to: '/deposit', label: '免押管理', icon: 'P' },
+  { to: '/logistics', label: '物流发货', icon: 'L' },
+  { to: '/reports', label: '报表中心', icon: 'R' },
+  { to: '/settings', label: '系统设置', icon: 'G' }
 ]
 </script>
 
 <style scoped>
 .sidebar {
   min-height: 100vh;
-  padding: 16px 12px;
-  background: var(--sidebar);
+  padding: var(--space-16) var(--space-12);
+  background:
+    radial-gradient(circle at 32px 24px, rgba(0, 168, 137, 0.16), transparent 128px),
+    var(--sidebar);
   color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
@@ -123,15 +125,21 @@ const navItems = [
   background: var(--sidebar-active);
 }
 
-.nav-item.router-link-active .nav-dot {
-  background: var(--sidebar-active);
+.nav-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-8);
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--sidebar-muted);
+  font-size: 10px;
+  font-weight: 820;
 }
 
-.nav-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+.nav-item.router-link-active .nav-icon {
+  background: var(--sidebar-active);
+  color: var(--sidebar);
 }
 
 .sidebar-note {

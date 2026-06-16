@@ -2,11 +2,11 @@
   <MobileShell>
     <div class="mobile-page">
       <header class="mobile-page-header">
-        <div>
-          <span>移动端订单中心</span>
-          <h1>订单队列</h1>
-        </div>
-        <BaseButton variant="secondary" size="sm" @click="sheetOpen = true">筛选</BaseButton>
+        <MobileAppBar eyebrow="移动端订单中心" title="订单队列" subtitle="按下一步动作快速处理">
+          <template #actions>
+            <BaseButton variant="secondary" size="sm" @click="sheetOpen = true">筛选</BaseButton>
+          </template>
+        </MobileAppBar>
       </header>
 
       <BaseInput v-model="keyword" placeholder="搜索订单、客户、设备" />
@@ -56,6 +56,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MobileShell from '../../components/MobileShell.vue'
+import MobileAppBar from '../../components/MobileAppBar.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BaseInput from '../../components/BaseInput.vue'
 import BaseSelect from '../../components/BaseSelect.vue'
@@ -120,21 +121,7 @@ watch(
 }
 
 .mobile-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.mobile-page-header span {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.mobile-page-header h1 {
-  margin: var(--space-4) 0 0;
-  font-size: var(--font-mobile-nav-title-size);
-  line-height: var(--font-mobile-nav-title-line);
+  display: block;
 }
 
 .orders-summary {

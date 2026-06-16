@@ -15,6 +15,7 @@
   --color-bg-sidebar: #06211f;
   --color-bg-muted: #f9fafb;
   --color-bg-soft: #f3f6f8;
+  --color-bg-wash: #eef7f5;
 
   --color-border: #d0d5dd;
   --color-border-subtle: #e7edf2;
@@ -74,6 +75,8 @@
 
   --shadow-subtle: 0 1px 4px #1018280a;
   --shadow-card: 0 6px 18px #1018280f;
+  --shadow-panel: 0 10px 28px #10182812;
+  --shadow-floating: 0 18px 44px #1018281f;
   --shadow-drawer: -8px 0 32px #10182824;
 
   /* Compatibility aliases for the existing ui-v2-demo components. */
