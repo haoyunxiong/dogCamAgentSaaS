@@ -50,16 +50,20 @@ import ToastHost from './components/ToastHost.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import BaseDialog from './components/BaseDialog.vue'
 import { useConfirmDialog } from './composables/useConfirmDialog'
-import { isBrowserPreview } from './utils/runtimeMode.mjs'
+import { isBrowserPreview, isUiV2RendererPreview } from './utils/runtimeMode.mjs'
 
 const botStore = useBotStore()
 const configStore = useConfigStore()
 const ui = useUiStore()
 const route = useRoute()
 const browserPreviewMode = computed(() => isBrowserPreview())
+const uiV2RendererPreviewMode = computed(() => isUiV2RendererPreview())
 const isUiV2MockRoute = computed(() => route.path.startsWith('/ui-v2'))
 const isUiV2MobileRoute = computed(() => route.path.startsWith('/ui-v2/mobile'))
-const showBrowserPreviewNotice = computed(() => browserPreviewMode.value && !isUiV2MockRoute.value)
+const canRenderUiV2BrowserPreview = computed(() => (
+  browserPreviewMode.value && uiV2RendererPreviewMode.value && isUiV2MockRoute.value
+))
+const showBrowserPreviewNotice = computed(() => browserPreviewMode.value && !canRenderUiV2BrowserPreview.value)
 const { state: confirmState, resolveConfirm } = useConfirmDialog()
 
 async function loadUiConfig() {
@@ -102,7 +106,7 @@ async function refreshBadges() {
 
 onMounted(async () => {
   if (browserPreviewMode.value) {
-    if (route.path === '/') {
+    if (uiV2RendererPreviewMode.value && route.path === '/') {
       window.location.replace('/#/ui-v2')
     }
     return

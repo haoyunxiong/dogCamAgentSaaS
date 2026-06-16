@@ -9,7 +9,8 @@
     "build:renderer": "vite build --config vite.config.js",
     "build:electron": "electron-builder --config electron-builder.yml",
     "build": "npm run build:renderer && npm run build:electron",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "renderer:preview": "VITE_UI_V2_RENDERER_PREVIEW=true vite --config vite.config.js --host 127.0.0.1 --port 5188"
   },
   "keywords": [],
   "author": "",
