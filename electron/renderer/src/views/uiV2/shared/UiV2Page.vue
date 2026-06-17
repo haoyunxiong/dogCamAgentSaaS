@@ -25,7 +25,7 @@ defineProps({
 <style scoped>
 .ui-v2-page {
   display: grid;
-  gap: var(--space-16);
+  gap: 16px;
 }
 
 .ui-v2-page__header {
@@ -33,7 +33,7 @@ defineProps({
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-16);
-  padding-top: 2px;
+  padding: 2px 2px 0;
 }
 
 .ui-v2-page__eyebrow {
@@ -41,7 +41,7 @@ defineProps({
   margin-bottom: var(--space-token-4);
   color: var(--color-primary);
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 820;
 }
 
 .ui-v2-page h1 {
@@ -49,7 +49,8 @@ defineProps({
   color: var(--color-text);
   font-size: var(--font-pc-page-title-size);
   line-height: var(--font-pc-page-title-line);
-  font-weight: 760;
+  font-weight: 820;
+  letter-spacing: 0;
 }
 
 .ui-v2-page p {

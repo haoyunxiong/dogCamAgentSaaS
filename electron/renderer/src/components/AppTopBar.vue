@@ -68,6 +68,15 @@ const ui = useUiStore()
 const pending = ref(false)
 
 const META = {
+  '/ui-v2': { section: 'UI-V2 Mock', page: '经营工作台' },
+  '/ui-v2/orders': { section: 'UI-V2 Mock', page: '订单中心' },
+  '/ui-v2/schedule': { section: 'UI-V2 Mock', page: '档期中心' },
+  '/ui-v2/devices': { section: 'UI-V2 Mock', page: '设备中心' },
+  '/ui-v2/customers': { section: 'UI-V2 Mock', page: '客户中心' },
+  '/ui-v2/deposit': { section: 'UI-V2 Mock', page: '免押管理' },
+  '/ui-v2/logistics': { section: 'UI-V2 Mock', page: '物流发货' },
+  '/ui-v2/reports': { section: 'UI-V2 Mock', page: '报表中心' },
+  '/ui-v2/settings': { section: 'UI-V2 Mock', page: '系统设置' },
   '/':            { section: '核心运营',   page: '控制台 / 工作台' },
   '/orders':      { section: '核心运营',   page: '订单履约' },
   '/schedule':    { section: '核心运营',   page: '租赁档期' },
@@ -135,9 +144,10 @@ function openPalette() {
   gap: var(--space-16, 16px);
   height: 60px;
   padding: 0 var(--space-20, 20px);
-  background: var(--color-surface, #fff);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-border, #e5e7eb);
-  box-shadow: none;
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.02);
 }
 
 .tb-left, .tb-right {
@@ -157,7 +167,7 @@ function openPalette() {
   width: min(380px, 100%);
   height: 32px;
   padding: 0 10px 0 11px;
-  background: #f8fafc;
+  background: #f8fbfa;
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: var(--radius-8, 8px);
   color: var(--color-text-muted, #6b7280);
@@ -233,7 +243,7 @@ function openPalette() {
   height: 24px;
   padding: 0 8px;
   border-radius: 999px;
-  background: #f8fafc;
+  background: #f8fbfa;
   border: 1px solid var(--color-border, #e5e7eb);
   white-space: nowrap;
 }

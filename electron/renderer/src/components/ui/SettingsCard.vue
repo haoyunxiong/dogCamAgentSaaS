@@ -29,17 +29,20 @@ defineEmits(['click'])
   min-height: 112px;
   padding: var(--ui-space-16);
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 252, 251, 0.98)),
+    var(--ui-surface);
   display: flex;
   justify-content: space-between;
   gap: var(--ui-space-12);
   text-align: left;
-  box-shadow: var(--shadow-subtle);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .settings-card:hover {
-  border-color: var(--ui-border-strong);
+  border-color: rgba(0, 127, 109, 0.28);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.06);
 }
 
 .settings-card__copy {

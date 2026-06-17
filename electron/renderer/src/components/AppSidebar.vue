@@ -141,7 +141,8 @@ const groups = [
   justify-content: space-between;
   padding: var(--space-16, 16px) var(--space-12, 12px) var(--space-12, 12px);
   background:
-    radial-gradient(circle at 12% 0%, rgba(0, 168, 137, 0.16), transparent 30%),
+    radial-gradient(circle at 12% 0%, rgba(0, 168, 137, 0.18), transparent 32%),
+    linear-gradient(180deg, #061f1d, #071815 54%, #041210),
     var(--color-bg-sidebar, #06211f);
   color: var(--text-on-dark, #edf3f0);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -172,8 +173,9 @@ const groups = [
   align-items: center;
   padding: 10px var(--space-12, 12px);
   border-radius: var(--radius-12, 12px);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .brand-card.mini { justify-content: center; padding: 10px; }
 
@@ -218,14 +220,15 @@ const groups = [
   height: 36px;
 }
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.075);
   color: #f7fbfa;
   border-color: rgba(255, 255, 255, 0.08);
 }
 .nav-item.active {
-  background: rgba(0, 168, 137, 0.14);
+  background: linear-gradient(90deg, rgba(0, 168, 137, 0.2), rgba(0, 168, 137, 0.08));
   color: #f7fbfa;
-  border-color: rgba(0, 168, 137, 0.18);
+  border-color: rgba(0, 168, 137, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(153, 246, 228, 0.04);
 }
 .nav-item.active::before {
   content: '';

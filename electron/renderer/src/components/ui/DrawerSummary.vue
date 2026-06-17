@@ -50,11 +50,13 @@ const hasActions = computed(() => props.primaryLabel || props.secondaryLabel || 
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--ui-space-16);
   align-items: start;
-  padding: var(--ui-space-16);
+  padding: 16px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: linear-gradient(135deg, var(--ui-surface), var(--ui-surface-soft));
-  box-shadow: var(--shadow-subtle);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(242, 248, 246, 0.9)),
+    var(--ui-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 .drawer-summary__copy {
@@ -64,8 +66,9 @@ const hasActions = computed(() => props.primaryLabel || props.secondaryLabel || 
 .drawer-summary h3 {
   margin: var(--ui-space-8) 0 var(--ui-space-4);
   color: var(--ui-text);
-  font-size: 18px;
-  line-height: 26px;
+  font-size: 19px;
+  line-height: 27px;
+  letter-spacing: 0;
 }
 
 .drawer-summary p,
@@ -87,6 +90,7 @@ const hasActions = computed(() => props.primaryLabel || props.secondaryLabel || 
   justify-content: flex-end;
   gap: var(--ui-space-8);
   flex-wrap: wrap;
+  max-width: 260px;
 }
 
 @media (max-width: 640px) {

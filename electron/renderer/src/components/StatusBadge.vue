@@ -95,11 +95,12 @@ const showDot = computed(() => props.dot || props.running !== null)
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-token-8, 8px);
+  gap: 6px;
   border-radius: 999px;
-  font-weight: 700;
+  font-weight: 760;
   white-space: nowrap;
   border: 1px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
 }
 
 .status-badge.with-dot {
@@ -107,7 +108,7 @@ const showDot = computed(() => props.dot || props.running !== null)
 }
 
 .size-sm {
-  min-height: 22px;
+  min-height: 23px;
   padding: 0 8px;
   font-size: 11px;
 }
@@ -133,32 +134,32 @@ const showDot = computed(() => props.dot || props.running !== null)
 }
 
 .variant-warning {
-  background: var(--color-warning-soft, #fffbeb);
+  background: #fff7ed;
   color: var(--color-warning, #d97706);
   border-color: var(--color-warning-border, #fed7aa);
 }
 
 .variant-info {
-  background: var(--color-info-soft, #eff6ff);
-  color: var(--color-info, #2563eb);
-  border-color: var(--color-info-border, #bfdbfe);
+  background: #ecf7ff;
+  color: #256b9e;
+  border-color: #b7def5;
 }
 
 .variant-success {
-  background: var(--color-success-soft, #f0fdf4);
-  color: var(--color-success, #16a34a);
-  border-color: var(--color-success-border, #bbf7d0);
+  background: #eefaf4;
+  color: #0f7a4e;
+  border-color: #b7e4ca;
 }
 
 .variant-danger {
-  background: var(--color-danger-soft, #fef2f2);
-  color: var(--color-danger, #dc2626);
-  border-color: var(--color-danger-border, #fecaca);
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
 }
 
 .variant-neutral {
-  background: var(--color-neutral-soft, #f3f4f6);
-  color: var(--color-neutral, #6b7280);
-  border-color: var(--color-neutral-border, #e5e7eb);
+  background: #f5f7f8;
+  color: #667085;
+  border-color: #e3e8ee;
 }
 </style>

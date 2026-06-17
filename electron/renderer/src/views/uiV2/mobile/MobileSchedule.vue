@@ -64,27 +64,32 @@ const availableDevices = computed(() => {
   display: flex;
   gap: var(--space-token-8);
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
 }
+.date-strip::-webkit-scrollbar { display: none; }
 .availability-list {
   display: grid;
   gap: var(--space-token-8);
 }
 .availability-card {
-  padding: var(--space-12);
+  padding: 13px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface-soft);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 249, 0.96)),
+    var(--ui-surface-soft);
   display: grid;
   gap: var(--space-token-8);
   text-align: left;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 .availability-card span {
   color: var(--ui-text-muted);
   font-size: 12px;
 }
 .heat-bar {
-  height: 8px;
+  height: 9px;
   display: flex;
   overflow: hidden;
   border-radius: var(--radius-pill);

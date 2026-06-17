@@ -76,8 +76,9 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
   position: relative;
   overflow: hidden;
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: var(--radius-8, 8px);
+  border-radius: var(--radius-12, 12px);
   background: var(--color-surface, #fff);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .data-table-shell__scroll {
@@ -94,20 +95,22 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
   position: sticky;
   top: 0;
   z-index: 1;
-  height: 40px;
+  height: 38px;
   padding: 0 12px;
-  background: #f8fafc;
+  background: linear-gradient(180deg, #fbfcfd, #f5f7f8);
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   color: var(--color-text-muted, #6b7280);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 760;
   text-align: left;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
 :deep(td) {
   min-height: 52px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(229, 231, 235, 0.72);
+  border-bottom: 1px solid rgba(229, 235, 232, 0.82);
   color: var(--color-text, #111827);
   font-size: 13px;
   vertical-align: middle;
@@ -115,11 +118,12 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
 }
 
 :deep(tbody tr:hover td) {
-  background: #f8fafc;
+  background: rgba(232, 247, 243, 0.52);
 }
 
 .data-table-shell__table tbody tr {
-  cursor: default;
+  cursor: pointer;
+  transition: background var(--duration-fast, 100ms) var(--ease-standard, ease);
 }
 
 .data-table-shell__table tbody tr[aria-selected],
@@ -130,7 +134,12 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
 :deep(tbody tr.selected td),
 :deep(tbody tr.is-selected td),
 :deep(tbody tr[aria-selected='true'] td) {
-  background: rgba(0, 127, 109, 0.08);
+  background: rgba(0, 127, 109, 0.095);
+}
+
+:deep(tbody tr:hover td:first-child),
+:deep(tbody tr[aria-selected='true'] td:first-child) {
+  box-shadow: inset 3px 0 0 var(--color-primary, #007f6d);
 }
 
 .compact :deep(td) {

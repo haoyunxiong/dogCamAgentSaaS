@@ -146,18 +146,20 @@ watch(selectedSlot, (slot) => {
 }
 
 .schedule-board {
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-12);
+  border-radius: var(--radius-16);
   background: var(--color-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .date-head,
 .schedule-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1.2fr) repeat(7, minmax(84px, 1fr));
+  grid-template-columns: minmax(200px, 1.2fr) repeat(7, minmax(92px, 1fr));
   gap: 1px;
-  background: var(--color-border);
+  min-width: 900px;
+  background: rgba(229, 235, 232, 0.92);
 }
 
 .date-head span,
@@ -169,18 +171,24 @@ watch(selectedSlot, (slot) => {
 
 .date-head span,
 .date-head strong {
-  padding: var(--space-12);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 11px 12px;
   color: var(--color-text-muted);
   font-size: 12px;
   text-align: center;
+  background: #f8fbfa;
 }
 
 .model-group h2 {
   margin: 0;
-  padding: var(--space-12) var(--space-16);
-  background: var(--color-bg-muted);
+  min-width: 900px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, #f3f8f6, #f9fbfa);
   color: var(--color-text);
   font-size: 14px;
+  border-top: 1px solid rgba(229, 235, 232, 0.82);
 }
 
 .model-group h2 small {
@@ -192,6 +200,7 @@ watch(selectedSlot, (slot) => {
   display: grid;
   gap: 2px;
   padding: var(--space-12);
+  background: #fff;
 }
 
 .device-cell span,
@@ -209,16 +218,25 @@ watch(selectedSlot, (slot) => {
   align-content: center;
   gap: 2px;
   padding: 8px;
-  border: 0;
+  border: 1px solid transparent;
   text-align: center;
+  transition: transform var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.slot-cell:hover {
+  border-color: rgba(0, 127, 109, 0.26);
+  box-shadow: inset 0 0 0 1px rgba(0, 127, 109, 0.08);
+  transform: translateY(-1px);
 }
 
 .slot-cell strong {
   font-size: 12px;
 }
 
-.slot-可租 { color: var(--color-status-success); background: #f0fdf4; }
-.slot-占用 { color: var(--color-status-info); background: #eff6ff; }
-.slot-冲突 { color: var(--color-status-danger); background: #fef2f2; }
-.slot-维修 { color: var(--color-status-warning); background: #fffbeb; }
+.slot-可租 { color: #0f7a4e; background: #f1faf5; }
+.slot-占用 { color: #256b9e; background: #eef7ff; }
+.slot-冲突 { color: #be123c; background: #fff1f2; }
+.slot-维修 { color: #b45309; background: #fff7ed; }
 </style>

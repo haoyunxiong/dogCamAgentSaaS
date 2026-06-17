@@ -37,12 +37,15 @@ import '../shared/uiV2View.css'
 
 <style scoped>
 .profile-card {
-  padding: var(--space-16);
+  padding: 17px;
   border-radius: var(--radius-16);
-  background: var(--color-primary-900);
+  background:
+    linear-gradient(135deg, #06211f, #0b3832),
+    var(--color-primary-900);
   color: #fff;
   display: flex;
   gap: var(--space-12);
+  box-shadow: 0 12px 24px rgba(6, 33, 31, 0.16);
 }
 .avatar {
   width: 44px;
@@ -83,13 +86,16 @@ import '../shared/uiV2View.css'
   gap: var(--space-token-8);
 }
 .tool-grid a {
-  min-height: 74px;
+  min-height: 78px;
   display: grid;
   place-items: center;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 252, 251, 0.98)),
+    var(--ui-surface);
   color: var(--ui-brand);
-  font-weight: 760;
+  font-weight: 820;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 </style>

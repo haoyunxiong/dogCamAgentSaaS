@@ -34,23 +34,27 @@ const tone = computed(() => props.metric?.tone ?? props.tone)
 .metric-card {
   position: relative;
   min-height: 98px;
-  padding: var(--ui-space-12);
+  overflow: hidden;
+  padding: 13px 14px;
   border: 1px solid var(--ui-border);
   border-radius: var(--radius-12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), var(--ui-surface-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 250, 0.94)),
+    var(--ui-surface);
   display: grid;
   align-content: space-between;
   gap: var(--ui-space-8);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .metric-card::before {
   content: "";
   position: absolute;
-  left: 0;
-  top: 13px;
-  width: 2px;
-  height: 32px;
-  border-radius: 0 2px 2px 0;
+  left: 13px;
+  top: 12px;
+  width: 28px;
+  height: 3px;
+  border-radius: var(--radius-pill);
   background: var(--ui-brand);
 }
 
@@ -60,6 +64,7 @@ const tone = computed(() => props.metric?.tone ?? props.tone)
 .tone-info::before { background: var(--color-status-info); }
 
 .metric-card__label {
+  padding-top: 8px;
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 760;
@@ -73,8 +78,9 @@ const tone = computed(() => props.metric?.tone ?? props.tone)
 
 .metric-card__value strong {
   color: var(--ui-text);
-  font-size: 24px;
+  font-size: 27px;
   line-height: 1;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 

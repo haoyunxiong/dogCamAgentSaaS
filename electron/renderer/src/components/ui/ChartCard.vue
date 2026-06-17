@@ -61,11 +61,13 @@ const normalizedData = computed(() => {
 <style scoped>
 .chart-card {
   min-height: 304px;
-  padding: var(--ui-space-16);
+  padding: 16px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 251, 250, 0.98)),
+    var(--ui-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   gap: var(--ui-space-12);
@@ -81,6 +83,8 @@ const normalizedData = computed(() => {
   margin: 0;
   color: var(--ui-text);
   font-size: 16px;
+  font-weight: 820;
+  letter-spacing: 0;
 }
 
 .chart-card p {
@@ -93,7 +97,7 @@ const normalizedData = computed(() => {
   min-height: 54px;
   padding: var(--ui-space-12);
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-12);
   background: var(--ui-surface-soft);
   display: flex;
   align-items: baseline;
@@ -143,7 +147,7 @@ const normalizedData = computed(() => {
   height: var(--bar-value);
   min-height: 18px;
   border-radius: var(--radius-8);
-  background: linear-gradient(180deg, var(--ui-brand), var(--color-primary-500));
+  background: linear-gradient(180deg, var(--ui-brand), #0c9b83);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 

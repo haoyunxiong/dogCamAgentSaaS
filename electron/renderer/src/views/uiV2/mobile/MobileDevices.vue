@@ -51,21 +51,26 @@ function countStatus(nextStatus) {
   display: flex;
   gap: var(--space-token-8);
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
 }
+.chip-row::-webkit-scrollbar { display: none; }
 .device-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-token-8);
 }
 .device-summary div {
-  min-height: 66px;
+  min-height: 72px;
   display: grid;
   place-items: center;
   align-content: center;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(242, 248, 246, 0.92)),
+    var(--ui-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 .device-summary span {
   color: var(--ui-text-muted);
@@ -73,6 +78,7 @@ function countStatus(nextStatus) {
 }
 .device-summary strong {
   color: var(--ui-brand-strong);
-  font-size: 22px;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
 }
 </style>

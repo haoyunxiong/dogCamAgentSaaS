@@ -40,22 +40,27 @@ defineEmits(['click'])
 
 <style scoped>
 .order-card {
+  position: relative;
   width: 100%;
   min-height: 112px;
-  padding: var(--ui-space-12);
+  padding: 13px 14px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 252, 251, 0.98)),
+    var(--ui-surface);
   text-align: left;
   display: grid;
   gap: var(--ui-space-8);
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 .order-card:hover {
-  border-color: var(--ui-border-strong);
-  box-shadow: var(--shadow-card);
+  border-color: rgba(0, 127, 109, 0.28);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.07);
+  transform: translateY(-1px);
 }
 
 .order-card__head {
@@ -71,7 +76,8 @@ defineEmits(['click'])
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ui-text);
-  font-size: 15px;
+  font-size: 15.5px;
+  letter-spacing: 0;
 }
 
 .order-card__meta,
@@ -86,12 +92,13 @@ defineEmits(['click'])
 
 .order-card__model {
   color: var(--ui-text);
-  font-weight: 720;
+  font-weight: 780;
 }
 
 .order-card__foot b {
   margin-left: auto;
   color: var(--ui-brand);
   font-size: 12px;
+  font-weight: 820;
 }
 </style>

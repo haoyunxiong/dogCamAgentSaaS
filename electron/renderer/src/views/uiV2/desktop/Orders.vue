@@ -224,19 +224,20 @@ watch(
 .filter-row {
   display: grid;
   grid-template-columns: 1.4fr repeat(2, minmax(180px, 0.7fr));
-  gap: var(--space-12);
+  gap: 10px;
   align-items: end;
 }
 
 .bulk-bar {
   min-height: 44px;
-  padding: var(--space-10, 10px) var(--space-12);
+  padding: 9px 12px;
   border: 1px solid var(--brand-primary-border);
   border-radius: var(--radius-12);
-  background: var(--brand-primary-soft);
+  background: linear-gradient(180deg, rgba(232, 247, 243, 0.9), rgba(232, 247, 243, 0.66));
   display: flex;
   align-items: center;
   gap: var(--space-token-8);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .bulk-bar span {
@@ -245,6 +246,12 @@ watch(
 }
 
 .next-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(232, 247, 243, 0.86);
   color: var(--color-primary);
   font-weight: 720;
 }

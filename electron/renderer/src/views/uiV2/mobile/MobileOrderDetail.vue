@@ -75,6 +75,7 @@ const shippingSteps = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 2px;
 }
 .detail-top a {
   color: var(--ui-brand);
@@ -87,10 +88,13 @@ const shippingSteps = computed(() => {
   font-weight: 700;
 }
 .status-head {
-  padding: var(--space-16);
+  padding: 17px;
   border-radius: var(--radius-16);
-  background: var(--color-primary-900);
+  background:
+    linear-gradient(135deg, #06211f, #0b3832),
+    var(--color-primary-900);
   color: #fff;
+  box-shadow: 0 12px 24px rgba(6, 33, 31, 0.16);
 }
 .status-head h1 {
   margin: var(--space-16) 0 var(--space-token-4);
@@ -105,10 +109,12 @@ const shippingSteps = computed(() => {
   display: flex;
   justify-content: space-between;
   gap: var(--space-12);
-  padding: 7px 0;
+  padding: 9px 0;
+  border-top: 1px solid rgba(229, 235, 232, 0.68);
   color: var(--ui-text-muted);
   font-size: 13px;
 }
+.info-row:first-of-type { border-top: 0; }
 .info-row strong {
   color: var(--ui-text);
   text-align: right;
@@ -119,12 +125,13 @@ const shippingSteps = computed(() => {
   bottom: 0;
   transform: translateX(-50%);
   width: min(430px, 100vw);
-  padding: 10px 14px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
   display: grid;
   grid-template-columns: 0.8fr 1.2fr;
   gap: var(--space-token-8);
   background: rgba(255, 255, 255, 0.96);
   border-top: 1px solid var(--ui-border);
+  box-shadow: 0 -10px 26px rgba(16, 24, 40, 0.07);
   z-index: 35;
 }
 </style>

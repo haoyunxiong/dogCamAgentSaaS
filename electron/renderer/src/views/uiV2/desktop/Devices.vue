@@ -112,13 +112,19 @@ function openDevice(device) {
 .filter-row {
   display: grid;
   grid-template-columns: 1.2fr minmax(220px, 0.6fr);
-  gap: var(--space-12);
+  gap: 10px;
   align-items: end;
 }
 
 .device-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-12);
+  gap: 12px;
+}
+
+@media (max-width: 1280px) {
+  .device-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

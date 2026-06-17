@@ -53,10 +53,13 @@ function openOrder(order) {
 
 <style scoped>
 .risk-hero {
-  padding: 16px;
+  padding: 17px;
   border-radius: var(--radius-16);
-  background: var(--color-primary-900);
+  background:
+    linear-gradient(135deg, #06211f, #0b3832),
+    var(--color-primary-900);
   color: #fff;
+  box-shadow: 0 12px 24px rgba(6, 33, 31, 0.16);
 }
 .risk-hero h1 {
   margin: var(--space-12) 0 var(--space-token-4);
@@ -80,21 +83,23 @@ function openOrder(order) {
   background: var(--ui-surface);
 }
 .quick-grid a {
-  min-height: 58px;
+  min-height: 64px;
   display: grid;
   place-items: center;
   color: var(--ui-brand);
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 820;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 .mobile-task {
   width: 100%;
   margin-top: var(--space-token-8);
-  padding: var(--space-12);
+  padding: 12px 13px;
   display: flex;
   justify-content: space-between;
   gap: var(--space-12);
   text-align: left;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 .mobile-task strong,
 .mobile-task span {

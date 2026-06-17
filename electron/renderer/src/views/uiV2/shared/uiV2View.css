@@ -1,7 +1,7 @@
 .ui-v2-metric-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--space-12);
+  gap: 12px;
 }
 
 .ui-v2-grid-2 {
@@ -47,10 +47,12 @@
 }
 
 .ui-v2-detail-grid > div {
-  padding: var(--space-12);
+  padding: 12px 13px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-8);
-  background: var(--color-surface);
+  border-radius: var(--radius-12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 251, 250, 0.96)),
+    var(--color-surface);
 }
 
 .ui-v2-detail-grid span,
@@ -75,15 +77,17 @@
 
 .ui-v2-mobile-page {
   display: grid;
-  gap: var(--space-12);
+  gap: 13px;
 }
 
 .ui-v2-mobile-card {
-  padding: 14px;
+  padding: 15px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
-  box-shadow: var(--shadow-subtle);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 252, 251, 0.98)),
+    var(--ui-surface);
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.045);
 }
 
 .ui-v2-mobile-card h2 {
@@ -91,6 +95,8 @@
   color: var(--ui-text);
   font-size: var(--font-mobile-card-title-size);
   line-height: var(--font-mobile-card-title-line);
+  font-weight: 820;
+  letter-spacing: 0;
 }
 
 .ui-v2-mobile-card p {

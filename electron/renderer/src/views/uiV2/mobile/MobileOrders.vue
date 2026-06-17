@@ -82,14 +82,17 @@ watch(() => route.query.status, (next) => {
 
 <style scoped>
 .orders-summary {
-  padding: var(--space-12);
+  padding: 13px 14px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: var(--ui-surface);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(242, 248, 246, 0.94)),
+    var(--ui-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-12);
+  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.045);
 }
 .orders-summary span,
 .orders-summary small,
@@ -100,15 +103,18 @@ watch(() => route.query.status, (next) => {
 .orders-summary strong {
   margin: 0 var(--space-token-4);
   color: var(--ui-brand-strong);
-  font-size: 26px;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
 }
 .orders-summary p { margin: 0; text-align: right; }
 .chip-row {
   display: flex;
   gap: var(--space-token-8);
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
 }
+.chip-row::-webkit-scrollbar { display: none; }
 .mobile-orders__filter-action {
   min-width: 64px;
   min-height: 44px;

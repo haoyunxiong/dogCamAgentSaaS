@@ -44,32 +44,40 @@ const revenueText = computed(() => {
 
 <style scoped>
 .device-card {
+  position: relative;
   width: 100%;
-  padding: 13px;
+  min-height: 178px;
+  padding: 14px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background: rgba(251, 251, 250, 0.88);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 250, 0.96)),
+    rgba(251, 251, 250, 0.88);
   text-align: left;
   display: grid;
   gap: var(--ui-space-8);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .device-card:hover {
-  border-color: var(--ui-border-strong);
+  border-color: rgba(0, 127, 109, 0.28);
   background: var(--ui-surface);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.07);
+  transform: translateY(-1px);
 }
 
 .device-card__head,
 .device-card__meta,
 .device-card__next {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .device-card__head {
   align-items: center;
+  justify-content: space-between;
 }
 
 .device-card__asset {
@@ -80,7 +88,8 @@ const revenueText = computed(() => {
 
 .device-card strong {
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: 15px;
+  letter-spacing: 0;
 }
 
 .device-card__meta,
@@ -92,7 +101,8 @@ const revenueText = computed(() => {
 
 .device-card__next span {
   min-width: 0;
-  padding: 6px 7px;
+  max-width: 100%;
+  padding: 6px 8px;
   border-radius: 7px;
   background: var(--ui-surface-soft);
   overflow: hidden;
@@ -102,6 +112,10 @@ const revenueText = computed(() => {
 
 .device-card p {
   margin: 0;
+  padding: 8px 9px;
+  border-radius: var(--radius-8);
+  background: rgba(254, 242, 242, 0.72);
   color: var(--color-danger);
+  font-weight: 720;
 }
 </style>

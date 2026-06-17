@@ -141,22 +141,36 @@ function goOrder(orderNo) {
 
 <style scoped>
 .command-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-24);
-  padding: var(--space-20);
+  padding: 22px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-12);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-16);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(235, 247, 244, 0.88)),
+    var(--color-surface);
+  box-shadow: 0 10px 26px rgba(16, 24, 40, 0.06);
+}
+
+.command-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 22px 0 22px;
+  height: 3px;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+  background: linear-gradient(90deg, var(--color-primary), rgba(0, 127, 109, 0.08));
 }
 
 .command-card h2 {
   margin: var(--space-12) 0 var(--space-token-4);
   color: var(--color-text);
-  font-size: 22px;
-  line-height: 30px;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: 0;
 }
 
 .command-card p {
@@ -172,13 +186,16 @@ function goOrder(orderNo) {
 }
 
 .command-card__stats span {
-  padding: var(--space-12);
+  min-height: 74px;
+  padding: 13px 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-8);
-  background: var(--color-bg-muted);
+  border-radius: var(--radius-12);
+  background: rgba(255, 255, 255, 0.74);
   color: var(--color-text);
   font-weight: 740;
   text-align: center;
+  display: grid;
+  place-items: center;
 }
 
 .priority-lanes {
@@ -192,7 +209,8 @@ function goOrder(orderNo) {
   gap: var(--space-10, 10px);
   padding: var(--space-12);
   border-radius: var(--radius-12);
-  background: var(--color-bg-muted);
+  background: #f7faf9;
+  border: 1px solid rgba(229, 235, 232, 0.84);
 }
 
 .task-row,
@@ -202,9 +220,20 @@ function goOrder(orderNo) {
   gap: var(--space-token-8);
   padding: var(--space-12);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-12);
   background: var(--color-surface);
   text-align: left;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.028);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+
+.task-row:hover,
+.risk-card:hover {
+  border-color: rgba(0, 127, 109, 0.26);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.06);
+  transform: translateY(-1px);
 }
 
 .task-row {
@@ -224,6 +253,7 @@ function goOrder(orderNo) {
 .risk-card strong,
 .next-action {
   color: var(--color-primary);
+  font-weight: 820;
 }
 
 .fulfillment-grid {
@@ -238,8 +268,8 @@ function goOrder(orderNo) {
   gap: var(--space-token-8);
   padding: var(--space-12);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-8);
-  background: var(--color-bg-muted);
+  border-radius: var(--radius-12);
+  background: linear-gradient(180deg, #fff, #f8fbfa);
 }
 
 .mini-bars {

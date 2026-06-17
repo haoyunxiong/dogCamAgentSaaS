@@ -31,11 +31,14 @@ defineProps({
 <style scoped>
 .filter-bar {
   display: grid;
-  gap: var(--space-12, 12px);
-  padding: var(--space-12, 12px) var(--space-16, 16px);
+  gap: var(--space-10, 10px);
+  padding: var(--space-12, 12px);
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: var(--radius-12, 12px);
-  background: var(--color-surface, #fff);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 251, 250, 0.98)),
+    var(--color-surface, #fff);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.026);
 }
 
 .filter-bar__head {
@@ -47,12 +50,13 @@ defineProps({
 
 .filter-bar__copy h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--color-text, #111827);
+  font-weight: 760;
 }
 
 .filter-bar__copy p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   font-size: 12px;
   color: var(--color-text-muted, #6b7280);
 }
@@ -60,7 +64,12 @@ defineProps({
 .filter-bar__body,
 .filter-bar__advanced {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+
+.filter-bar__advanced {
+  padding-top: 10px;
+  border-top: 1px solid rgba(229, 235, 232, 0.88);
 }
 
 .filter-bar__actions {

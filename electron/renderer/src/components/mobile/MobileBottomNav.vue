@@ -35,16 +35,18 @@ defineProps({
   right: 0;
   bottom: 0;
   width: min(430px, 100vw);
-  height: 70px;
+  height: 74px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.97);
   border-top: 1px solid var(--ui-border);
+  box-shadow: 0 -10px 26px rgba(16, 24, 40, 0.07);
   z-index: 30;
 }
 
 .mobile-bottom-nav__item {
+  position: relative;
   display: grid;
   place-items: center;
   align-content: center;
@@ -56,15 +58,26 @@ defineProps({
 
 .mobile-bottom-nav__item.router-link-active,
 .mobile-bottom-nav__item.router-link-exact-active {
-  color: var(--ui-brand);
+  color: var(--ui-brand-strong);
+}
+
+.mobile-bottom-nav__item.router-link-active::before,
+.mobile-bottom-nav__item.router-link-exact-active::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  width: 22px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--ui-brand);
 }
 
 .mobile-bottom-nav__icon {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  border-radius: 7px;
+  border-radius: 9px;
   background: var(--ui-surface-soft);
   font-size: 11px;
 }

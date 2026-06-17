@@ -47,29 +47,32 @@ const isActive = computed(() => props.selected || props.active)
   display: inline-flex;
   align-items: center;
   gap: var(--space-token-8, 8px);
-  min-height: 32px;
-  padding: 0 var(--space-12, 12px);
+  min-height: 34px;
+  padding: 0 13px;
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 999px;
-  background: var(--color-surface, #fff);
+  background: rgba(255, 255, 255, 0.78);
   color: var(--color-text-secondary, #4b5563);
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
+  box-shadow: inset 0 -1px 0 rgba(16, 24, 40, 0.025);
   transition: background var(--duration-fast, 100ms) var(--ease-standard, ease),
               border-color var(--duration-fast, 100ms) var(--ease-standard, ease),
-              color var(--duration-fast, 100ms) var(--ease-standard, ease);
+              color var(--duration-fast, 100ms) var(--ease-standard, ease),
+              box-shadow var(--duration-fast, 100ms) var(--ease-standard, ease);
 }
 
 .filter-chip:hover:not(:disabled) {
-  background: var(--bg-subtle, #f3f4f6);
+  background: #fff;
   border-color: var(--border-default, #d1d5db);
 }
 
 .filter-chip.is-selected {
-  background: rgba(0, 127, 109, 0.08);
-  border-color: rgba(0, 127, 109, 0.24);
+  background: linear-gradient(180deg, rgba(232, 247, 243, 0.9), rgba(232, 247, 243, 0.62));
+  border-color: rgba(0, 127, 109, 0.32);
   color: var(--color-primary, #007f6d);
+  box-shadow: inset 0 0 0 1px rgba(0, 127, 109, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 .filter-chip.is-disabled {
