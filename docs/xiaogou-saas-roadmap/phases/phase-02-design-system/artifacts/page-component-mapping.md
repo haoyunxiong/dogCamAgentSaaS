@@ -17,12 +17,12 @@
 
 | 页面 | 图片 | 主要组件 |
 |---|---|---|
-| 工作台 | `01_mobile_workbench.png` | MobileHeader, HeroMetricCard, QuickActionGrid, TodoList, AlertList, BottomNav |
-| 订单 | `02_mobile_order_center.png` | MobileStatusSummary, StatusChips, MobileFilterBar, OrderCardList |
-| 订单详情 | `03_mobile_order_detail.png` | DetailHero, InfoCard, DeviceCard, TimelineCard, StickyActionBar |
-| 档期 | `04_mobile_schedule_center.png` | ScheduleSummaryCard, WeekSelector, AvailabilityBars, BottomNav |
-| 设备 | `05_mobile_device_center.png` | DeviceSummaryCard, DeviceTabs, DeviceCardList, BottomNav |
-| 我的 | `06_mobile_my_center.png` | MerchantProfileCard, SettingListGroup, MoreToolsGrid, BottomNav |
+| 工作台 | `01_mobile_workbench.jpeg` | MobileHeader, HeroMetricCard, QuickActionGrid, TodoList, AlertList, BottomNav |
+| 订单 | `02_mobile_order_center.jpeg` | MobileStatusSummary, StatusChips, MobileFilterBar, OrderCardList |
+| 档期 | `03_mobile_schedule_center.jpeg` | ScheduleSummaryCard, WeekSelector, AvailabilityBars, BottomNav |
+| 订单详情 | `04_mobile_order_detail.jpeg` | DetailHero, InfoCard, DeviceCard, TimelineCard, StickyActionBar |
+| 设备 | `05_mobile_device_center.jpeg` | DeviceSummaryCard, DeviceTabs, DeviceCardList, BottomNav |
+| 我的 | `06_mobile_my_center.jpeg` | MerchantProfileCard, SettingListGroup, MoreToolsGrid, BottomNav |
 
 ## 3. 公共组件优先级
 

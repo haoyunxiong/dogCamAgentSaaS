@@ -18,7 +18,8 @@
 5. docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/frontend-implementation-brief.md
 6. docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/page-component-mapping.md
 7. docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/mobile-ui-guidelines.md
-8. docs/xiaogou-saas-roadmap/design-references/final-ui-direction/
+8. docs/xiaogou-saas-roadmap/design-references/FINAL_UI_REFERENCE_ONLY.md
+9. docs/xiaogou-saas-roadmap/design-references/final-ui-reference-locked/
 
 请扫描当前 Electron / Vue 前端结构，输出前端 UI 改造计划。
 

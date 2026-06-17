@@ -20,7 +20,8 @@
 7. 不 git add / commit / push。
 
 本次允许新增/更新：
-- docs/xiaogou-saas-roadmap/design-references/final-ui-direction/
+- docs/xiaogou-saas-roadmap/design-references/final-ui-reference-locked/
+- docs/xiaogou-saas-roadmap/design-references/FINAL_UI_REFERENCE_ONLY.md
 - docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/final-ui-style-lock.md
 - docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/frontend-implementation-brief.md
 - docs/xiaogou-saas-roadmap/phases/phase-02-design-system/artifacts/page-component-mapping.md
