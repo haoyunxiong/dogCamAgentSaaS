@@ -64,15 +64,15 @@ import EmptyState from '../../../components/EmptyState.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MobileShell } from '../../../components/mobile'
 import { TrackingTimeline } from '../../../components/ui'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import '../shared/uiV2View.css'
 
 const route = useRoute()
 const clicked = ref(false)
-const order = computed(() => uiV2MockAdapter.getOrder(route.params.id))
-const device = computed(() => order.value ? uiV2MockAdapter.getDevice(order.value.deviceIds[0]) : null)
+const order = computed(() => uiV2Adapter.getOrder(route.params.id))
+const device = computed(() => order.value ? uiV2Adapter.getDevice(order.value.deviceIds[0]) : null)
 const shippingSteps = computed(() => {
-  const waybill = uiV2MockAdapter.getWaybills().find((item) => item.orderId === order.value?.orderNo)
+  const waybill = uiV2Adapter.getWaybills().find((item) => item.orderId === order.value?.orderNo)
   return waybill?.timeline || [{ label: '确认信息', done: true }, { label: '生成运单', current: true }]
 })
 </script>

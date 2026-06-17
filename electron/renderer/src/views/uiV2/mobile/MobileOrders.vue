@@ -60,13 +60,13 @@ import BaseSelect from '../../../components/BaseSelect.vue'
 import EmptyState from '../../../components/EmptyState.vue'
 import { OrderCard } from '../../../components/business'
 import { BottomSheet, MobileAppBar, MobileShell } from '../../../components/mobile'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import '../shared/uiV2View.css'
 
 const router = useRouter()
 const route = useRoute()
-const orders = uiV2MockAdapter.getOrders()
-const options = uiV2MockAdapter.getOptions()
+const orders = uiV2Adapter.getOrders()
+const options = uiV2Adapter.getOptions()
 const statuses = ['全部', '待处理', '待发货', '待归还', '使用中', '已完成']
 const status = ref('全部')
 const keyword = ref('')

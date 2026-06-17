@@ -1,5 +1,5 @@
 <template>
-  <UiV2Page title="订单中心" description="按状态、押金、物流和风险推进履约，所有数据来自 UI-V2 mock adapter。">
+  <UiV2Page title="订单中心" description="按状态、押金、物流和风险推进履约，数据由 UI-V2 adapter 统一提供。">
     <template #actions>
       <BaseButton variant="secondary" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? '收起筛选' : '高级筛选' }}</BaseButton>
       <BaseButton>批量分配负责人</BaseButton>
@@ -129,15 +129,15 @@ import DataTable from '../../../components/DataTable.vue'
 import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, Pagination, StatusTabs, TrackingTimeline } from '../../../components/ui'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
 
 const route = useRoute()
-const orders = uiV2MockAdapter.getOrders()
-const options = uiV2MockAdapter.getOptions()
-const statusTabs = uiV2MockAdapter.getOrderStatusTabs()
+const orders = uiV2Adapter.getOrders()
+const options = uiV2Adapter.getOptions()
+const statusTabs = uiV2Adapter.getOrderStatusTabs()
 const status = ref('全部')
 const keyword = ref('')
 const channel = ref('全部渠道')
@@ -215,7 +215,7 @@ watch(
   () => route.query.order,
   (orderNo) => {
     if (typeof orderNo !== 'string') return
-    const order = uiV2MockAdapter.getOrder(orderNo)
+    const order = uiV2Adapter.getOrder(orderNo)
     if (order) openOrder(order)
   },
   { immediate: true },
