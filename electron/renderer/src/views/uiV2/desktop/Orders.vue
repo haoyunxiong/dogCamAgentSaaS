@@ -61,7 +61,7 @@
 
     <Pagination v-model:page="page" :total="filteredOrders.length" :page-size="12" />
 
-    <BaseDrawer v-model="drawerOpen" :title="selectedOrder?.orderNo || '订单详情'" :subtitle="drawerSubtitle" width="720">
+    <BaseDrawer v-model="drawerOpen" :title="selectedOrder?.orderNo || '订单详情'" :subtitle="drawerSubtitle" width="720" test-id="order-detail-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
         <DrawerSummary
           :status="selectedOrder.status"
@@ -90,11 +90,11 @@
       </div>
       <template #footer>
         <BaseButton variant="secondary" @click="drawerOpen = false">关闭</BaseButton>
-        <BaseButton @click="shippingOpen = true">创建顺丰寄件</BaseButton>
+        <BaseButton data-testid="order-create-shipping-button" @click="shippingOpen = true">创建顺丰寄件</BaseButton>
       </template>
     </BaseDrawer>
 
-    <BaseDrawer v-model="shippingOpen" title="顺丰寄件" :subtitle="selectedOrder?.orderNo || ''" width="520">
+    <BaseDrawer v-model="shippingOpen" title="顺丰寄件" :subtitle="selectedOrder?.orderNo || ''" width="520" test-id="shipping-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
         <DrawerSummary
           status="待下单"

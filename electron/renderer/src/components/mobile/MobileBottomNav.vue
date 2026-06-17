@@ -1,6 +1,12 @@
 <template>
-  <nav class="mobile-bottom-nav" aria-label="移动端主导航">
-    <RouterLink v-for="item in items" :key="item.to" :to="item.to" class="mobile-bottom-nav__item">
+  <nav class="mobile-bottom-nav" aria-label="移动端主导航" data-testid="mobile-bottom-nav">
+    <RouterLink
+      v-for="item in items"
+      :key="item.to"
+      :to="item.to"
+      class="mobile-bottom-nav__item"
+      :data-testid="`mobile-bottom-nav-${item.label}`"
+    >
       <span class="mobile-bottom-nav__icon">{{ item.icon }}</span>
       <span>{{ item.label }}</span>
     </RouterLink>

@@ -1082,6 +1082,32 @@ label {
   border-top: 1px solid var(--border-subtle, #e5e7eb);
 }
 
+/* UI-V2 renderer-only mobile preview
+   App.vue 的小屏媒体规则会把 flex 主轴改为纵向；这里用更高优先级把
+   mock mobile preview 固定为手机壳居中，避免长页面被垂直居中推到视口外。 */
+#app > .app-layout.ui-v2-mobile-preview {
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#app > .app-layout.ui-v2-mobile-preview .app-main {
+  flex: 0 1 430px;
+  width: min(430px, 100vw);
+  min-height: 0;
+  overflow: hidden;
+}
+
+#app > .app-layout.ui-v2-mobile-preview .app-main-inner {
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+  scrollbar-gutter: auto;
+}
+
 /* Dialog 规范 */
 .dialog-overlay {
   position: fixed;

@@ -16,7 +16,7 @@
       <template #insuredAmount="{ row }">¥{{ row.insuredAmount.toLocaleString() }}</template>
       <template #nextAction="{ row }"><span class="next-action">{{ row.nextAction }}</span></template>
     </DataTable>
-    <BaseDrawer v-model="drawerOpen" :title="selectedWaybill?.id || '运单详情'" :subtitle="selectedWaybill?.orderId || ''" width="560">
+    <BaseDrawer v-model="drawerOpen" :title="selectedWaybill?.id || '运单详情'" :subtitle="selectedWaybill?.orderId || ''" width="560" test-id="logistics-waybill-drawer">
       <div v-if="selectedWaybill" class="ui-v2-stack">
         <DrawerSummary :status="selectedWaybill.shippingStatus" :title="selectedWaybill.customerName" :description="selectedWaybill.receiverAddress" :meta="`${selectedWaybill.carrier} · ${selectedWaybill.trackingNo || '待生成'}`" primary-label="更新物流状态" secondary-label="联系顺丰" />
         <section class="ui-v2-detail-grid">

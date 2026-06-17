@@ -2,7 +2,18 @@
   <MobileShell>
     <div class="ui-v2-mobile-page">
       <MobileAppBar title="订单队列" subtitle="按下一步动作快速处理">
-        <template #actions><BaseButton variant="secondary" size="sm" @click="sheetOpen = true">筛选</BaseButton></template>
+        <template #actions>
+          <BaseButton
+            class="mobile-orders__filter-action"
+            variant="secondary"
+            size="lg"
+            data-testid="mobile-orders-filter-button"
+            aria-label="打开订单筛选"
+            @click="openFilters"
+          >
+            筛选
+          </BaseButton>
+        </template>
       </MobileAppBar>
       <BaseInput v-model="keyword" search clearable placeholder="搜索订单、客户、设备" />
       <section class="orders-summary">
@@ -16,7 +27,7 @@
         <OrderCard v-for="order in filteredOrders" :key="order.id" :order="order" @click="openOrder" />
         <EmptyState v-if="filteredOrders.length === 0" state="no-result" compact />
       </div>
-      <BottomSheet v-model="sheetOpen" title="订单筛选">
+      <BottomSheet v-model="sheetOpen" title="订单筛选" test-id="mobile-orders-filter-sheet">
         <BaseSelect v-model="channel" label="渠道" :options="['全部渠道', ...options.channels]" />
         <BaseSelect v-model="deposit" label="押金/免押" :options="['全部押金状态', ...options.depositStatuses]" />
         <BaseSelect v-model="shipping" label="物流" :options="['全部物流状态', ...options.shippingStatuses]" />
@@ -58,6 +69,9 @@ const filteredOrders = computed(() => orders.filter((order) => {
     && (deposit.value === '全部押金状态' || order.depositStatus === deposit.value)
     && (shipping.value === '全部物流状态' || order.shippingStatus === shipping.value)
 }))
+function openFilters() {
+  sheetOpen.value = true
+}
 function openOrder(order) {
   router.push(`/ui-v2/mobile/orders/${order.orderNo}`)
 }
@@ -94,5 +108,9 @@ watch(() => route.query.status, (next) => {
   gap: var(--space-token-8);
   overflow-x: auto;
   padding-bottom: 2px;
+}
+.mobile-orders__filter-action {
+  min-width: 64px;
+  min-height: 44px;
 }
 </style>

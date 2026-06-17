@@ -1,11 +1,20 @@
 <template>
   <Teleport to="body">
     <transition name="drawer">
-      <div v-if="modelValue" class="drawer-overlay" @click.self="handleOverlayClick">
+      <div
+        v-if="modelValue"
+        class="drawer-overlay"
+        :data-testid="`${testId}-overlay`"
+        @click.self="handleOverlayClick"
+      >
         <div
           class="drawer-panel anim-slide-in-right"
           :class="[`drawer-panel--${placement}`]"
           :style="{ width: drawerWidth }"
+          :data-testid="`${testId}-panel`"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="title || '详情抽屉'"
         >
           <div class="drawer-header">
             <slot name="header">
@@ -14,7 +23,14 @@
                 <p v-if="subtitle" class="drawer-subtitle">{{ subtitle }}</p>
               </div>
             </slot>
-            <button class="drawer-close-btn" @click="close" aria-label="关闭" title="关闭">
+            <button
+              class="drawer-close-btn"
+              type="button"
+              :aria-label="closeLabel"
+              :data-testid="`${testId}-close`"
+              title="关闭"
+              @click.stop="close"
+            >
               ✕
             </button>
           </div>
@@ -44,6 +60,7 @@ const props = defineProps({
     validator: (v) => ['right', 'bottom'].includes(v),
   },
   closeOnOverlay: { type: Boolean, default: true },
+  testId: { type: String, default: 'base-drawer' },
 })
 
 const emit = defineEmits(['update:modelValue', 'close'])
@@ -52,6 +69,7 @@ const drawerWidth = computed(() => props.placement === 'bottom'
   ? '100%'
   : (typeof props.width === 'number' ? `${props.width}px` : props.width)
 )
+const closeLabel = computed(() => props.title ? `关闭${props.title}` : '关闭抽屉')
 
 function handleOverlayClick() {
   if (props.closeOnOverlay) close()
@@ -92,6 +110,8 @@ function close() {
 }
 
 .drawer-header {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -99,6 +119,7 @@ function close() {
   padding: var(--space-16, 16px) var(--space-20, 20px);
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
+  background: var(--color-surface, #fff);
 }
 .drawer-heading {
   min-width: 0;
@@ -141,6 +162,8 @@ function close() {
   opacity: 0;
 }
 .drawer-close-btn {
+  position: relative;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;

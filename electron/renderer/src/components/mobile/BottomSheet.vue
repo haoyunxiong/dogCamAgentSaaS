@@ -1,11 +1,29 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="bottom-sheet-layer" @click.self="close">
-      <section class="bottom-sheet" role="dialog" :aria-label="title">
+    <div
+      v-if="isOpen"
+      class="bottom-sheet-layer"
+      :data-testid="`${testId}-overlay`"
+      @click.self="close"
+    >
+      <section
+        class="bottom-sheet"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="title"
+        :data-testid="`${testId}-panel`"
+      >
         <div class="bottom-sheet__handle" aria-hidden="true" />
         <header class="bottom-sheet__header">
           <h2>{{ title }}</h2>
-          <button type="button" @click="close">{{ closeText }}</button>
+          <button
+            type="button"
+            :aria-label="`关闭${title}`"
+            :data-testid="`${testId}-close`"
+            @click="close"
+          >
+            {{ closeText }}
+          </button>
         </header>
         <div class="bottom-sheet__body">
           <slot />
@@ -23,6 +41,7 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, default: '筛选' },
   closeText: { type: String, default: '完成' },
+  testId: { type: String, default: 'bottom-sheet' },
 })
 
 const emit = defineEmits(['update:modelValue', 'close'])
@@ -39,7 +58,7 @@ function close() {
 .bottom-sheet-layer {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 120;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -80,6 +99,8 @@ function close() {
 }
 
 .bottom-sheet__header button {
+  min-width: 44px;
+  min-height: 44px;
   border: 0;
   background: transparent;
   color: var(--ui-brand);

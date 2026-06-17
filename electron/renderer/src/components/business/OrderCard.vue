@@ -1,5 +1,12 @@
 <template>
-  <button class="order-card" type="button" @click="$emit('click', order)">
+  <button
+    class="order-card"
+    type="button"
+    data-testid="mobile-order-card"
+    :data-order-no="order.orderNo || order.id"
+    :aria-label="`查看订单 ${order.orderNo || order.id}`"
+    @click="$emit('click', order)"
+  >
     <div class="order-card__head">
       <strong>{{ order.customerName || order.customer || '未知客户' }}</strong>
       <StatusBadge :label="order.status" size="sm" />
@@ -34,6 +41,7 @@ defineEmits(['click'])
 <style scoped>
 .order-card {
   width: 100%;
+  min-height: 112px;
   padding: var(--ui-space-12);
   border: 1px solid var(--ui-border);
   border-radius: var(--radius-12);
@@ -41,6 +49,8 @@ defineEmits(['click'])
   text-align: left;
   display: grid;
   gap: var(--ui-space-8);
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .order-card:hover {

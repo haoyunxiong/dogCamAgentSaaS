@@ -21,7 +21,7 @@
       <DeviceCard v-for="device in filteredDevices" :key="device.id" :device="device" @click="openDevice" />
     </section>
 
-    <BaseDrawer v-model="drawerOpen" :title="selectedDevice?.assetNo || '设备详情'" :subtitle="selectedDevice?.model || ''" width="640">
+    <BaseDrawer v-model="drawerOpen" :title="selectedDevice?.assetNo || '设备详情'" :subtitle="selectedDevice?.model || ''" width="640" test-id="device-detail-drawer">
       <div v-if="selectedDevice" class="ui-v2-stack">
         <DrawerSummary
           :status="selectedDevice.status"

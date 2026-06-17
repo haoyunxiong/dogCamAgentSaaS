@@ -34,7 +34,7 @@
             :key="date"
             :class="['slot-cell', `slot-${slotFor(device.id, date)?.status}`]"
             type="button"
-            @click="selectedSlot = slotFor(device.id, date)"
+            @click="openSlot(slotFor(device.id, date))"
           >
             <strong>{{ slotFor(device.id, date)?.label }}</strong>
             <small>{{ slotFor(device.id, date)?.orderId || device.maintenanceStatus }}</small>
@@ -43,7 +43,7 @@
       </div>
     </section>
 
-    <BaseDrawer v-model="drawerOpen" title="档期详情" :subtitle="selectedSlot?.assetNo || ''" width="520">
+    <BaseDrawer v-model="drawerOpen" title="档期详情" :subtitle="selectedSlot?.assetNo || ''" width="520" test-id="schedule-detail-drawer" @close="selectedSlot = null">
       <div v-if="selectedSlot" class="ui-v2-stack">
         <DrawerSummary
           :status="selectedSlot.status"
@@ -118,6 +118,12 @@ const actionHint = computed(() => {
 
 function slotFor(deviceId, date) {
   return schedule.find((item) => item.deviceId === deviceId && item.date === date)
+}
+
+function openSlot(slot) {
+  if (!slot) return
+  selectedSlot.value = slot
+  drawerOpen.value = true
 }
 
 watch(selectedSlot, (slot) => {

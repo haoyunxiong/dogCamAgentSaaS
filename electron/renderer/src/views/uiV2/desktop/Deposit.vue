@@ -17,7 +17,7 @@
       <template #requestedFreeAmount="{ row }">¥{{ row.requestedFreeAmount.toLocaleString() }}</template>
       <template #depositStatus="{ row }"><StatusBadge :label="row.depositStatus" size="sm" /></template>
     </DataTable>
-    <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620">
+    <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
         <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · ${selectedReview.phoneMasked}`" primary-label="通过免押" danger-label="驳回" />
         <section class="ui-v2-detail-grid">

@@ -17,7 +17,7 @@
       <template #tags="{ row }"><div class="ui-v2-tag-row"><StatusBadge v-for="tag in row.tags" :key="tag" :label="tag" variant="neutral" size="sm" /></div></template>
       <template #totalRent="{ row }">¥{{ row.totalRent.toLocaleString() }}</template>
     </DataTable>
-    <BaseDrawer v-model="drawerOpen" :title="selectedCustomer?.name || '客户详情'" :subtitle="selectedCustomer?.phoneMasked || ''" width="600">
+    <BaseDrawer v-model="drawerOpen" :title="selectedCustomer?.name || '客户详情'" :subtitle="selectedCustomer?.phoneMasked || ''" width="600" test-id="customer-detail-drawer">
       <div v-if="selectedCustomer" class="ui-v2-stack">
         <DrawerSummary :status="selectedCustomer.riskLevel" :title="selectedCustomer.name" :description="`${selectedCustomer.city} · ${selectedCustomer.depositPreference}`" :meta="`${selectedCustomer.channel} · ${selectedCustomer.phoneMasked}`" primary-label="查看最近订单" secondary-label="标记已联系" />
         <section class="ui-v2-detail-grid">
