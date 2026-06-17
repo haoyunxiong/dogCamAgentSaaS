@@ -21,6 +21,10 @@ function getFallbackReason(error) {
   return error?.message || 'real-adapter-error'
 }
 
+function isPromiseLike(value) {
+  return value && typeof value.then === 'function'
+}
+
 export function createUiV2Adapter({ mode } = {}) {
   const mockAdapter = createUiV2MockAdapter()
   const realAdapter = createUiV2RealAdapter()
@@ -34,13 +38,14 @@ export function createUiV2Adapter({ mode } = {}) {
     getLastMeta(methodName) {
       return methodMeta.get(methodName) || adapter.meta
     },
-    withMeta(methodName, ...args) {
+    async withMeta(methodName, ...args) {
       if (typeof adapter[methodName] !== 'function') {
         throw new Error(`Unknown UI-V2 adapter method: ${methodName}`)
       }
 
+      const data = await adapter[methodName](...args)
       return {
-        data: adapter[methodName](...args),
+        data,
         meta: adapter.getLastMeta(methodName),
       }
     },
@@ -77,6 +82,14 @@ export function createUiV2Adapter({ mode } = {}) {
 
       try {
         const data = realAdapter[methodName](...args)
+        if (isPromiseLike(data)) {
+          return data
+            .then((result) => {
+              setMeta(methodName, 'real', activeMode)
+              return result
+            })
+            .catch((error) => readMock(methodName, args, 'mock-fallback', activeMode, getFallbackReason(error)))
+        }
         setMeta(methodName, 'real', activeMode)
         return data
       } catch (error) {

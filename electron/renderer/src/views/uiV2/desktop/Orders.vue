@@ -5,6 +5,12 @@
       <BaseButton>批量分配负责人</BaseButton>
     </template>
 
+    <div class="adapter-source-row">
+      <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
+      <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
+    </div>
+
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in orderMetrics" :key="metric.key" :metric="metric" />
     </section>
@@ -25,6 +31,8 @@
       </template>
     </FilterBar>
 
+    <div v-if="loading" class="adapter-state">订单数据读取中...</div>
+
     <div v-if="selectedRows.length" class="bulk-bar">
       <span>已选择 {{ selectedRows.length }} 单</span>
       <BaseButton variant="secondary" size="sm">分配负责人</BaseButton>
@@ -38,7 +46,7 @@
       row-key="orderNo"
       :selected-key="selectedOrder?.orderNo || ''"
       compact
-      empty-title="暂无匹配订单"
+      :empty-title="loading ? '订单数据读取中' : '暂无匹配订单'"
       @row-click="openOrder"
     >
       <template #select="{ row }">
@@ -55,8 +63,8 @@
       <template #rentPeriod="{ row }"><span>{{ row.rentStart.slice(5) }} ~ {{ row.rentEnd.slice(5) }}</span></template>
       <template #rentAmount="{ row }">¥{{ row.rentAmount.toLocaleString() }}</template>
       <template #channel="{ row }"><span>{{ row.channel }}</span></template>
-      <template #store>深圳南山店</template>
-      <template #createdAt="{ row }">{{ row.createdAt.slice(5) }} 10:23</template>
+      <template #store="{ row }">{{ row.storeName || '未分配门店' }}</template>
+      <template #createdAt="{ row }">{{ row.createdAt ? row.createdAt.slice(5, 16) : '-' }}</template>
       <template #nextAction="{ row }"><span class="next-action">{{ row.nextAction }}</span></template>
     </DataTable>
 
@@ -64,11 +72,12 @@
 
     <BaseDrawer v-model="drawerOpen" :title="selectedOrder?.orderNo || '订单详情'" :subtitle="drawerSubtitle" width="720" test-id="order-detail-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
+        <div v-if="detailLoading" class="adapter-state is-compact">订单详情读取中...</div>
         <DrawerSummary
           :status="selectedOrder.status"
           :title="selectedOrder.customerName"
           :description="`${selectedOrder.channel} · ${selectedOrder.model}`"
-          :meta="`${selectedOrder.rentStart} 至 ${selectedOrder.rentEnd}`"
+          :meta="`${selectedOrder.rentStart || '-'} 至 ${selectedOrder.rentEnd || '-'}`"
           primary-label="创建顺丰寄件"
           secondary-label="标记已联系"
           danger-label="标记异常"
@@ -119,7 +128,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseDrawer from '../../../components/BaseDrawer.vue'
@@ -135,9 +144,9 @@ import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
 
 const route = useRoute()
-const orders = uiV2Adapter.getOrders()
-const options = uiV2Adapter.getOptions()
-const statusTabs = uiV2Adapter.getOrderStatusTabs()
+const orders = ref([])
+const options = ref({ channels: [], depositStatuses: [], shippingStatuses: [] })
+const statusTabs = ref([{ label: '全部', value: '全部', count: 0 }])
 const status = ref('全部')
 const keyword = ref('')
 const channel = ref('全部渠道')
@@ -152,6 +161,10 @@ const shippingOpen = ref(false)
 const mockTrackingNo = ref('')
 const showAdvanced = ref(false)
 const selectedRows = ref([])
+const loading = ref(false)
+const detailLoading = ref(false)
+const loadError = ref('')
+const sourceMeta = ref(uiV2Adapter.getMeta())
 
 const columns = [
   { key: 'select', label: '', width: '42px' },
@@ -167,16 +180,22 @@ const columns = [
   { key: 'nextAction', label: '操作' },
 ]
 
+const sourceLabel = computed(() => {
+  if (sourceMeta.value.source === 'real') return '真实只读'
+  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
+  return 'Mock 预览'
+})
+
 const orderMetrics = computed(() => [
-  { key: 'pending', label: '待处理', value: 28, unit: '', trend: '较昨日 -6', tone: 'warning' },
-  { key: 'ship', label: '待发货', value: 36, unit: '', trend: '较昨日 +8', tone: 'warning' },
-  { key: 'return', label: '待归还', value: 52, unit: '', trend: '较昨日 -4', tone: 'info' },
-  { key: 'risk', label: '异常/逾期', value: 9, unit: '', trend: '较昨日 +2', tone: 'danger' },
-  { key: 'revenue', label: '今日收入(元)', value: '¥28,560.00', unit: '', trend: '较昨日 +12.6%', tone: 'success' },
-  { key: 'utilization', label: '设备利用率', value: '78.6', unit: '%', trend: '较昨日 +4.3%', tone: 'info' },
+  { key: 'pending', label: '待处理', value: countByStatuses(['待确认', '待押金', '待分配设备']), unit: '', trend: '只读', tone: 'warning' },
+  { key: 'ship', label: '待发货', value: countByStatuses(['待发货']), unit: '', trend: '只读', tone: 'warning' },
+  { key: 'return', label: '待归还', value: countByStatuses(['待归还']), unit: '', trend: '只读', tone: 'info' },
+  { key: 'risk', label: '异常/逾期', value: countByStatuses(['异常']), unit: '', trend: '只读', tone: 'danger' },
+  { key: 'revenue', label: '订单金额(元)', value: `¥${orders.value.reduce((sum, order) => sum + Number(order.rentAmount || 0), 0).toLocaleString()}`, unit: '', trend: '只读汇总', tone: 'success' },
+  { key: 'total', label: '订单总数', value: orders.value.length, unit: '单', trend: sourceLabel.value, tone: 'info' },
 ])
 
-const filteredOrders = computed(() => orders.filter((order) => {
+const filteredOrders = computed(() => orders.value.filter((order) => {
   const text = `${order.orderNo}${order.customerName}${order.model}${order.phoneMasked}`
   return (status.value === '全部' || order.status === status.value)
     && (!keyword.value || text.includes(keyword.value))
@@ -191,18 +210,52 @@ const drawerSubtitle = computed(() => selectedOrder.value ? `${selectedOrder.val
 const orderSteps = computed(() => selectedOrder.value ? [
   { label: '订单创建', desc: selectedOrder.value.createdAt, done: true },
   { label: '押金/免押确认', desc: selectedOrder.value.depositStatus, done: !['待收', '免押审核中'].includes(selectedOrder.value.depositStatus), current: ['待押金'].includes(selectedOrder.value.status) },
-  { label: '设备分配', desc: selectedOrder.value.deviceIds.join(', '), done: !['待分配设备', '待确认'].includes(selectedOrder.value.status), current: selectedOrder.value.status === '待分配设备' },
+  { label: '设备分配', desc: (selectedOrder.value.deviceIds || []).join(', ') || '未分配', done: !['待分配设备', '待确认'].includes(selectedOrder.value.status), current: selectedOrder.value.status === '待分配设备' },
   { label: '物流发货', desc: selectedOrder.value.shippingStatus, done: ['运输中', '已签收'].includes(selectedOrder.value.shippingStatus), current: selectedOrder.value.status === '待发货' },
   { label: '归还验机', desc: selectedOrder.value.status, done: ['已完成'].includes(selectedOrder.value.status), current: ['待归还', '待验机'].includes(selectedOrder.value.status) },
 ] : [])
 
-function countStatus(nextStatus) {
-  return orders.filter((order) => order.status === nextStatus).length
+function countByStatuses(nextStatuses) {
+  return orders.value.filter((order) => nextStatuses.includes(order.status)).length
 }
 
-function openOrder(order) {
+async function loadOrders() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const nextOrders = await uiV2Adapter.getOrders()
+    orders.value = Array.isArray(nextOrders) ? nextOrders : []
+    options.value = { channels: [], depositStatuses: [], shippingStatuses: [], ...(await uiV2Adapter.getOptions()) }
+    const nextStatusTabs = await uiV2Adapter.getOrderStatusTabs()
+    statusTabs.value = Array.isArray(nextStatusTabs) ? nextStatusTabs : [{ label: '全部', value: '全部', count: orders.value.length }]
+    sourceMeta.value = uiV2Adapter.getLastMeta('getOrders')
+  } catch (error) {
+    orders.value = []
+    statusTabs.value = [{ label: '全部', value: '全部', count: 0 }]
+    sourceMeta.value = uiV2Adapter.getMeta()
+    loadError.value = error?.message || '订单只读数据读取失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function openOrder(order) {
   selectedOrder.value = order
   drawerOpen.value = true
+  detailLoading.value = true
+  try {
+    const detail = await uiV2Adapter.getOrder(order.orderNo)
+    if (detail) {
+      selectedOrder.value = { ...order, ...detail }
+    } else if (uiV2Adapter.getLastMeta('getOrder')?.source === 'mock-fallback') {
+      loadError.value = '真实详情读取失败，当前显示列表只读摘要。'
+    }
+    sourceMeta.value = uiV2Adapter.getLastMeta('getOrder') || sourceMeta.value
+  } catch (error) {
+    loadError.value = error?.message || '订单详情读取失败'
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 function toggleRow(orderNo) {
@@ -213,13 +266,16 @@ function toggleRow(orderNo) {
 
 watch(
   () => route.query.order,
-  (orderNo) => {
+  async (orderNo) => {
     if (typeof orderNo !== 'string') return
-    const order = uiV2Adapter.getOrder(orderNo)
+    if (!orders.value.length) await loadOrders()
+    const order = orders.value.find((item) => item.orderNo === orderNo) || await uiV2Adapter.getOrder(orderNo)
     if (order) openOrder(order)
   },
   { immediate: true },
 )
+
+onMounted(loadOrders)
 </script>
 
 <style scoped>
@@ -256,6 +312,65 @@ watch(
   background: rgba(232, 247, 243, 0.86);
   color: var(--color-primary);
   font-weight: 720;
+}
+
+.adapter-source-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-token-8);
+  flex-wrap: wrap;
+}
+
+.adapter-source,
+.adapter-source__reason,
+.adapter-source__error {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.adapter-source {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+}
+
+.adapter-source.is-real {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.86);
+  color: var(--color-primary);
+}
+
+.adapter-source.is-mock-fallback,
+.adapter-source__reason {
+  border-color: rgba(245, 158, 11, 0.26);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+
+.adapter-source__error {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.92);
+  color: #b91c1c;
+}
+
+.adapter-state {
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-12);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.adapter-state.is-compact {
+  padding: 8px 10px;
 }
 
 .drawer-note {

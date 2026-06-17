@@ -1,20 +1,32 @@
 <template>
   <MobileShell>
-    <div v-if="order" class="detail-page">
+    <div v-if="loading" class="detail-page">
       <header class="detail-top">
         <RouterLink to="/ui-v2/mobile/orders">返回</RouterLink>
         <span>订单详情</span>
       </header>
+      <div class="detail-adapter-state">订单详情读取中...</div>
+    </div>
+    <div v-else-if="order" class="detail-page">
+      <header class="detail-top">
+        <RouterLink to="/ui-v2/mobile/orders">返回</RouterLink>
+        <span>订单详情</span>
+      </header>
+      <div class="detail-source-row">
+        <span class="detail-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+        <span v-if="sourceMeta.fallbackReason" class="detail-source__reason">{{ sourceMeta.fallbackReason }}</span>
+        <span v-if="loadError" class="detail-source__error">{{ loadError }}</span>
+      </div>
       <section class="mobile-dark-hero detail-hero">
         <div class="ui-v2-row-between">
           <h1>{{ order.orderNo }}</h1>
           <StatusBadge :label="order.status" size="sm" />
         </div>
-        <p>下单时间：2025-06-14 10:23:45　渠道：{{ order.channel }}</p>
+        <p>下单时间：{{ order.createdAt || '-' }}　渠道：{{ order.channel }}</p>
         <div class="next-task">
           <div>
             <strong>下一步任务</strong>
-            <span>请尽快{{ order.nextAction }}并填写物流单号</span>
+            <span>只读模式：{{ order.nextAction }}</span>
           </div>
           <BaseButton size="sm">{{ order.nextAction }}</BaseButton>
         </div>
@@ -52,12 +64,18 @@
         <BaseButton @click="clicked = true">{{ clicked ? '已处理' : order.nextAction }}</BaseButton>
       </div>
     </div>
-    <EmptyState v-else title="未找到订单" hint="请返回订单中心重新选择订单。" />
+    <div v-else class="detail-page">
+      <header class="detail-top">
+        <RouterLink to="/ui-v2/mobile/orders">返回</RouterLink>
+        <span>订单详情</span>
+      </header>
+      <EmptyState title="未找到订单" :hint="loadError || '请返回订单中心重新选择订单。'" />
+    </div>
   </MobileShell>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BaseButton from '../../../components/BaseButton.vue'
 import EmptyState from '../../../components/EmptyState.vue'
@@ -69,12 +87,49 @@ import '../shared/uiV2View.css'
 
 const route = useRoute()
 const clicked = ref(false)
-const order = computed(() => uiV2Adapter.getOrder(route.params.id))
-const device = computed(() => order.value ? uiV2Adapter.getDevice(order.value.deviceIds[0]) : null)
-const shippingSteps = computed(() => {
-  const waybill = uiV2Adapter.getWaybills().find((item) => item.orderId === order.value?.orderNo)
-  return waybill?.timeline || [{ label: '确认信息', done: true }, { label: '生成运单', current: true }]
+const order = ref(null)
+const loading = ref(false)
+const loadError = ref('')
+const sourceMeta = ref(uiV2Adapter.getMeta())
+const sourceLabel = computed(() => {
+  if (sourceMeta.value.source === 'real') return '真实只读'
+  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
+  return 'Mock 预览'
 })
+const device = computed(() => order.value ? {
+  model: order.value.model || '未填写设备',
+  maintenanceStatus: '只读',
+  serialNo: (order.value.deviceIds || [])[0] || '未分配',
+} : null)
+const shippingSteps = computed(() => {
+  if (!order.value) return []
+  return [
+    { label: '确认信息', desc: order.value.status, done: true },
+    { label: '物流状态', desc: order.value.shippingStatus || '待更新', current: !['已完成', '已取消'].includes(order.value.status) },
+  ]
+})
+
+async function loadOrder() {
+  loading.value = true
+  loadError.value = ''
+  order.value = null
+  try {
+    const nextOrder = await uiV2Adapter.getOrder(route.params.id)
+    order.value = nextOrder || null
+    sourceMeta.value = uiV2Adapter.getLastMeta('getOrder')
+    if (!nextOrder && sourceMeta.value.source === 'mock-fallback') {
+      loadError.value = '真实订单详情读取失败，且没有可用 mock fallback。'
+    }
+  } catch (error) {
+    sourceMeta.value = uiV2Adapter.getMeta()
+    loadError.value = error?.message || '订单详情读取失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() => route.params.id, loadOrder)
+onMounted(loadOrder)
 </script>
 
 <style scoped>
@@ -182,5 +237,50 @@ const shippingSteps = computed(() => {
 }
 .device-line b {
   font-size: 13px;
+}
+.detail-source-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.detail-source,
+.detail-source__reason,
+.detail-source__error {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+.detail-source.is-real {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.86);
+  color: var(--color-primary);
+}
+.detail-source.is-mock-fallback,
+.detail-source__reason {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+.detail-source__error {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.92);
+  color: #b91c1c;
+}
+.detail-adapter-state {
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-12);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  font-weight: 680;
 }
 </style>
