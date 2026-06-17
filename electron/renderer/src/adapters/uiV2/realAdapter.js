@@ -1,5 +1,12 @@
 import { createUiV2AdapterMeta, UI_V2_ADAPTER_METHODS } from './mockAdapter.js'
 import {
+  buildDeviceStatusTabs,
+  extractRealDevices,
+  mapRealDevice,
+  mapRealDevices,
+  resolveDeviceKey,
+} from './devicesMapper.js'
+import {
   buildOrderStatusTabs,
   extractRealOrder,
   extractRealOrders,
@@ -28,6 +35,8 @@ export function createUiV2RealAdapter() {
   const meta = createUiV2AdapterMeta({ source: 'real', mode: 'real' })
   let rawOrdersCache = []
   let mappedOrdersCache = []
+  let rawDevicesCache = []
+  let mappedDevicesCache = []
   const adapter = {
     meta,
     getMeta() {
@@ -76,6 +85,29 @@ export function createUiV2RealAdapter() {
     async getOrderStatusTabs(filters = {}) {
       const orders = mappedOrdersCache.length ? mappedOrdersCache : await adapter.getOrders(filters)
       return buildOrderStatusTabs(orders)
+    },
+    async getDevices(filters = {}) {
+      const bridge = getRuntimeBridge()
+      const payload = await bridge.listScheduleUnits({ activeInventoryOnly: true, ...filters })
+      rawDevicesCache = extractRealDevices(payload)
+      mappedDevicesCache = mapRealDevices(rawDevicesCache)
+      return mappedDevicesCache
+    },
+    async getDevice(deviceKey) {
+      let rawDevice = resolveDeviceKey(deviceKey, rawDevicesCache)
+      if (!rawDevice) {
+        const bridge = getRuntimeBridge()
+        const payload = await bridge.listScheduleUnits({ activeInventoryOnly: true })
+        rawDevicesCache = extractRealDevices(payload)
+        mappedDevicesCache = mapRealDevices(rawDevicesCache)
+        rawDevice = resolveDeviceKey(deviceKey, rawDevicesCache)
+      }
+      if (!rawDevice) throw new Error(`Readonly device not found for ${deviceKey}`)
+      return mapRealDevice(rawDevice)
+    },
+    async getDeviceStatusTabs(filters = {}) {
+      const devices = mappedDevicesCache.length ? mappedDevicesCache : await adapter.getDevices(filters)
+      return buildDeviceStatusTabs(devices)
     },
   }
 
