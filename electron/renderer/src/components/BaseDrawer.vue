@@ -86,7 +86,7 @@ function close() {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(16, 24, 40, 0.32);
+  background: rgba(16, 24, 40, 0.18);
   display: flex;
   justify-content: flex-end;
   align-items: stretch;
@@ -95,7 +95,8 @@ function close() {
   height: 100%;
   max-width: calc(100vw - 32px);
   background: var(--color-surface, #fff);
-  box-shadow: var(--shadow-floating, 0 12px 32px rgba(16,24,40,0.12));
+  border-left: 1px solid var(--color-border, #e5e7eb);
+  box-shadow: -12px 0 32px rgba(16, 24, 40, 0.10);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -116,7 +117,7 @@ function close() {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-12, 12px);
-  padding: var(--space-16, 16px) var(--space-20, 20px);
+  padding: 18px 22px;
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
   background: var(--color-surface, #fff);
@@ -125,8 +126,8 @@ function close() {
   min-width: 0;
 }
 .drawer-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 820;
   color: var(--color-text, #111827);
   margin: 0;
 }
@@ -140,7 +141,7 @@ function close() {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--space-20, 20px);
+  padding: 18px 22px 22px;
 }
 .drawer-footer {
   display: flex;

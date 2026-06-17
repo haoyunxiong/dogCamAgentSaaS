@@ -22,15 +22,14 @@ defineProps({
   max-width: 430px;
   min-height: 100vh;
   margin: 0 auto;
-  background:
-    radial-gradient(circle at 100% 0%, var(--color-bg-wash), transparent 32%),
-    var(--color-bg-page);
-  border-left: 1px solid var(--ui-border);
-  border-right: 1px solid var(--ui-border);
+  background: #f3f5f7;
+  border-left: 1px solid #e7edf2;
+  border-right: 1px solid #e7edf2;
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.02);
 }
 
 .mobile-shell__content {
   min-height: calc(100vh - 70px);
-  padding: 14px 14px 92px;
+  padding: 12px 12px 92px;
 }
 </style>

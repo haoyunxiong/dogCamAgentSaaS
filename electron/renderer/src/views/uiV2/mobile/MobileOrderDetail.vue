@@ -1,21 +1,27 @@
 <template>
-  <MobileShell :show-nav="false">
+  <MobileShell>
     <div v-if="order" class="detail-page">
       <header class="detail-top">
         <RouterLink to="/ui-v2/mobile/orders">返回</RouterLink>
         <span>订单详情</span>
       </header>
-      <section class="status-head">
+      <section class="mobile-dark-hero detail-hero">
         <div class="ui-v2-row-between">
+          <h1>{{ order.orderNo }}</h1>
           <StatusBadge :label="order.status" size="sm" />
-          <span>{{ order.orderNo }}</span>
         </div>
-        <h1>{{ order.nextAction }}</h1>
-        <p>{{ order.channel }} · {{ order.model }}</p>
+        <p>下单时间：2025-06-14 10:23:45　渠道：{{ order.channel }}</p>
+        <div class="next-task">
+          <div>
+            <strong>下一步任务</strong>
+            <span>请尽快{{ order.nextAction }}并填写物流单号</span>
+          </div>
+          <BaseButton size="sm">{{ order.nextAction }}</BaseButton>
+        </div>
       </section>
       <section class="ui-v2-mobile-card">
         <div class="ui-v2-row-between">
-          <h2>履约对象</h2>
+          <h2>客户信息</h2>
           <StatusBadge :label="order.riskLevel" size="sm" />
         </div>
         <div class="info-row"><span>客户</span><strong>{{ order.customerName }} · {{ order.phoneMasked }}</strong></div>
@@ -27,15 +33,23 @@
         <div class="info-row"><span>租金</span><strong>¥{{ order.rentAmount }}</strong></div>
         <div class="info-row"><span>押金/免押</span><strong>{{ order.depositStatus }} · ¥{{ order.depositAmount }}</strong></div>
       </section>
-      <DeviceCard v-if="device" :device="device" />
+      <section v-if="device" class="ui-v2-mobile-card device-line-card">
+        <h2>设备清单（1）</h2>
+        <div class="device-line">
+          <span>{{ device.model.slice(0, 3) }}</span>
+          <div><strong>{{ device.model }}</strong><small>{{ device.maintenanceStatus }} · {{ device.serialNo }}</small></div>
+          <b>¥{{ order.rentAmount }} × 1</b>
+        </div>
+      </section>
       <section class="ui-v2-mobile-card">
         <h2>物流状态</h2>
         <div class="info-row"><span>顺丰</span><strong>{{ order.shippingStatus }}</strong></div>
         <TrackingTimeline :steps="shippingSteps" />
       </section>
       <div class="fixed-actions">
-        <BaseButton variant="secondary">标记异常</BaseButton>
-        <BaseButton @click="clicked = true">{{ clicked ? '已处理 mock 状态' : order.nextAction }}</BaseButton>
+        <BaseButton variant="secondary">联系客户</BaseButton>
+        <BaseButton variant="secondary">更多操作</BaseButton>
+        <BaseButton @click="clicked = true">{{ clicked ? '已处理' : order.nextAction }}</BaseButton>
       </div>
     </div>
     <EmptyState v-else title="未找到订单" hint="请返回订单中心重新选择订单。" />
@@ -48,7 +62,6 @@ import { useRoute } from 'vue-router'
 import BaseButton from '../../../components/BaseButton.vue'
 import EmptyState from '../../../components/EmptyState.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
-import { DeviceCard } from '../../../components/business'
 import { MobileShell } from '../../../components/mobile'
 import { TrackingTimeline } from '../../../components/ui'
 import { uiV2MockAdapter } from '../../../adapters/uiV2'
@@ -68,7 +81,7 @@ const shippingSteps = computed(() => {
 .detail-page {
   display: grid;
   gap: var(--space-12);
-  padding-bottom: 76px;
+  padding-bottom: 148px;
 }
 .detail-top {
   height: 36px;
@@ -87,23 +100,31 @@ const shippingSteps = computed(() => {
   font-size: 12px;
   font-weight: 700;
 }
-.status-head {
-  padding: 17px;
-  border-radius: var(--radius-16);
-  background:
-    linear-gradient(135deg, #06211f, #0b3832),
-    var(--color-primary-900);
-  color: #fff;
-  box-shadow: 0 12px 24px rgba(6, 33, 31, 0.16);
+.detail-hero h1 {
+  font-size: 25px;
 }
-.status-head h1 {
-  margin: var(--space-16) 0 var(--space-token-4);
-  font-size: 24px;
-  line-height: 30px;
+.detail-hero p {
+  margin: 8px 0 0;
+  color: rgba(236, 253, 245, 0.72);
+  font-size: 12px;
 }
-.status-head p,
-.status-head span {
-  color: #c9deda;
+.next-task {
+  margin-top: 16px;
+  padding: 13px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.next-task strong,
+.next-task span {
+  display: block;
+}
+.next-task span {
+  margin-top: 4px;
+  color: rgba(236, 253, 245, 0.72);
+  font-size: 12px;
 }
 .info-row {
   display: flex;
@@ -122,16 +143,44 @@ const shippingSteps = computed(() => {
 .fixed-actions {
   position: fixed;
   left: 50%;
-  bottom: 0;
+  bottom: 78px;
   transform: translateX(-50%);
   width: min(430px, 100vw);
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
   display: grid;
-  grid-template-columns: 0.8fr 1.2fr;
+  grid-template-columns: 1fr 1fr 1.25fr;
   gap: var(--space-token-8);
   background: rgba(255, 255, 255, 0.96);
   border-top: 1px solid var(--ui-border);
   box-shadow: 0 -10px 26px rgba(16, 24, 40, 0.07);
   z-index: 35;
+}
+.device-line {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+.device-line > span {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #f3f5f7;
+  color: var(--ui-brand);
+  font-weight: 900;
+}
+.device-line strong,
+.device-line small {
+  display: block;
+}
+.device-line small {
+  margin-top: 4px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+.device-line b {
+  font-size: 13px;
 }
 </style>

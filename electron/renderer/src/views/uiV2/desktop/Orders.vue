@@ -9,7 +9,7 @@
       <MetricCard v-for="metric in orderMetrics" :key="metric.key" :metric="metric" />
     </section>
 
-    <FilterBar title="订单筛选" hint="快筛和高级筛选均为前端 mock 状态" :show-advanced="showAdvanced">
+    <FilterBar title="订单筛选" hint="按订单号、客户、设备、门店和下单时间筛选" :show-advanced="showAdvanced">
       <StatusTabs v-model="status" :items="statusTabs" />
       <div class="filter-row">
         <BaseInput v-model="keyword" search clearable placeholder="搜索订单、客户、设备" />
@@ -52,10 +52,11 @@
         </div>
       </template>
       <template #status="{ row }"><StatusBadge :label="row.status" size="sm" /></template>
-      <template #depositStatus="{ row }"><StatusBadge :label="row.depositStatus" size="sm" /></template>
-      <template #shippingStatus="{ row }"><StatusBadge :label="row.shippingStatus" size="sm" /></template>
-      <template #riskLevel="{ row }"><StatusBadge :label="row.riskLevel" size="sm" /></template>
+      <template #rentPeriod="{ row }"><span>{{ row.rentStart.slice(5) }} ~ {{ row.rentEnd.slice(5) }}</span></template>
       <template #rentAmount="{ row }">¥{{ row.rentAmount.toLocaleString() }}</template>
+      <template #channel="{ row }"><span>{{ row.channel }}</span></template>
+      <template #store>深圳南山店</template>
+      <template #createdAt="{ row }">{{ row.createdAt.slice(5) }} 10:23</template>
       <template #nextAction="{ row }"><span class="next-action">{{ row.nextAction }}</span></template>
     </DataTable>
 
@@ -73,7 +74,7 @@
           danger-label="标记异常"
           @primary="shippingOpen = true"
         />
-        <section class="ui-v2-detail-grid">
+        <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>客户电话</span><strong>{{ selectedOrder.phoneMasked }}</strong></div>
           <div><span>订单金额</span><strong>¥{{ selectedOrder.rentAmount.toLocaleString() }}</strong></div>
           <div><span>押金/免押</span><strong>{{ selectedOrder.depositStatus }} · ¥{{ selectedOrder.depositAmount }}</strong></div>
@@ -155,23 +156,24 @@ const selectedRows = ref([])
 const columns = [
   { key: 'select', label: '', width: '42px' },
   { key: 'orderNo', label: '订单号' },
-  { key: 'customerName', label: '客户/渠道' },
+  { key: 'customerName', label: '客户' },
   { key: 'model', label: '设备' },
-  { key: 'status', label: '状态' },
-  { key: 'depositStatus', label: '押金/免押' },
-  { key: 'shippingStatus', label: '物流' },
-  { key: 'riskLevel', label: '风险' },
-  { key: 'rentAmount', label: '租金' },
-  { key: 'nextAction', label: '下一步' },
+  { key: 'rentPeriod', label: '租期' },
+  { key: 'status', label: '订单状态' },
+  { key: 'rentAmount', label: '金额' },
+  { key: 'channel', label: '渠道' },
+  { key: 'store', label: '门店' },
+  { key: 'createdAt', label: '下单时间' },
+  { key: 'nextAction', label: '操作' },
 ]
 
 const orderMetrics = computed(() => [
-  { key: 'all', label: '订单总数', value: orders.length, unit: '单', trend: 'mock 订单池', tone: 'info' },
-  { key: 'ship', label: '待发货', value: countStatus('待发货'), unit: '单', trend: '今日优先', tone: 'warning' },
-  { key: 'renting', label: '租赁中', value: countStatus('租赁中'), unit: '单', trend: '需跟进归还', tone: 'info' },
-  { key: 'return', label: '待归还', value: countStatus('待归还'), unit: '单', trend: '含逾期风险', tone: 'warning' },
-  { key: 'deposit', label: '待押金', value: countStatus('待押金'), unit: '单', trend: '影响发货', tone: 'danger' },
-  { key: 'done', label: '已完成', value: countStatus('已完成'), unit: '单', trend: '归档可查', tone: 'success' },
+  { key: 'pending', label: '待处理', value: 28, unit: '', trend: '较昨日 -6', tone: 'warning' },
+  { key: 'ship', label: '待发货', value: 36, unit: '', trend: '较昨日 +8', tone: 'warning' },
+  { key: 'return', label: '待归还', value: 52, unit: '', trend: '较昨日 -4', tone: 'info' },
+  { key: 'risk', label: '异常/逾期', value: 9, unit: '', trend: '较昨日 +2', tone: 'danger' },
+  { key: 'revenue', label: '今日收入(元)', value: '¥28,560.00', unit: '', trend: '较昨日 +12.6%', tone: 'success' },
+  { key: 'utilization', label: '设备利用率', value: '78.6', unit: '%', trend: '较昨日 +4.3%', tone: 'info' },
 ])
 
 const filteredOrders = computed(() => orders.filter((order) => {

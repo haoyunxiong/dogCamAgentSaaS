@@ -1,25 +1,28 @@
 <template>
   <button class="device-card" type="button" @click="$emit('click', device)">
-    <div class="device-card__head">
-      <span class="device-card__asset">{{ device.assetNo || device.id }}</span>
-      <StatusBadge :label="device.status" size="sm" />
+    <div class="device-card__image" aria-hidden="true">
+      <span>{{ shortModel }}</span>
     </div>
 
-    <strong>{{ device.model || device.name }}</strong>
+    <div class="device-card__content">
+      <div class="device-card__head">
+        <strong>{{ device.model || device.name }}</strong>
+        <StatusBadge :label="device.status" size="sm" />
+      </div>
 
-    <div class="device-card__meta">
-      <span>{{ device.category }}</span>
-      <span>{{ device.location }}</span>
-      <span v-if="device.utilization !== undefined">利用率 {{ device.utilization }}%</span>
+      <div class="device-card__meta">
+        <span>编号：{{ device.serialNo || device.assetNo || device.id }}</span>
+        <span>所属门店：{{ device.location }}</span>
+        <span v-if="device.currentOrderId">当前租期：{{ device.nextBookingDate }}</span>
+        <span v-else>状态：{{ device.status }}</span>
+      </div>
+
+      <div class="device-card__foot">
+        <span v-if="device.currentOrderId">订单：{{ device.currentOrderId }}</span>
+        <span v-else>可直接安排</span>
+        <b>查看详情 ›</b>
+      </div>
     </div>
-
-    <div class="device-card__next">
-      <span>当前订单：{{ device.currentOrderId || '无' }}</span>
-      <span>下一预约：{{ device.nextBookingDate || '暂无' }}</span>
-      <span v-if="revenueText">近30天收益：{{ revenueText }}</span>
-    </div>
-
-    <p v-if="device.conditionNote || device.alert">{{ device.conditionNote || device.alert }}</p>
   </button>
 </template>
 
@@ -33,12 +36,13 @@ const props = defineProps({
 
 defineEmits(['click'])
 
-const revenueText = computed(() => {
-  if (props.device.revenue30d !== undefined) return `¥${Number(props.device.revenue30d).toLocaleString()}`
-  if (props.device.utilization !== undefined && props.device.assetNo) {
-    return `¥${(Number(props.device.utilization) * 38 + String(props.device.assetNo).length * 12).toLocaleString()}`
-  }
-  return ''
+const shortModel = computed(() => {
+  const model = props.device.model || props.device.name || ''
+  if (model.includes('Pocket')) return 'DJI'
+  if (model.includes('Canon')) return 'R5'
+  if (model.includes('Sony')) return 'A7'
+  if (model.includes('富士')) return 'FX'
+  return 'CAM'
 })
 </script>
 
@@ -46,18 +50,17 @@ const revenueText = computed(() => {
 .device-card {
   position: relative;
   width: 100%;
-  min-height: 178px;
+  min-height: 154px;
   padding: 14px;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--radius-16);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 250, 0.96)),
-    rgba(251, 251, 250, 0.88);
+  border: 1px solid #e7edf2;
+  border-radius: 16px;
+  background: var(--ui-surface);
   text-align: left;
   display: grid;
-  gap: var(--ui-space-8);
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 14px;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.045);
 }
 
 .device-card:hover {
@@ -67,55 +70,66 @@ const revenueText = computed(() => {
   transform: translateY(-1px);
 }
 
-.device-card__head,
-.device-card__meta,
-.device-card__next {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.device-card__image {
+  min-height: 126px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f4f6f8, #eceff3);
+  border: 1px solid #edf1f5;
+}
+
+.device-card__image span {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: var(--ui-brand);
+  background: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
+}
+
+.device-card__content {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 9px;
 }
 
 .device-card__head {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.device-card__asset {
-  color: var(--ui-text-muted);
-  font-size: 12px;
-  font-weight: 760;
+  gap: 10px;
 }
 
 .device-card strong {
   color: var(--ui-text);
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0;
 }
 
-.device-card__meta,
-.device-card__next,
-.device-card p {
+.device-card__meta {
+  display: grid;
+  gap: 5px;
   color: var(--ui-text-muted);
   font-size: 12px;
 }
 
-.device-card__next span {
-  min-width: 0;
-  max-width: 100%;
-  padding: 6px 8px;
-  border-radius: 7px;
-  background: var(--ui-surface-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.device-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
 }
 
-.device-card p {
-  margin: 0;
-  padding: 8px 9px;
-  border-radius: var(--radius-8);
-  background: rgba(254, 242, 242, 0.72);
-  color: var(--color-danger);
-  font-weight: 720;
+.device-card__foot b {
+  color: var(--ui-brand);
+  font-weight: 850;
 }
 </style>

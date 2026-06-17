@@ -1,11 +1,12 @@
 <template>
   <button class="settings-card" type="button" @click="$emit('click')">
+    <span class="settings-card__icon">{{ title.slice(0, 1) }}</span>
     <div class="settings-card__copy">
       <span v-if="group">{{ group }}</span>
       <strong>{{ title }}</strong>
       <p v-if="desc">{{ desc }}</p>
     </div>
-    <StatusBadge :label="status" :variant="variant" size="sm" />
+    <StatusBadge class="settings-card__status" :label="status" :variant="variant" size="sm" />
   </button>
 </template>
 
@@ -26,18 +27,28 @@ defineEmits(['click'])
 <style scoped>
 .settings-card {
   width: 100%;
-  min-height: 112px;
-  padding: var(--ui-space-16);
+  min-height: 132px;
+  padding: 18px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-16);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 252, 251, 0.98)),
-    var(--ui-surface);
-  display: flex;
-  justify-content: space-between;
-  gap: var(--ui-space-12);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 14px;
   text-align: left;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+}
+
+.settings-card__icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--ui-brand);
+  background: var(--ui-brand-soft);
+  font-size: 16px;
+  font-weight: 900;
 }
 
 .settings-card:hover {
@@ -47,6 +58,10 @@ defineEmits(['click'])
 
 .settings-card__copy {
   min-width: 0;
+}
+
+.settings-card__status {
+  align-self: start;
 }
 
 .settings-card span {

@@ -32,13 +32,11 @@ defineProps({
 .filter-bar {
   display: grid;
   gap: var(--space-10, 10px);
-  padding: var(--space-12, 12px);
+  padding: 14px;
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: var(--radius-12, 12px);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 251, 250, 0.98)),
-    var(--color-surface, #fff);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.026);
+  border-radius: 10px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
 }
 
 .filter-bar__head {

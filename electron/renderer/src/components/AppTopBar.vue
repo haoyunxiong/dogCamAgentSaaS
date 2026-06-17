@@ -1,5 +1,28 @@
 <template>
-  <header class="app-topbar">
+  <header v-if="isUiV2" class="app-topbar app-topbar--uiv2">
+    <div class="tb-uiv2-spacer" aria-hidden="true"></div>
+    <div class="tb-uiv2-controls">
+      <button class="tb-uiv2-select" type="button">
+        <span>深圳南山店</span>
+        <ChevronDown class="tb-svg" aria-hidden="true" />
+      </button>
+      <button class="tb-uiv2-date" type="button">
+        <CalendarDays class="tb-svg" aria-hidden="true" />
+        <span>2025-06-14 ~ 2025-06-14</span>
+      </button>
+      <button class="tb-icon-btn badge-btn" title="通知中心" type="button" @click="goInbox">
+        <Bell class="tb-svg" aria-hidden="true" />
+        <span class="tb-badge">12</span>
+      </button>
+      <button class="tb-uiv2-primary" type="button">
+        <Plus class="tb-svg" aria-hidden="true" />
+        新建订单
+        <ChevronDown class="tb-svg" aria-hidden="true" />
+      </button>
+    </div>
+  </header>
+
+  <header v-else class="app-topbar">
     <div class="tb-left">
       <button class="tb-icon-btn" :title="ui.sidebarCollapsed ? '展开侧栏' : '收起侧栏'" @click="ui.toggleSidebar()">
         <PanelLeftOpen v-if="ui.sidebarCollapsed" class="tb-svg" aria-hidden="true" />
@@ -57,7 +80,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell, PanelLeftClose, PanelLeftOpen, Play, Power, RefreshCw, Search } from '@lucide/vue'
+import { Bell, CalendarDays, ChevronDown, PanelLeftClose, PanelLeftOpen, Play, Plus, Power, RefreshCw, Search } from '@lucide/vue'
 import { useBotStore } from '../stores/botStore'
 import { useUiStore } from '../stores/uiStore'
 
@@ -98,6 +121,7 @@ const META = {
 
 const sectionLabel = computed(() => META[route.path]?.section || '工作台')
 const pageLabel = computed(() => META[route.path]?.page || '')
+const isUiV2 = computed(() => route.path.startsWith('/ui-v2'))
 
 async function toggleBot() {
   pending.value = true
@@ -148,6 +172,72 @@ function openPalette() {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   box-shadow: 0 1px 0 rgba(16, 24, 40, 0.02);
+}
+
+.app-topbar--uiv2 {
+  height: 64px;
+  justify-content: flex-end;
+  padding: 0 24px;
+  background: rgba(247, 248, 250, 0.92);
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.tb-uiv2-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.tb-uiv2-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.tb-uiv2-select,
+.tb-uiv2-date,
+.tb-uiv2-primary {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.tb-uiv2-select,
+.tb-uiv2-date {
+  min-width: 144px;
+  padding: 0 14px;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #e7edf2;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+}
+
+.tb-uiv2-date {
+  min-width: 260px;
+}
+
+.tb-uiv2-primary {
+  min-width: 142px;
+  padding: 0 16px;
+  color: #fff;
+  background: linear-gradient(180deg, #00a889, #007f6d);
+  border: 1px solid rgba(0, 127, 109, 0.32);
+  box-shadow: 0 8px 18px rgba(0, 127, 109, 0.16);
+}
+
+.app-topbar--uiv2 .tb-icon-btn {
+  width: 38px;
+  height: 38px;
+  background: #fff;
+  border-color: #e7edf2;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
 .tb-left, .tb-right {

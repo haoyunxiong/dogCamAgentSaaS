@@ -9,75 +9,104 @@
       <MetricCard v-for="metric in modelMetrics" :key="metric.key" :metric="metric" />
     </section>
 
-    <FilterBar title="档期筛选" hint="不使用旧版超宽横向表">
+    <div class="final-tabs">
+      <button
+        v-for="item in scheduleTabs"
+        :key="item"
+        type="button"
+        class="final-tab"
+        :class="{ 'is-active': status === item }"
+        @click="status = item"
+      >
+        {{ item }}
+      </button>
+    </div>
+
+    <FilterBar title="档期筛选" hint="按最终图保留日期、型号、门店和状态筛选">
       <div class="filter-row">
+        <BaseInput model-value="2025-06-14 ~ 2025-06-20" label="日期范围" readonly />
         <BaseInput v-model="keyword" search clearable placeholder="搜索资产编号 / 型号" />
         <BaseSelect v-model="model" label="型号" :options="['全部型号', ...options.deviceModels]" />
-        <BaseSelect v-model="status" label="状态" :options="['全部状态', '可租', '占用', '冲突', '维修']" />
+        <BaseSelect model-value="深圳南山店" label="门店" :options="['深圳南山店']" />
       </div>
     </FilterBar>
 
-    <section class="schedule-board">
-      <div class="date-head">
-        <span>设备</span>
-        <strong v-for="date in sevenDates" :key="date">{{ date.slice(5) }}</strong>
-      </div>
-      <div v-for="group in groupedDevices" :key="group.model" class="model-group">
-        <h2>{{ group.model }} <small>{{ group.devices.length }} 台设备</small></h2>
-        <div v-for="device in group.devices" :key="device.id" class="schedule-row">
-          <div class="device-cell">
-            <strong>{{ device.assetNo }}</strong>
-            <span>{{ device.location }}</span>
-          </div>
-          <button
-            v-for="date in sevenDates"
-            :key="date"
-            :class="['slot-cell', `slot-${slotFor(device.id, date)?.status}`]"
-            type="button"
-            @click="openSlot(slotFor(device.id, date))"
-          >
-            <strong>{{ slotFor(device.id, date)?.label }}</strong>
-            <small>{{ slotFor(device.id, date)?.orderId || device.maintenanceStatus }}</small>
-          </button>
+    <section class="schedule-layout">
+      <div class="final-main-stack">
+        <div class="legend-row">
+          <span><i class="ok"></i>充足（>30%）</span>
+          <span><i class="mid"></i>紧张（5%-30%）</span>
+          <span><i class="low"></i>不足（<5%）</span>
+          <span><i class="full"></i>满租</span>
+          <span><i class="off"></i>不可用</span>
         </div>
-      </div>
-    </section>
-
-    <BaseDrawer v-model="drawerOpen" title="档期详情" :subtitle="selectedSlot?.assetNo || ''" width="520" test-id="schedule-detail-drawer" @close="selectedSlot = null">
-      <div v-if="selectedSlot" class="ui-v2-stack">
-        <DrawerSummary
-          :status="selectedSlot.status"
-          :title="selectedSlot.assetNo"
-          :description="`${selectedSlot.model} · ${selectedSlot.date}`"
-          :meta="selectedSlot.orderId || selectedSlot.conflictType || '当前可租'"
-          primary-label="分配设备"
-          secondary-label="查看订单"
-        />
-        <section class="ui-v2-detail-grid">
-          <div><span>型号</span><strong>{{ selectedSlot.model }}</strong></div>
-          <div><span>日期</span><strong>{{ selectedSlot.date }}</strong></div>
-          <div><span>状态</span><strong>{{ selectedSlot.status }}</strong></div>
-          <div><span>关联订单</span><strong>{{ selectedSlot.orderId || '无' }}</strong></div>
+        <section class="schedule-board">
+          <div class="date-head">
+            <span>型号 / 规格</span>
+            <strong v-for="date in sevenDates" :key="date">{{ date.slice(5) }}</strong>
+          </div>
+          <div v-for="group in groupedDevices" :key="group.model" class="model-group">
+            <div v-for="device in group.devices" :key="device.id" class="schedule-row">
+              <div class="device-cell">
+                <strong>{{ device.model }}</strong>
+                <span>{{ device.assetNo }} · 库存 {{ group.devices.length }}</span>
+              </div>
+              <button
+                v-for="date in sevenDates"
+                :key="date"
+                :class="['slot-cell', `slot-${slotFor(device.id, date)?.status}`]"
+                type="button"
+                @click="openSlot(slotFor(device.id, date))"
+              >
+                <strong>{{ slotFor(device.id, date)?.status === '可租' ? availabilityNumber(device.id, date) : slotFor(device.id, date)?.label }}</strong>
+                <small>{{ slotPercent(device.id, date) }}</small>
+              </button>
+            </div>
+          </div>
         </section>
-        <UiV2Section title="建议动作">
-          <p>{{ actionHint }}</p>
-        </UiV2Section>
       </div>
-    </BaseDrawer>
+
+      <aside class="final-panel schedule-side">
+        <div class="final-panel__head">
+          <div>
+            <h2>{{ selectedSlot?.model || '大疆 Pocket 3' }}</h2>
+            <p>{{ selectedSlot?.assetNo || '请选择左侧档期' }}</p>
+          </div>
+          <StatusBadge :label="selectedSlot?.status || '可安排'" size="sm" />
+        </div>
+        <div class="final-panel__body final-info-list">
+          <div class="final-soft-grid">
+            <div class="final-mini-card"><span>总库存</span><strong>32</strong><small>台</small></div>
+            <div class="final-mini-card"><span>本周可安排</span><strong>70</strong><small>台次</small></div>
+            <div class="final-mini-card"><span>本周已预订</span><strong>122</strong><small>台次</small></div>
+            <div class="final-mini-card"><span>本周满租率</span><strong>78.6%</strong><small>较上周 +4.3%</small></div>
+          </div>
+          <div class="final-drawer-card final-info-list">
+            <div class="final-info-row"><span>日期</span><strong>{{ selectedSlot?.date || '2025-06-14' }}</strong></div>
+            <div class="final-info-row"><span>状态</span><strong>{{ selectedSlot?.status || '可租' }}</strong></div>
+            <div class="final-info-row"><span>关联订单</span><strong>{{ selectedSlot?.orderId || '无' }}</strong></div>
+            <div class="final-info-row"><span>建议动作</span><strong>{{ actionHint }}</strong></div>
+          </div>
+          <div class="final-action-row">
+            <BaseButton variant="secondary" size="sm">批量锁库</BaseButton>
+            <BaseButton size="sm">查看设备详情</BaseButton>
+          </div>
+        </div>
+      </aside>
+    </section>
   </UiV2Page>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
-import BaseDrawer from '../../../components/BaseDrawer.vue'
 import BaseInput from '../../../components/BaseInput.vue'
 import BaseSelect from '../../../components/BaseSelect.vue'
 import FilterBar from '../../../components/FilterBar.vue'
-import { DrawerSummary, MetricCard } from '../../../components/ui'
+import StatusBadge from '../../../components/StatusBadge.vue'
+import { MetricCard } from '../../../components/ui'
 import { uiV2MockAdapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
-import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
 
 const devices = uiV2MockAdapter.getDevices()
@@ -86,9 +115,9 @@ const sevenDates = uiV2MockAdapter.getScheduleDates().slice(0, 7)
 const options = uiV2MockAdapter.getOptions()
 const keyword = ref('')
 const model = ref('全部型号')
-const status = ref('全部状态')
-const selectedSlot = ref(null)
-const drawerOpen = ref(false)
+const status = ref('全部型号')
+const selectedSlot = ref(schedule[0] || null)
+const scheduleTabs = ['全部型号', '可安排', '满租', '余量不足', '即将归还']
 
 const modelMetrics = computed(() => options.deviceModels.slice(0, 5).map((item) => {
   const total = devices.filter((device) => device.model === item).length
@@ -99,7 +128,14 @@ const modelMetrics = computed(() => options.deviceModels.slice(0, 5).map((item) 
 const filteredDevices = computed(() => devices.filter((device) => {
   const matchModel = model.value === '全部型号' || device.model === model.value
   const matchKeyword = !keyword.value || `${device.assetNo}${device.model}`.includes(keyword.value)
-  const matchStatus = status.value === '全部状态' || sevenDates.some((date) => slotFor(device.id, date)?.status === status.value)
+  const matchStatus = status.value === '全部状态' || status.value === '全部型号' || sevenDates.some((date) => {
+    const slotStatus = slotFor(device.id, date)?.status
+    return status.value === '可安排' ? slotStatus === '可租'
+      : status.value === '满租' ? slotStatus === '占用'
+      : status.value === '余量不足' ? slotStatus === '冲突'
+      : status.value === '即将归还' ? slotStatus === '占用'
+      : slotStatus === status.value
+  })
   return matchModel && matchKeyword && matchStatus
 }))
 
@@ -123,12 +159,21 @@ function slotFor(deviceId, date) {
 function openSlot(slot) {
   if (!slot) return
   selectedSlot.value = slot
-  drawerOpen.value = true
 }
 
-watch(selectedSlot, (slot) => {
-  drawerOpen.value = Boolean(slot)
-})
+function availabilityNumber(deviceId, date) {
+  const index = schedule.findIndex((item) => item.deviceId === deviceId && item.date === date)
+  return Math.max(2, 26 - (index % 19))
+}
+
+function slotPercent(deviceId, date) {
+  const slot = slotFor(deviceId, date)
+  if (!slot) return ''
+  if (slot.status === '可租') return `${Math.max(7, 82 - (availabilityNumber(deviceId, date) % 61))}%`
+  if (slot.status === '占用') return '已预订'
+  if (slot.status === '冲突') return '余量不足'
+  return '不可用'
+}
 </script>
 
 <style scoped>
@@ -140,10 +185,45 @@ watch(selectedSlot, (slot) => {
 
 .filter-row {
   display: grid;
-  grid-template-columns: 1.2fr repeat(2, minmax(180px, 0.7fr));
+  grid-template-columns: 1fr 1.2fr repeat(2, minmax(160px, 0.7fr));
   gap: var(--space-12);
   align-items: end;
 }
+
+.schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
+  align-items: start;
+}
+
+.legend-row {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.legend-row i {
+  width: 10px;
+  height: 10px;
+  display: inline-flex;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.legend-row .ok { background: #10b981; }
+.legend-row .mid { background: #34d399; }
+.legend-row .low { background: #f59e0b; }
+.legend-row .full { background: #ef4444; }
+.legend-row .off { background: #cbd5e1; }
 
 .schedule-board {
   overflow: auto;
@@ -156,7 +236,7 @@ watch(selectedSlot, (slot) => {
 .date-head,
 .schedule-row {
   display: grid;
-  grid-template-columns: minmax(200px, 1.2fr) repeat(7, minmax(92px, 1fr));
+  grid-template-columns: minmax(210px, 1.2fr) repeat(7, minmax(88px, 1fr));
   gap: 1px;
   min-width: 900px;
   background: rgba(229, 235, 232, 0.92);
@@ -181,21 +261,6 @@ watch(selectedSlot, (slot) => {
   background: #f8fbfa;
 }
 
-.model-group h2 {
-  margin: 0;
-  min-width: 900px;
-  padding: 12px 16px;
-  background: linear-gradient(90deg, #f3f8f6, #f9fbfa);
-  color: var(--color-text);
-  font-size: 14px;
-  border-top: 1px solid rgba(229, 235, 232, 0.82);
-}
-
-.model-group h2 small {
-  color: var(--color-text-muted);
-  font-weight: 500;
-}
-
 .device-cell {
   display: grid;
   gap: 2px;
@@ -213,7 +278,7 @@ watch(selectedSlot, (slot) => {
 }
 
 .slot-cell {
-  min-height: 58px;
+  min-height: 62px;
   display: grid;
   align-content: center;
   gap: 2px;
@@ -235,8 +300,19 @@ watch(selectedSlot, (slot) => {
   font-size: 12px;
 }
 
-.slot-可租 { color: #0f7a4e; background: #f1faf5; }
-.slot-占用 { color: #256b9e; background: #eef7ff; }
+.slot-可租 { color: #0f7a4e; background: #eaf8f1; }
+.slot-占用 { color: #b45309; background: #fff4df; }
 .slot-冲突 { color: #be123c; background: #fff1f2; }
-.slot-维修 { color: #b45309; background: #fff7ed; }
+.slot-维修 { color: #667085; background: #f1f5f9; }
+
+.schedule-side {
+  position: sticky;
+  top: 76px;
+}
+
+@media (max-width: 1280px) {
+  .schedule-layout {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -1,8 +1,8 @@
 <template>
-  <UiV2Page title="免押管理" description="审核免押队列，查看风险状态、押金状态和处理动作。">
+  <UiV2Page title="免押管理" description="按最终系统风格派生页：审核免押队列，查看风险状态、押金状态和处理动作。">
     <template #actions><BaseButton variant="secondary">批量复核</BaseButton></template>
-    <section class="ui-v2-metric-grid"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
-    <FilterBar>
+    <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
+    <FilterBar title="审核筛选" hint="该页无最终图，结构从订单中心和系统设置派生">
       <div class="filter-row">
         <BaseInput v-model="keyword" search clearable placeholder="搜索订单、客户、设备" />
         <BaseSelect v-model="risk" label="风险" :options="['全部风险', '低', '中', '高']" />
@@ -20,7 +20,7 @@
     <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
         <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · ${selectedReview.phoneMasked}`" primary-label="通过免押" danger-label="驳回" />
-        <section class="ui-v2-detail-grid">
+        <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>免押金额</span><strong>¥{{ selectedReview.requestedFreeAmount.toLocaleString() }}</strong></div>
           <div><span>押金状态</span><strong>{{ selectedReview.depositStatus }}</strong></div>
           <div><span>风险状态</span><strong>{{ selectedReview.riskLevel }}</strong></div>

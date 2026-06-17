@@ -76,7 +76,7 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
   position: relative;
   overflow: hidden;
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: var(--radius-12, 12px);
+  border-radius: 10px;
   background: var(--color-surface, #fff);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
@@ -95,9 +95,9 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
   position: sticky;
   top: 0;
   z-index: 1;
-  height: 38px;
-  padding: 0 12px;
-  background: linear-gradient(180deg, #fbfcfd, #f5f7f8);
+  height: 42px;
+  padding: 0 14px;
+  background: #f7f9fb;
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   color: var(--color-text-muted, #6b7280);
   font-size: 11px;
@@ -108,9 +108,9 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
 }
 
 :deep(td) {
-  min-height: 52px;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(229, 235, 232, 0.82);
+  min-height: 54px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #eef2f6;
   color: var(--color-text, #111827);
   font-size: 13px;
   vertical-align: middle;
@@ -118,7 +118,7 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
 }
 
 :deep(tbody tr:hover td) {
-  background: rgba(232, 247, 243, 0.52);
+  background: rgba(232, 247, 243, 0.46);
 }
 
 .data-table-shell__table tbody tr {
@@ -134,7 +134,19 @@ const empty = computed(() => props.empty || (hasColumns.value && !props.loading 
 :deep(tbody tr.selected td),
 :deep(tbody tr.is-selected td),
 :deep(tbody tr[aria-selected='true'] td) {
-  background: rgba(0, 127, 109, 0.095);
+  background: rgba(232, 247, 243, 0.78);
+  border-top: 1px solid rgba(0, 127, 109, 0.32);
+  border-bottom: 1px solid rgba(0, 127, 109, 0.32);
+}
+
+:deep(tbody tr[aria-selected='true'] td:first-child) {
+  border-left: 1px solid rgba(0, 127, 109, 0.32);
+  border-radius: 8px 0 0 8px;
+}
+
+:deep(tbody tr[aria-selected='true'] td:last-child) {
+  border-right: 1px solid rgba(0, 127, 109, 0.32);
+  border-radius: 0 8px 8px 0;
 }
 
 :deep(tbody tr:hover td:first-child),

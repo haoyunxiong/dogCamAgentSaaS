@@ -1,6 +1,9 @@
 <template>
   <article :class="['metric-card', `tone-${tone}`]">
-    <div class="metric-card__label">{{ label }}</div>
+    <div class="metric-card__top">
+      <span class="metric-card__icon">{{ icon }}</span>
+      <div class="metric-card__label">{{ label }}</div>
+    </div>
     <div class="metric-card__value">
       <strong>{{ value }}</strong>
       <span v-if="unit">{{ unit }}</span>
@@ -28,43 +31,52 @@ const unit = computed(() => props.metric?.unit ?? props.unit)
 const trend = computed(() => props.metric?.trend ?? props.trend)
 const hint = computed(() => props.metric?.hint ?? props.hint)
 const tone = computed(() => props.metric?.tone ?? props.tone)
+const icon = computed(() => {
+  const source = label.value || ''
+  return source.slice(0, 1) || '•'
+})
 </script>
 
 <style scoped>
 .metric-card {
   position: relative;
-  min-height: 98px;
+  min-height: 104px;
   overflow: hidden;
-  padding: 13px 14px;
+  padding: 16px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 250, 0.94)),
-    var(--ui-surface);
+  border-radius: 10px;
+  background: var(--ui-surface);
   display: grid;
   align-content: space-between;
-  gap: var(--ui-space-8);
+  gap: 10px;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
 }
 
-.metric-card::before {
-  content: "";
-  position: absolute;
-  left: 13px;
-  top: 12px;
-  width: 28px;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--ui-brand);
+.metric-card__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.tone-success::before { background: var(--color-status-success); }
-.tone-warning::before { background: var(--color-status-warning); }
-.tone-danger::before { background: var(--color-status-danger); }
-.tone-info::before { background: var(--color-status-info); }
+.metric-card__icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--ui-brand);
+  background: var(--ui-brand-soft);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.tone-success .metric-card__icon { color: var(--color-status-success); background: var(--color-success-soft); }
+.tone-warning .metric-card__icon { color: var(--color-status-warning); background: var(--color-warning-soft); }
+.tone-danger .metric-card__icon { color: var(--color-status-danger); background: var(--color-danger-soft); }
+.tone-info .metric-card__icon { color: var(--color-status-info); background: var(--color-info-soft); }
 
 .metric-card__label {
-  padding-top: 8px;
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 760;
@@ -78,7 +90,7 @@ const tone = computed(() => props.metric?.tone ?? props.tone)
 
 .metric-card__value strong {
   color: var(--ui-text);
-  font-size: 27px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;

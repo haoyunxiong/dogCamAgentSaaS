@@ -3,12 +3,12 @@
    以下变量仍被现有页面使用，值保持不变。
    ============================================ */
 :root {
-  --bg-app: #f7f8fa;
+  --bg-app: #f6f8fa;
   --bg-app-accent: rgba(20, 184, 166, 0.08);
   --bg-elevated: rgba(255, 255, 255, 0.88);
   --bg-panel: rgba(255, 255, 255, 0.9);
   --bg-panel-muted: #f5f7f4;
-  --bg-sidebar: #17201d;
+  --bg-sidebar: #051815;
   --bg-sidebar-item: rgba(255, 255, 255, 0.05);
   --bg-sidebar-item-hover: rgba(255, 255, 255, 0.1);
   --bg-primary: #0f766e;
@@ -19,8 +19,8 @@
   --bg-danger-soft: #fdecec;
   --bg-info-soft: #e8f3f1;
 
-  --text-strong: #17211d;
-  --text-main: #27342f;
+  --text-strong: #101828;
+  --text-main: #1d2939;
   --text-secondary: #52615b;
   --text-muted: #6f8078;
   --text-faint: #8ea098;
@@ -34,14 +34,14 @@
   --border-medium: rgba(89, 104, 96, 0.28);
   --border-strong: rgba(15, 118, 110, 0.26);
 
-  --shadow-sm: 0 8px 20px rgba(20, 33, 28, 0.05);
-  --shadow-md: 0 18px 36px rgba(20, 33, 28, 0.08);
-  --shadow-lg: 0 28px 72px rgba(20, 33, 28, 0.16);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 10px 24px rgba(16, 24, 40, 0.07);
+  --shadow-lg: 0 24px 60px rgba(16, 24, 40, 0.14);
 
   --radius-sm: 8px;
   --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -51,7 +51,7 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --sidebar-width: 248px;
+  --sidebar-width: 244px;
   --content-max-width: 1920px;
 
   --font-sans: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
@@ -73,7 +73,7 @@
   --color-primary-500: #00a889;
   --color-primary-100: #e8f7f3;
 
-  --color-bg-page: #f6f8fa;
+  --color-bg-page: #f7f8fa;
   --color-bg-surface: #ffffff;
   --color-bg-sidebar: #06211f;
   --color-bg-muted: #f9fafb;
@@ -120,7 +120,7 @@
   /* Shadow Tokens */
   --shadow-none: none;
   --shadow-subtle: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-panel: 0 10px 28px rgba(16, 24, 40, 0.07);
+  --shadow-panel: 0 8px 20px rgba(16, 24, 40, 0.06);
   --shadow-floating: 0 12px 32px rgba(16, 24, 40, 0.12);
   --shadow-drawer: -8px 0 32px rgba(16, 24, 40, 0.14);
 

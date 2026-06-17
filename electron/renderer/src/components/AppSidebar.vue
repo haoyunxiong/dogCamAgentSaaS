@@ -2,15 +2,15 @@
   <aside class="app-sidebar-v2" :class="{ collapsed: ui.sidebarCollapsed }">
     <div class="sb-top">
       <div class="brand-card" :class="{ mini: ui.sidebarCollapsed }">
-        <img class="brand-mark" :src="brandDog" alt="小狗相机助手图标" />
+        <img class="brand-mark" :src="brandDog" alt="租赁商家运营系统图标" />
         <div v-if="!ui.sidebarCollapsed" class="brand-txt">
-          <div class="brand-title">小狗相机助手</div>
-          <div class="brand-subtitle">相机租赁运营工作台</div>
+          <div class="brand-title">{{ isUiV2 ? '租赁商家运营系统' : '小狗相机助手' }}</div>
+          <div class="brand-subtitle">{{ isUiV2 ? '商家版' : '相机租赁运营工作台' }}</div>
         </div>
       </div>
       <div class="sb-nav-scroll">
         <nav class="sb-nav">
-          <template v-for="grp in groups" :key="grp.label">
+          <template v-for="grp in visibleGroups" :key="grp.label">
             <div v-if="!ui.sidebarCollapsed" class="sb-group-label">{{ grp.label }}</div>
             <router-link
               v-for="item in grp.items"
@@ -40,16 +40,32 @@
     </div>
 
     <div class="sb-bottom">
+      <div v-if="!ui.sidebarCollapsed && isUiV2" class="sb-overview">
+        <div class="sb-overview-title">今日运营概览</div>
+        <div class="sb-overview-time">更新时间 · 06-14 10:23</div>
+        <div class="sb-overview-metric">
+          <span>今日成交金额</span>
+          <strong>¥ 28,560.00</strong>
+          <small>较昨日 +12.6%</small>
+        </div>
+        <div class="sb-overview-metric compact">
+          <span>今日订单量</span>
+          <strong>28 单</strong>
+          <small>较昨日 +8 单</small>
+        </div>
+        <RouterLink class="sb-overview-link" to="/ui-v2/reports">查看更多数据 ›</RouterLink>
+      </div>
+
       <div v-if="!ui.sidebarCollapsed" class="sb-account">
         <div class="sb-account-main">
-          <div class="sb-account-avatar">小</div>
+          <div class="sb-account-avatar">{{ isUiV2 ? '林' : '小' }}</div>
           <div class="sb-account-copy">
-            <div class="sb-account-store">成都小狗相机租赁</div>
-            <div class="sb-account-role">当前账号 / 店长</div>
+            <div class="sb-account-store">{{ isUiV2 ? '林小姐' : '成都小狗相机租赁' }}</div>
+            <div class="sb-account-role">{{ isUiV2 ? '店长 · 在线' : '当前账号 / 店长' }}</div>
           </div>
         </div>
         <div class="sb-account-meta">
-          <span>本地运行</span>
+          <span>{{ isUiV2 ? '深圳南山店' : '本地运行' }}</span>
           <span v-if="ui.totalPending > 0" class="sb-pending-pill">待办 {{ ui.totalPending > 99 ? '99+' : ui.totalPending }}</span>
         </div>
       </div>
@@ -76,9 +92,30 @@ import {
   SquarePen,
   Truck,
 } from '@lucide/vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import brandDog from '../assets/brand-dog.jpg'
 import { useUiStore } from '../stores/uiStore'
 const ui = useUiStore()
+const route = useRoute()
+const isUiV2 = computed(() => route.path.startsWith('/ui-v2'))
+
+const uiV2Groups = [
+  {
+    label: '',
+    items: [
+      { to: '/ui-v2', label: '工作台', icon: Home, exact: true },
+      { to: '/ui-v2/orders', label: '订单中心', icon: Package },
+      { to: '/ui-v2/schedule', label: '档期中心', icon: CalendarDays },
+      { to: '/ui-v2/devices', label: '设备管理', icon: Boxes },
+      { to: '/ui-v2/customers', label: '客户管理', icon: Link2 },
+      { to: '/ui-v2/logistics', label: '物流发货', icon: Truck },
+      { to: '/ui-v2/deposit', label: '免押管理', icon: FileCheck },
+      { to: '/ui-v2/reports', label: '报表中心', icon: ChartNoAxesCombined },
+      { to: '/ui-v2/settings', label: '系统设置', icon: Settings },
+    ],
+  },
+]
 
 const groups = [
   {
@@ -129,6 +166,8 @@ const groups = [
     ],
   },
 ]
+
+const visibleGroups = computed(() => isUiV2.value ? uiV2Groups : groups)
 </script>
 
 <style scoped>
@@ -280,6 +319,57 @@ const groups = [
 }
 
 .sb-bottom { padding: 8px 4px 0; flex-shrink: 0; }
+.sb-overview {
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(15, 53, 49, 0.95), rgba(9, 31, 29, 0.96));
+  border: 1px solid rgba(153, 246, 228, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.sb-overview-title {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+}
+.sb-overview-time {
+  margin-top: 4px;
+  color: rgba(214, 241, 237, 0.56);
+  font-size: 11px;
+}
+.sb-overview-metric {
+  margin-top: 12px;
+  display: grid;
+  gap: 4px;
+}
+.sb-overview-metric.compact {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sb-overview-metric span {
+  color: rgba(214, 241, 237, 0.62);
+  font-size: 11px;
+}
+.sb-overview-metric strong {
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+.sb-overview-metric.compact strong {
+  font-size: 18px;
+}
+.sb-overview-metric small,
+.sb-overview-link {
+  color: #34d399;
+  font-size: 11px;
+  font-weight: 720;
+}
+.sb-overview-link {
+  display: inline-flex;
+  margin-top: 12px;
+}
 .sb-account {
   padding: var(--space-12, 12px);
   border-radius: var(--radius-12, 12px);

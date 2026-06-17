@@ -1,5 +1,5 @@
 <template>
-  <header class="mobile-app-bar">
+  <header class="mobile-app-bar" :class="[`mobile-app-bar--${tone}`]">
     <div class="mobile-app-bar__main">
       <span v-if="eyebrow" class="mobile-app-bar__eyebrow">{{ eyebrow }}</span>
       <h1>{{ title }}</h1>
@@ -22,23 +22,34 @@ defineProps({
   subtitle: { type: String, default: '' },
   statusLabel: { type: String, default: '' },
   statusVariant: { type: String, default: 'info' },
+  tone: {
+    type: String,
+    default: 'dark',
+    validator: (v) => ['dark', 'light'].includes(v),
+  },
 })
 </script>
 
 <style scoped>
 .mobile-app-bar {
-  min-height: 86px;
-  padding: 15px;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--radius-16);
+  min-height: 94px;
+  padding: 20px 16px 16px;
+  border-radius: 0 0 18px 18px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(240, 248, 246, 0.94)),
-    var(--ui-surface);
-  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.055);
+    radial-gradient(circle at 100% 0%, rgba(20, 184, 166, 0.18), transparent 34%),
+    linear-gradient(135deg, #031614, #061f1d);
+  box-shadow: none;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--ui-space-12);
+}
+
+.mobile-app-bar--light {
+  min-height: 76px;
+  background: transparent;
+  border-radius: 0;
+  padding-bottom: 8px;
 }
 
 .mobile-app-bar__main {
@@ -47,7 +58,7 @@ defineProps({
 
 .mobile-app-bar__eyebrow {
   display: block;
-  color: var(--ui-brand);
+  color: rgba(236, 253, 245, 0.74);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   font-weight: 820;
@@ -55,8 +66,8 @@ defineProps({
 
 .mobile-app-bar h1 {
   margin: var(--ui-space-4) 0 0;
-  color: var(--ui-text);
-  font-size: 21px;
+  color: #fff;
+  font-size: 24px;
   line-height: var(--font-mobile-nav-title-line);
   font-weight: 820;
   letter-spacing: 0;
@@ -64,9 +75,21 @@ defineProps({
 
 .mobile-app-bar p {
   margin: 2px 0 0;
-  color: var(--ui-text-muted);
+  color: rgba(236, 253, 245, 0.72);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
+}
+
+.mobile-app-bar--light .mobile-app-bar__eyebrow {
+  display: none;
+}
+
+.mobile-app-bar--light h1 {
+  color: var(--ui-text);
+}
+
+.mobile-app-bar--light p {
+  color: var(--ui-text-muted);
 }
 
 .mobile-app-bar__actions {

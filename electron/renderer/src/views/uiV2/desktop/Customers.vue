@@ -4,7 +4,7 @@
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in customerMetrics" :key="metric.key" :metric="metric" />
     </section>
-    <FilterBar>
+    <FilterBar title="客户筛选" hint="按来源、会员、风险、门店和最近活跃筛选">
       <div class="filter-row">
         <BaseInput v-model="keyword" search clearable placeholder="搜索客户、手机号、订单号" />
         <BaseSelect v-model="risk" label="风险" :options="['全部风险', '正常', '低', '中', '高']" />
@@ -20,7 +20,7 @@
     <BaseDrawer v-model="drawerOpen" :title="selectedCustomer?.name || '客户详情'" :subtitle="selectedCustomer?.phoneMasked || ''" width="600" test-id="customer-detail-drawer">
       <div v-if="selectedCustomer" class="ui-v2-stack">
         <DrawerSummary :status="selectedCustomer.riskLevel" :title="selectedCustomer.name" :description="`${selectedCustomer.city} · ${selectedCustomer.depositPreference}`" :meta="`${selectedCustomer.channel} · ${selectedCustomer.phoneMasked}`" primary-label="查看最近订单" secondary-label="标记已联系" />
-        <section class="ui-v2-detail-grid">
+        <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>累计订单</span><strong>{{ selectedCustomer.orderCount }} 单</strong></div>
           <div><span>累计租金</span><strong>¥{{ selectedCustomer.totalRent.toLocaleString() }}</strong></div>
           <div><span>最近订单</span><strong>{{ selectedCustomer.lastOrderNo }}</strong></div>
@@ -65,10 +65,12 @@ const columns = [
   { key: 'nextAction', label: '下一步' },
 ]
 const customerMetrics = computed(() => [
-  { key: 'customers', label: '客户数', value: customers.length, unit: '人', trend: 'mock 档案', tone: 'info' },
-  { key: 'repeat', label: '复租客户', value: customers.filter((item) => item.orderCount >= 4).length, unit: '人', trend: '近 90 天', tone: 'success' },
-  { key: 'risk', label: '高风险', value: customers.filter((item) => item.riskLevel === '高').length, unit: '人', trend: '需人工复核', tone: 'danger' },
-  { key: 'depositFree', label: '偏好免押', value: customers.filter((item) => item.depositPreference === '偏好免押').length, unit: '人', trend: '审核队列', tone: 'warning' },
+  { key: 'customers', label: '客户总数', value: '2,568', unit: '', trend: '较昨日 +32', tone: 'info' },
+  { key: 'active', label: '活跃客户', value: '1,382', unit: '', trend: '较昨日 +18', tone: 'success' },
+  { key: 'repeat', label: '复购客户', value: 986, unit: '', trend: '较昨日 +21', tone: 'warning' },
+  { key: 'risk', label: '风险客户', value: 87, unit: '', trend: '较昨日 +3', tone: 'danger' },
+  { key: 'member', label: '会员转化率', value: '38.6', unit: '%', trend: '较昨日 +3.2%', tone: 'success' },
+  { key: 'price', label: '平均客单价', value: '¥1,856.00', unit: '', trend: '较昨日 +126.5', tone: 'info' },
 ])
 const filteredCustomers = computed(() => customers.filter((customer) => {
   const text = `${customer.name}${customer.phoneMasked}${customer.lastOrderNo}${customer.city}`

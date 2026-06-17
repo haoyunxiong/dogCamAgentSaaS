@@ -1,88 +1,112 @@
 <template>
   <UiV2Page title="经营工作台" description="聚合今日履约、风险、订单和设备占用，先处理最影响交付的事项。">
     <template #actions>
-      <BaseButton variant="secondary">导出今日履约清单</BaseButton>
-      <BaseButton>进入待发货队列</BaseButton>
+      <BaseButton variant="secondary">查看全部待办</BaseButton>
+      <BaseButton>新建订单</BaseButton>
     </template>
-
-    <section class="command-card">
-      <div>
-        <StatusBadge label="今日工作台" variant="info" size="sm" />
-        <h2>{{ todayActionTotal }} 单待流转，{{ highRiskCount }} 个高风险需要先处理</h2>
-        <p>建议先处理押金异常、逾期归还和档期冲突，再进入待发货队列。</p>
-      </div>
-      <div class="command-card__stats">
-        <span>发货 {{ countStatus('待发货') }}</span>
-        <span>归还 {{ countStatus('待归还') }}</span>
-        <span>异常 {{ countStatus('异常') }}</span>
-      </div>
-    </section>
 
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" />
     </section>
 
-    <section class="ui-v2-grid-2">
-      <UiV2Section title="今日优先队列" hint="按风险和截止时间排序">
-        <template #actions>
-          <StatusBadge label="先处理高风险" variant="danger" size="sm" />
-        </template>
-        <div class="priority-lanes">
-          <div v-for="lane in taskLanes" :key="lane.title" class="priority-lane">
-            <div class="ui-v2-row-between">
-              <strong>{{ lane.title }}</strong>
-              <StatusBadge :label="`${lane.items.length} 项`" variant="neutral" size="sm" />
-            </div>
-            <button v-for="task in lane.items" :key="task.id" class="task-row" type="button" @click="goOrder(task.orderId)">
-              <div>
-                <strong>{{ task.title }}</strong>
-                <span>{{ task.type }} · {{ task.dueAt }}</span>
-              </div>
-              <BaseButton variant="secondary" size="sm">{{ task.actionLabel }}</BaseButton>
-            </button>
+    <section class="dashboard-layout">
+      <div class="final-panel today-panel">
+        <div class="final-panel__head">
+          <div>
+            <h2>今日待办</h2>
+            <p>按履约优先级处理</p>
           </div>
+          <BaseButton variant="secondary" size="sm">查看更多</BaseButton>
         </div>
-      </UiV2Section>
-
-      <UiV2Section title="风险处理区" hint="每条风险带建议动作">
-        <div class="ui-v2-stack">
-          <button v-for="risk in risks" :key="risk.id" class="risk-card" type="button" @click="goOrder(risk.relatedOrderId)">
-            <div class="ui-v2-row-between">
-              <StatusBadge :label="risk.type" :variant="risk.level === '高' ? 'danger' : 'warning'" size="sm" />
-              <span>{{ risk.suggestedAction }}</span>
+        <div class="final-panel__body task-list">
+          <button v-for="task in tasks" :key="task.id" class="task-row" type="button" @click="goOrder(task.orderId)">
+            <span class="task-icon" :class="task.priority === 'high' ? 'is-danger' : 'is-warning'">{{ task.type.slice(0, 1) }}</span>
+            <div>
+              <strong>{{ task.title }}</strong>
+              <small>{{ task.status }} · {{ task.dueAt }}</small>
             </div>
-            <strong>{{ risk.title }}</strong>
-            <p>{{ risk.description }}</p>
+            <BaseButton variant="secondary" size="sm">{{ task.actionLabel }}</BaseButton>
           </button>
         </div>
-      </UiV2Section>
-    </section>
+      </div>
 
-    <section class="ui-v2-grid-2">
-      <UiV2Section title="最近订单" hint="高频处理队列">
-        <DataTable :columns="columns" :rows="orders.slice(0, 7)" row-key="orderNo" compact @row-click="goOrder($event.orderNo)">
-          <template #orderNo="{ row }"><strong>{{ row.orderNo }}</strong></template>
-          <template #status="{ row }"><StatusBadge :label="row.status" size="sm" /></template>
-          <template #nextAction="{ row }"><span class="next-action">{{ row.nextAction }}</span></template>
-        </DataTable>
-      </UiV2Section>
+      <div class="final-panel quick-panel">
+        <div class="final-panel__head">
+          <div>
+            <h2>快捷操作</h2>
+            <p>常用履约入口</p>
+          </div>
+          <span>自定义 ›</span>
+        </div>
+        <div class="quick-actions">
+          <RouterLink to="/ui-v2/orders">新建订单</RouterLink>
+          <RouterLink to="/ui-v2/orders">订单查询</RouterLink>
+          <RouterLink to="/ui-v2/schedule">设备调拨</RouterLink>
+          <RouterLink to="/ui-v2/logistics">批量发货</RouterLink>
+          <RouterLink to="/ui-v2/devices">设备盘点</RouterLink>
+          <RouterLink to="/ui-v2/deposit">延长租期</RouterLink>
+          <RouterLink to="/ui-v2/orders">异常申报</RouterLink>
+          <RouterLink to="/ui-v2/reports">数据报表</RouterLink>
+        </div>
+      </div>
 
-      <UiV2Section title="7 天履约概览" hint="发货、归还、冲突压缩视图">
-        <div class="fulfillment-grid">
-          <div v-for="date in sevenDates" :key="date" class="day-strip">
-            <div class="ui-v2-row-between">
-              <strong>{{ date.slice(5) }}</strong>
-              <span>{{ weekLabel(date) }}</span>
+      <div class="final-panel reminder-panel">
+        <div class="final-panel__head">
+          <div>
+            <h2>运营提醒</h2>
+            <p>风险、库存、活动提醒</p>
+          </div>
+          <span>查看更多 ›</span>
+        </div>
+        <div class="final-panel__body reminder-list">
+          <button v-for="risk in risks" :key="risk.id" type="button" @click="goOrder(risk.relatedOrderId)">
+            <StatusBadge :label="risk.type" :variant="risk.level === '高' ? 'danger' : 'warning'" size="sm" />
+            <div>
+              <strong>{{ risk.title }}</strong>
+              <small>{{ risk.description }}</small>
             </div>
-            <div class="mini-bars">
-              <i class="busy" :style="{ height: `${Math.min(countSchedule(date, '占用') * 6 + 18, 72)}px` }" />
-              <i class="free" :style="{ height: `${Math.min(countSchedule(date, '可租') * 2 + 18, 72)}px` }" />
-              <i class="risk" :style="{ height: `${Math.min(countSchedule(date, '冲突') * 10 + 14, 72)}px` }" />
-            </div>
-            <small>占用 {{ countSchedule(date, '占用') }} / 冲突 {{ countSchedule(date, '冲突') }}</small>
+            <span>{{ risk.suggestedAction }} ›</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="final-panel overview-panel">
+        <div class="final-panel__head">
+          <div>
+            <h2>运营概览</h2>
+            <p>今日收入、订单和设备周转</p>
+          </div>
+          <span>查看更多 ›</span>
+        </div>
+        <div class="final-panel__body overview-grid">
+          <div class="trend-card"><strong>¥28,560.00</strong><span>收入趋势（元）</span><i class="trend-line"></i></div>
+          <div class="trend-card"><strong>{{ todayActionTotal }}</strong><span>待处理单数</span><i class="trend-line blue"></i></div>
+          <div v-for="item in overviewItems" :key="item.label" class="final-mini-card">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.trend }}</small>
           </div>
         </div>
-      </UiV2Section>
+      </div>
+
+      <div class="final-panel activity-panel">
+        <div class="final-panel__head">
+          <div>
+            <h2>最新动态</h2>
+            <p>订单、设备、客户消息</p>
+          </div>
+        </div>
+        <div class="final-panel__body activity-list">
+          <div v-for="order in orders.slice(0, 5)" :key="order.orderNo">
+            <span></span>
+            <div>
+              <strong>{{ order.nextAction }}</strong>
+              <small>{{ order.orderNo }} · {{ order.customerName }} · {{ order.status }}</small>
+            </div>
+            <em>10:{{ String(18 - orders.indexOf(order) * 3).padStart(2, '0') }}</em>
+          </div>
+        </div>
+      </div>
     </section>
   </UiV2Page>
 </template>
@@ -91,12 +115,10 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '../../../components/BaseButton.vue'
-import DataTable from '../../../components/DataTable.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
 import { uiV2MockAdapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
-import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
 
 const router = useRouter()
@@ -104,34 +126,16 @@ const metrics = uiV2MockAdapter.getMetrics()
 const orders = uiV2MockAdapter.getOrders()
 const tasks = uiV2MockAdapter.getTasks()
 const risks = uiV2MockAdapter.getRisks().slice(0, 4)
-const schedule = uiV2MockAdapter.getSchedule()
-const sevenDates = uiV2MockAdapter.getScheduleDates().slice(0, 7)
-const columns = [
-  { key: 'orderNo', label: '订单号' },
-  { key: 'customerName', label: '客户' },
-  { key: 'model', label: '设备' },
-  { key: 'status', label: '状态' },
-  { key: 'nextAction', label: '下一步' },
-]
-
-const taskLanes = computed(() => [
-  { title: '高风险 / 即将截止', items: tasks.filter((task) => task.priority === 'high') },
-  { title: '普通待办', items: tasks.filter((task) => task.priority !== 'high') },
-])
 const todayActionTotal = computed(() => countStatus('待发货') + countStatus('待归还') + countStatus('待押金') + countStatus('异常'))
-const highRiskCount = computed(() => risks.filter((risk) => risk.level === '高').length)
+const overviewItems = [
+  { label: '活跃设备数', value: '1,248', trend: '较昨日 +36' },
+  { label: '在租订单数', value: '652', trend: '较昨日 +18' },
+  { label: '新客数', value: '23', trend: '较昨日 +5' },
+  { label: '复购率', value: '32.6%', trend: '较昨日 +2.1%' },
+]
 
 function countStatus(status) {
   return orders.filter((order) => order.status === status).length
-}
-
-function countSchedule(date, status) {
-  return schedule.filter((item) => item.date === date && item.status === status).length
-}
-
-function weekLabel(date) {
-  const week = ['日', '一', '二', '三', '四', '五', '六']
-  return `周${week[new Date(`${date}T00:00:00`).getDay()]}`
 }
 
 function goOrder(orderNo) {
@@ -140,152 +144,182 @@ function goOrder(orderNo) {
 </script>
 
 <style scoped>
-.command-card {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-24);
-  padding: 22px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-16);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(235, 247, 244, 0.88)),
-    var(--color-surface);
-  box-shadow: 0 10px 26px rgba(16, 24, 40, 0.06);
-}
-
-.command-card::after {
-  content: "";
-  position: absolute;
-  inset: auto 22px 0 22px;
-  height: 3px;
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
-  background: linear-gradient(90deg, var(--color-primary), rgba(0, 127, 109, 0.08));
-}
-
-.command-card h2 {
-  margin: var(--space-12) 0 var(--space-token-4);
-  color: var(--color-text);
-  font-size: 24px;
-  line-height: 32px;
-  letter-spacing: 0;
-}
-
-.command-card p {
-  margin: 0;
-  color: var(--color-text-muted);
-}
-
-.command-card__stats {
-  min-width: 320px;
+.dashboard-layout {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-token-8);
+  grid-template-columns: minmax(380px, 1.1fr) minmax(320px, 0.75fr) minmax(320px, 0.75fr);
+  gap: 14px;
+  align-items: start;
 }
 
-.command-card__stats span {
-  min-height: 74px;
-  padding: 13px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-12);
-  background: rgba(255, 255, 255, 0.74);
-  color: var(--color-text);
-  font-weight: 740;
-  text-align: center;
+.today-panel {
+  grid-row: span 2;
+}
+
+.overview-panel {
+  grid-column: span 2;
+}
+
+.quick-actions {
+  padding: 16px 18px 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-actions a {
+  min-height: 88px;
   display: grid;
   place-items: center;
+  border: 1px solid #edf1f5;
+  border-radius: 10px;
+  background: #fafcfd;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 780;
+  text-align: center;
 }
 
-.priority-lanes {
+.task-list,
+.reminder-list,
+.activity-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-12);
-}
-
-.priority-lane {
-  display: grid;
-  gap: var(--space-10, 10px);
-  padding: var(--space-12);
-  border-radius: var(--radius-12);
-  background: #f7faf9;
-  border: 1px solid rgba(229, 235, 232, 0.84);
-}
-
-.task-row,
-.risk-card {
-  width: 100%;
-  display: grid;
-  gap: var(--space-token-8);
-  padding: var(--space-12);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-12);
-  background: var(--color-surface);
-  text-align: left;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.028);
-  transition: border-color var(--duration-fast) var(--ease-standard),
-              box-shadow var(--duration-fast) var(--ease-standard),
-              transform var(--duration-fast) var(--ease-standard);
-}
-
-.task-row:hover,
-.risk-card:hover {
-  border-color: rgba(0, 127, 109, 0.26);
-  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.06);
-  transform: translateY(-1px);
+  gap: 10px;
 }
 
 .task-row {
-  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  display: flex;
   align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border: 0;
+  border-bottom: 1px solid #edf1f5;
+  background: transparent;
+  text-align: left;
 }
 
-.task-row span,
-.risk-card span,
-.risk-card p,
-.day-strip span,
-.day-strip small {
+.task-row:last-child {
+  border-bottom: 0;
+}
+
+.task-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-weight: 850;
+  flex: 0 0 auto;
+}
+
+.task-icon.is-danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.task-row div {
+  min-width: 0;
+  flex: 1;
+}
+
+.task-row strong,
+.task-row small {
+  display: block;
+}
+
+.task-row small,
+.reminder-list small,
+.activity-list small,
+.activity-list em {
   color: var(--color-text-muted);
   font-size: 12px;
 }
 
-.risk-card strong,
+.reminder-list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #fbfcfd;
+  text-align: left;
+}
+
+.reminder-list strong,
+.activity-list strong,
 .next-action {
   color: var(--color-primary);
   font-weight: 820;
 }
 
-.fulfillment-grid {
+.overview-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-token-8);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.day-strip {
-  min-height: 170px;
-  display: grid;
-  gap: var(--space-token-8);
-  padding: var(--space-12);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-12);
+.trend-card {
+  grid-column: span 2;
+  min-height: 174px;
+  padding: 16px;
+  border: 1px solid #edf1f5;
+  border-radius: 10px;
   background: linear-gradient(180deg, #fff, #f8fbfa);
-}
-
-.mini-bars {
-  height: 80px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  align-items: end;
+  align-content: space-between;
 }
 
-.mini-bars i {
-  min-height: 10px;
-  border-radius: var(--radius-8);
+.trend-card strong {
+  color: var(--ui-text);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
 }
 
-.mini-bars .busy { background: var(--color-status-info); }
-.mini-bars .free { background: var(--color-status-success); }
-.mini-bars .risk { background: var(--color-status-danger); }
+.trend-card span {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.trend-line {
+  height: 56px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(0, 127, 109, 0.1), rgba(0, 127, 109, 0.28));
+}
+
+.trend-line.blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.26));
+}
+
+.activity-list > div {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.activity-list > div > span {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--ui-brand);
+}
+
+.activity-list em {
+  font-style: normal;
+}
+
+@media (max-width: 1380px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .overview-panel {
+    grid-column: span 1;
+  }
+}
 </style>

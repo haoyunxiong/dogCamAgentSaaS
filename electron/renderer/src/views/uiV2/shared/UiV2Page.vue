@@ -25,7 +25,8 @@ defineProps({
 <style scoped>
 .ui-v2-page {
   display: grid;
-  gap: 16px;
+  gap: 14px;
+  padding: 0 0 18px;
 }
 
 .ui-v2-page__header {
@@ -33,28 +34,22 @@ defineProps({
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-16);
-  padding: 2px 2px 0;
+  padding: 0 2px 0;
 }
 
-.ui-v2-page__eyebrow {
-  display: inline-flex;
-  margin-bottom: var(--space-token-4);
-  color: var(--color-primary);
-  font-size: 12px;
-  font-weight: 820;
-}
+.ui-v2-page__eyebrow { display: none; }
 
 .ui-v2-page h1 {
   margin: 0;
   color: var(--color-text);
-  font-size: var(--font-pc-page-title-size);
-  line-height: var(--font-pc-page-title-line);
+  font-size: 26px;
+  line-height: 34px;
   font-weight: 820;
   letter-spacing: 0;
 }
 
 .ui-v2-page p {
-  margin: var(--space-token-4) 0 0;
+  margin: 2px 0 0;
   color: var(--color-text-muted);
   font-size: 13px;
 }
