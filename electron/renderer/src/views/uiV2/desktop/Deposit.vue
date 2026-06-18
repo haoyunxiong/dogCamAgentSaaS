@@ -1,11 +1,19 @@
 <template>
   <UiV2Page title="免押管理" description="免押本地缓存只读视图，查看风险状态、押金状态和后续处理提示。">
-    <template #actions><BaseButton variant="secondary" disabled>只读模式</BaseButton></template>
+    <template #actions><BaseButton variant="secondary" @click="previewDepositCreate('page-action')">创建预览</BaseButton></template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
+    <section v-if="depositPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-page-safeops-preview">
+      <div><span>操作预览</span><strong>dry-run only</strong></div>
+      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
+      <div><span>externalCallWillExecute</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
+      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+    </section>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
     <div v-if="loading" class="adapter-state">免押本地缓存读取中...</div>
     <FilterBar title="审核筛选" hint="该页无最终图，结构从订单中心和系统设置派生">
@@ -33,7 +41,15 @@
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
-        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · ${selectedReview.phoneMasked}`" primary-label="只读模式" danger-label="暂未开放" />
+        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · dry-run only`" primary-label="创建预览" danger-label="完结预览" @primary="previewDepositCreate('drawer-create')" @danger="previewDepositFinish" />
+        <section v-if="depositPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-safeops-preview">
+          <div><span>操作预览</span><strong>dry-run only</strong></div>
+          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
+          <div><span>externalCallWillExecute</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
+          <div><span>风险等级</span><strong>{{ depositPreview.view.riskLevel }}</strong></div>
+        </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
           <div><span>押金状态</span><strong>{{ selectedReview.depositStatus }}</strong></div>
@@ -41,6 +57,7 @@
           <div><span>负责人</span><strong>{{ selectedReview.assignee }}</strong></div>
         </section>
         <UiV2Section title="审核判断"><p>{{ selectedReview.riskReason }}</p></UiV2Section>
+        <UiV2Section title="安全说明"><p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
@@ -57,6 +74,7 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -69,6 +87,7 @@ const selectedReview = ref(null)
 const drawerOpen = ref(false)
 const loading = ref(false)
 const loadError = ref('')
+const depositPreview = ref(createSafeOpsPreviewState())
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const columns = [
   { key: 'orderNo', label: '订单号' },
@@ -100,6 +119,32 @@ const filteredReviews = computed(() => reviews.value.filter((review) => {
 function openReview(review) {
   selectedReview.value = review
   drawerOpen.value = true
+}
+async function previewDepositCreate(reason) {
+  depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
+  depositPreview.value = await runSafeOpsPreview('deposit.create.preview', {
+    target: {
+      orderNo: selectedReview.value?.orderNo || '',
+      reviewId: selectedReview.value?.id || '',
+    },
+    payload: {
+      reason,
+      source: 'deposit-page',
+    },
+  })
+}
+
+async function previewDepositFinish() {
+  depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
+  depositPreview.value = await runSafeOpsPreview('deposit.finish.preview', {
+    target: {
+      orderNo: selectedReview.value?.orderNo || '',
+      reviewId: selectedReview.value?.id || '',
+    },
+    payload: {
+      source: 'deposit-drawer',
+    },
+  })
 }
 async function loadDepositReviews() {
   loading.value = true
@@ -171,6 +216,12 @@ onMounted(loadDepositReviews)
   background: var(--ui-surface);
   color: var(--ui-text-muted);
   font-size: 13px;
+  font-weight: 680;
+}
+.safeops-note {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
   font-weight: 680;
 }
 </style>

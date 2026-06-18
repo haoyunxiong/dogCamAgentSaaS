@@ -78,10 +78,10 @@
           :title="selectedOrder.customerName"
           :description="`${selectedOrder.channel} · ${selectedOrder.model}`"
           :meta="`${selectedOrder.rentStart || '-'} 至 ${selectedOrder.rentEnd || '-'}`"
-          primary-label="创建顺丰寄件"
+          primary-label="操作预览"
           secondary-label="标记已联系"
           danger-label="标记异常"
-          @primary="shippingOpen = true"
+          @primary="openShippingPreview"
         />
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>客户电话</span><strong>{{ selectedOrder.phoneMasked }}</strong></div>
@@ -100,27 +100,40 @@
       </div>
       <template #footer>
         <BaseButton variant="secondary" @click="drawerOpen = false">关闭</BaseButton>
-        <BaseButton data-testid="order-create-shipping-button" @click="shippingOpen = true">创建顺丰寄件</BaseButton>
+        <BaseButton data-testid="order-create-shipping-button" @click="openShippingPreview">操作预览</BaseButton>
       </template>
     </BaseDrawer>
 
-    <BaseDrawer v-model="shippingOpen" title="顺丰寄件" :subtitle="selectedOrder?.orderNo || ''" width="520" test-id="shipping-drawer">
+    <BaseDrawer v-model="shippingOpen" title="顺丰寄件预览" :subtitle="selectedOrder?.orderNo || ''" width="520" test-id="shipping-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
         <DrawerSummary
-          status="待下单"
+          status="dry-run only"
           :title="selectedOrder.customerName"
           :description="selectedOrder.address"
-          :meta="`${selectedOrder.model} · 保价 ¥${selectedOrder.depositAmount}`"
-          primary-label="生成 mock 运单"
-          @primary="mockTrackingNo = `SF${Date.now().toString().slice(-10)}`"
+          :meta="`${selectedOrder.model} · 暂未开放 · 不会写入`"
+          primary-label="重新预览"
+          @primary="openShippingPreview"
         />
+        <section v-if="shippingPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-safeops-preview">
+          <div><span>操作预览</span><strong>{{ shippingPreview.view.title }}</strong></div>
+          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>writeWillExecute</span><strong>{{ shippingPreview.view.writeWillExecute }}</strong></div>
+          <div><span>externalCallWillExecute</span><strong>{{ shippingPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>audit</span><strong>{{ shippingPreview.view.auditLabel }}</strong></div>
+          <div><span>风险等级</span><strong>{{ shippingPreview.view.riskLevel }}</strong></div>
+        </section>
+        <p v-if="shippingPreview.error" class="adapter-source__error">{{ shippingPreview.error }}</p>
         <UiV2Section title="寄件信息">
           <div class="ui-v2-detail-grid">
             <div><span>承运商</span><strong>顺丰速运</strong></div>
             <div><span>揽收时间</span><strong>今天 18:00-20:00</strong></div>
             <div><span>收件人</span><strong>{{ selectedOrder.customerName }}</strong></div>
-            <div><span>运单号</span><strong>{{ mockTrackingNo || '待生成' }}</strong></div>
+            <div><span>运单号</span><strong>不会生成</strong></div>
           </div>
+        </UiV2Section>
+        <UiV2Section title="安全说明">
+          <p class="drawer-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p>
+          <p v-if="shippingPreview.view" class="drawer-note">{{ shippingPreview.view.summary }}</p>
         </UiV2Section>
       </div>
     </BaseDrawer>
@@ -139,6 +152,7 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, Pagination, StatusTabs, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -158,12 +172,12 @@ const page = ref(1)
 const selectedOrder = ref(null)
 const drawerOpen = ref(false)
 const shippingOpen = ref(false)
-const mockTrackingNo = ref('')
 const showAdvanced = ref(false)
 const selectedRows = ref([])
 const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
+const shippingPreview = ref(createSafeOpsPreviewState())
 const sourceMeta = ref(uiV2Adapter.getMeta())
 
 const columns = [
@@ -262,6 +276,20 @@ function toggleRow(orderNo) {
   selectedRows.value = selectedRows.value.includes(orderNo)
     ? selectedRows.value.filter((item) => item !== orderNo)
     : [...selectedRows.value, orderNo]
+}
+
+async function openShippingPreview() {
+  shippingOpen.value = true
+  shippingPreview.value = { ...shippingPreview.value, loading: true, error: '' }
+  shippingPreview.value = await runSafeOpsPreview('logistics.shipment.preview', {
+    target: {
+      orderNo: selectedOrder.value?.orderNo || '',
+    },
+    payload: {
+      carrier: 'sf',
+      source: 'orders-drawer',
+    },
+  })
 }
 
 watch(

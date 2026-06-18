@@ -1,11 +1,19 @@
 <template>
   <UiV2Page title="物流发货" description="物流只读可视化，展示运单、揽收、运输和异常状态。">
-    <template #actions><BaseButton disabled>只读模式</BaseButton></template>
+    <template #actions><BaseButton @click="previewShipment('page-action')">发货预览</BaseButton></template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
+    <section v-if="shipmentPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-safeops-preview">
+      <div><span>操作预览</span><strong>dry-run only</strong></div>
+      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
+      <div><span>externalCallWillExecute</span><strong>{{ shipmentPreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>audit</span><strong>{{ shipmentPreview.view.auditLabel }}</strong></div>
+      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+    </section>
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" /></section>
     <div v-if="loading" class="adapter-state">物流只读数据读取中...</div>
     <div class="final-tabs">
@@ -44,7 +52,15 @@
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedWaybill?.id || '运单详情'" :subtitle="selectedWaybill?.orderId || ''" width="560" test-id="logistics-waybill-drawer">
       <div v-if="selectedWaybill" class="ui-v2-stack">
-        <DrawerSummary :status="selectedWaybill.shippingStatus" :title="selectedWaybill.customerName" :description="selectedWaybill.receiverAddress" :meta="`${selectedWaybill.carrier} · ${selectedWaybill.trackingNo || '待生成'}`" primary-label="只读模式" secondary-label="暂未开放" />
+        <DrawerSummary :status="selectedWaybill.shippingStatus" :title="selectedWaybill.customerName" :description="selectedWaybill.receiverAddress" :meta="`${selectedWaybill.carrier} · ${selectedWaybill.trackingNo || '待生成'} · dry-run only`" primary-label="发货预览" secondary-label="暂未开放" @primary="previewShipment('drawer-action')" @secondary="previewShipment('drawer-secondary')" />
+        <section v-if="shipmentPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-safeops-preview">
+          <div><span>操作预览</span><strong>dry-run only</strong></div>
+          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
+          <div><span>externalCallWillExecute</span><strong>{{ shipmentPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>audit</span><strong>{{ shipmentPreview.view.auditLabel }}</strong></div>
+          <div><span>风险等级</span><strong>{{ shipmentPreview.view.riskLevel }}</strong></div>
+        </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>保价金额</span><strong>¥{{ Number(selectedWaybill.insuredAmount || 0).toLocaleString() }}</strong></div>
           <div><span>揽收时间</span><strong>{{ selectedWaybill.pickupTime }}</strong></div>
@@ -52,6 +68,7 @@
           <div><span>下一步</span><strong>{{ selectedWaybill.nextAction }}</strong></div>
         </section>
         <UiV2Section title="物流时间线"><TrackingTimeline :steps="selectedWaybill.timeline" /></UiV2Section>
+        <UiV2Section title="安全说明"><p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
@@ -68,6 +85,7 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -79,6 +97,7 @@ const selectedWaybill = ref(null)
 const drawerOpen = ref(false)
 const loading = ref(false)
 const loadError = ref('')
+const shipmentPreview = ref(createSafeOpsPreviewState())
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const logisticsTabs = ['全部', '待下单', '待揽收', '运输中', '已签收', '异常', '已取消']
 const columns = [
@@ -113,6 +132,19 @@ function countStatus(nextStatus) {
 function openWaybill(item) {
   selectedWaybill.value = item
   drawerOpen.value = true
+}
+async function previewShipment(reason) {
+  shipmentPreview.value = { ...shipmentPreview.value, loading: true, error: '' }
+  shipmentPreview.value = await runSafeOpsPreview('logistics.shipment.preview', {
+    target: {
+      waybillId: selectedWaybill.value?.id || '',
+      orderId: selectedWaybill.value?.orderId || '',
+    },
+    payload: {
+      reason,
+      source: 'logistics-page',
+    },
+  })
 }
 async function loadWaybills() {
   loading.value = true
@@ -185,6 +217,12 @@ onMounted(loadWaybills)
   background: var(--ui-surface);
   color: var(--ui-text-muted);
   font-size: 13px;
+  font-weight: 680;
+}
+.safeops-note {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
   font-weight: 680;
 }
 </style>

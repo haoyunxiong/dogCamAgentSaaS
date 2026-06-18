@@ -2,7 +2,7 @@
   <UiV2Page title="档期中心" description="未来 7 天设备 × 日期压缩档期视图，展示可租、占用、冲突和维修状态。">
     <template #actions>
       <BaseButton variant="secondary">导出档期</BaseButton>
-      <BaseButton disabled>新建占用</BaseButton>
+      <BaseButton @click="previewScheduleBlock('new-block')">新建占用预览</BaseButton>
     </template>
 
     <div class="adapter-source-row">
@@ -10,6 +10,15 @@
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
+
+    <section v-if="schedulePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="schedule-safeops-preview">
+      <div><span>操作预览</span><strong>dry-run only</strong></div>
+      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>writeWillExecute</span><strong>{{ schedulePreview.view.writeWillExecute }}</strong></div>
+      <div><span>externalCallWillExecute</span><strong>{{ schedulePreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>audit</span><strong>{{ schedulePreview.view.auditLabel }}</strong></div>
+      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+    </section>
 
     <section class="summary-grid">
       <MetricCard v-for="metric in modelMetrics" :key="metric.key" :metric="metric" />
@@ -95,9 +104,10 @@
             <div class="final-info-row"><span>建议动作</span><strong>{{ actionHint }}</strong></div>
           </div>
           <div class="final-action-row">
-            <BaseButton variant="secondary" size="sm" disabled>批量锁库</BaseButton>
+            <BaseButton variant="secondary" size="sm" @click="previewScheduleBlock('batch-lock')">批量锁库预览</BaseButton>
             <BaseButton size="sm">查看设备详情</BaseButton>
           </div>
+          <p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p>
         </div>
       </aside>
     </section>
@@ -113,6 +123,7 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
@@ -126,6 +137,7 @@ const status = ref('全部型号')
 const selectedSlot = ref(null)
 const loading = ref(false)
 const loadError = ref('')
+const schedulePreview = ref(createSafeOpsPreviewState())
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const scheduleTabs = ['全部型号', '可安排', '满租', '余量不足', '即将归还']
 
@@ -175,6 +187,21 @@ function slotFor(deviceId, date) {
 function openSlot(slot) {
   if (!slot) return
   selectedSlot.value = slot
+}
+
+async function previewScheduleBlock(reason) {
+  schedulePreview.value = { ...schedulePreview.value, loading: true, error: '' }
+  schedulePreview.value = await runSafeOpsPreview('schedule.block.preview', {
+    target: {
+      deviceId: selectedSlot.value?.deviceId || '',
+      assetNo: selectedSlot.value?.assetNo || '',
+      date: selectedSlot.value?.date || '',
+    },
+    payload: {
+      reason,
+      source: 'schedule-page',
+    },
+  })
 }
 
 function availabilityNumber(deviceId, date) {
@@ -416,6 +443,13 @@ onMounted(loadSchedule)
 .schedule-side {
   position: sticky;
   top: 76px;
+}
+
+.safeops-note {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 680;
 }
 
 @media (max-width: 1280px) {

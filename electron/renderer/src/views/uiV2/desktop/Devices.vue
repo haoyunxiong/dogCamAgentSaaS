@@ -2,7 +2,7 @@
   <UiV2Page title="设备中心" description="以资产视角管理设备状态、当前订单、下一预约、收益和维护状态。">
     <template #actions>
       <BaseButton variant="secondary">导出设备台账</BaseButton>
-      <BaseButton>新增设备</BaseButton>
+      <BaseButton @click="previewDeviceUpdate('new-device')">新增设备预览</BaseButton>
     </template>
 
     <div class="adapter-source-row">
@@ -10,6 +10,15 @@
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
+
+    <section v-if="devicePreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-page-safeops-preview">
+      <div><span>操作预览</span><strong>dry-run only</strong></div>
+      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
+      <div><span>externalCallWillExecute</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>audit</span><strong>{{ devicePreview.view.auditLabel }}</strong></div>
+      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+    </section>
 
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in deviceMetrics" :key="metric.key" :metric="metric" />
@@ -60,9 +69,22 @@
           :title="selectedDevice.model"
           :description="`${selectedDevice.location} · ${selectedDevice.serialNo}`"
           :meta="`近30天收益 ¥${selectedDevice.revenue30d.toLocaleString()} · 利用率 ${selectedDevice.utilization}%`"
-          primary-label="安排维护"
-          secondary-label="查看档期"
+          primary-label="维护预览"
+          secondary-label="停用预览"
+          danger-label="删除预览"
+          @primary="previewDeviceUpdate('maintenance')"
+          @secondary="previewDeviceUpdate('disable')"
+          @danger="previewDeviceDelete"
         />
+        <section v-if="devicePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-safeops-preview">
+          <div><span>操作预览</span><strong>dry-run only</strong></div>
+          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
+          <div><span>externalCallWillExecute</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>audit</span><strong>{{ devicePreview.view.auditLabel }}</strong></div>
+          <div><span>风险等级</span><strong>{{ devicePreview.view.riskLevel }}</strong></div>
+        </section>
+        <p v-if="devicePreview.error" class="adapter-source__error">{{ devicePreview.error }}</p>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>当前订单</span><strong>{{ selectedDevice.currentOrderId || '无' }}</strong></div>
           <div><span>下一预约</span><strong>{{ selectedDevice.nextBookingDate }}</strong></div>
@@ -76,6 +98,7 @@
         </UiV2Section>
         <UiV2Section title="操作建议">
           <p>{{ selectedDevice.conditionNote || '状态正常，可继续分配给符合租期的新订单。' }}</p>
+          <p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p>
         </UiV2Section>
       </div>
     </BaseDrawer>
@@ -93,6 +116,7 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, Pagination, StatusTabs, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -111,6 +135,7 @@ const drawerOpen = ref(false)
 const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
+const devicePreview = ref(createSafeOpsPreviewState())
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const locations = computed(() => [...new Set(devices.value.map((device) => device.location).filter(Boolean))])
 const columns = [
@@ -200,6 +225,33 @@ async function openDevice(device) {
   }
 }
 
+async function previewDeviceUpdate(reason) {
+  devicePreview.value = { ...devicePreview.value, loading: true, error: '' }
+  devicePreview.value = await runSafeOpsPreview('device.update.preview', {
+    target: {
+      deviceId: selectedDevice.value?.id || '',
+      assetNo: selectedDevice.value?.assetNo || '',
+    },
+    payload: {
+      reason,
+      source: 'devices-page',
+    },
+  })
+}
+
+async function previewDeviceDelete() {
+  devicePreview.value = { ...devicePreview.value, loading: true, error: '' }
+  devicePreview.value = await runSafeOpsPreview('device.delete.preview', {
+    target: {
+      deviceId: selectedDevice.value?.id || '',
+      assetNo: selectedDevice.value?.assetNo || '',
+    },
+    payload: {
+      source: 'devices-drawer',
+    },
+  })
+}
+
 onMounted(loadDevices)
 </script>
 
@@ -279,5 +331,12 @@ onMounted(loadDevices)
 
 .adapter-state.is-compact {
   padding: 8px 10px;
+}
+
+.safeops-note {
+  margin: 8px 0 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 680;
 }
 </style>
