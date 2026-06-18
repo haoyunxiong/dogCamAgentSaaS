@@ -14,6 +14,9 @@ import {
   mapRealOrders,
   resolveOrderDetailId,
 } from './ordersMapper.js'
+import {
+  mapRealSchedule,
+} from './scheduleMapper.js'
 
 export class UiV2RealAdapterNotImplementedError extends Error {
   constructor(methodName) {
@@ -31,12 +34,25 @@ function getRuntimeBridge() {
   return window.electronAPI
 }
 
+function getMonthRange(month) {
+  const [year, monthIndex] = String(month || '').split('-').map((part) => Number(part))
+  if (!year || !monthIndex) return {}
+  const prefix = `${year}-${String(monthIndex).padStart(2, '0')}`
+  const lastDay = new Date(year, monthIndex, 0).getDate()
+  return {
+    from: `${prefix}-01`,
+    to: `${prefix}-${String(lastDay).padStart(2, '0')}`,
+  }
+}
+
 export function createUiV2RealAdapter() {
   const meta = createUiV2AdapterMeta({ source: 'real', mode: 'real' })
   let rawOrdersCache = []
   let mappedOrdersCache = []
   let rawDevicesCache = []
   let mappedDevicesCache = []
+  let mappedScheduleCache = []
+  let mappedScheduleDatesCache = []
   const adapter = {
     meta,
     getMeta() {
@@ -108,6 +124,32 @@ export function createUiV2RealAdapter() {
     async getDeviceStatusTabs(filters = {}) {
       const devices = mappedDevicesCache.length ? mappedDevicesCache : await adapter.getDevices(filters)
       return buildDeviceStatusTabs(devices)
+    },
+    async getSchedule(filters = {}) {
+      const bridge = getRuntimeBridge()
+      const month = filters.month || new Date().toISOString().slice(0, 7)
+      const overviewFilters = {
+        month,
+        ...(filters.modelCode ? { modelCode: filters.modelCode } : {}),
+      }
+      const monthRange = getMonthRange(month)
+      const blockFilters = {
+        ...monthRange,
+        ...(filters.modelCode ? { modelCode: filters.modelCode } : {}),
+      }
+      const [overview, blocks, units] = await Promise.all([
+        bridge.getScheduleMonthlyOverview(overviewFilters),
+        bridge.listScheduleBlocks(blockFilters),
+        bridge.listScheduleUnits({ activeInventoryOnly: true, ...(filters.modelCode ? { modelCode: filters.modelCode } : {}) }),
+      ])
+      const mapped = mapRealSchedule({ overview, blocks, units, daysLimit: filters.daysLimit || 14 })
+      mappedScheduleCache = mapped.schedule
+      mappedScheduleDatesCache = mapped.dates
+      return mappedScheduleCache
+    },
+    async getScheduleDates(filters = {}) {
+      if (!mappedScheduleDatesCache.length) await adapter.getSchedule(filters)
+      return mappedScheduleDatesCache
     },
   }
 

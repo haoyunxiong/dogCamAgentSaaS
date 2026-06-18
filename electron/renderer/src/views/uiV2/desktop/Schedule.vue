@@ -2,8 +2,14 @@
   <UiV2Page title="档期中心" description="未来 7 天设备 × 日期压缩档期视图，展示可租、占用、冲突和维修状态。">
     <template #actions>
       <BaseButton variant="secondary">导出档期</BaseButton>
-      <BaseButton>新建占用</BaseButton>
+      <BaseButton disabled>新建占用</BaseButton>
     </template>
+
+    <div class="adapter-source-row">
+      <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
+      <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
+    </div>
 
     <section class="summary-grid">
       <MetricCard v-for="metric in modelMetrics" :key="metric.key" :metric="metric" />
@@ -41,6 +47,7 @@
           <span><i class="off"></i>不可用</span>
         </div>
         <section class="schedule-board">
+          <div v-if="loading" class="adapter-state">档期只读数据读取中...</div>
           <div class="date-head">
             <span>型号 / 规格</span>
             <strong v-for="date in sevenDates" :key="date">{{ date.slice(5) }}</strong>
@@ -88,7 +95,7 @@
             <div class="final-info-row"><span>建议动作</span><strong>{{ actionHint }}</strong></div>
           </div>
           <div class="final-action-row">
-            <BaseButton variant="secondary" size="sm">批量锁库</BaseButton>
+            <BaseButton variant="secondary" size="sm" disabled>批量锁库</BaseButton>
             <BaseButton size="sm">查看设备详情</BaseButton>
           </div>
         </div>
@@ -98,37 +105,46 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseInput from '../../../components/BaseInput.vue'
 import BaseSelect from '../../../components/BaseSelect.vue'
 import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
-const devices = uiV2MockAdapter.getDevices()
-const schedule = uiV2MockAdapter.getSchedule()
-const sevenDates = uiV2MockAdapter.getScheduleDates().slice(0, 7)
-const options = uiV2MockAdapter.getOptions()
+const devices = ref([])
+const schedule = ref([])
+const sevenDates = ref([])
+const options = ref({ deviceModels: [] })
 const keyword = ref('')
 const model = ref('全部型号')
 const status = ref('全部型号')
-const selectedSlot = ref(schedule[0] || null)
+const selectedSlot = ref(null)
+const loading = ref(false)
+const loadError = ref('')
+const sourceMeta = ref(uiV2Adapter.getMeta())
 const scheduleTabs = ['全部型号', '可安排', '满租', '余量不足', '即将归还']
 
-const modelMetrics = computed(() => options.deviceModels.slice(0, 5).map((item) => {
-  const total = devices.filter((device) => device.model === item).length
-  const free = schedule.filter((slot) => slot.model === item && slot.date === sevenDates[0] && slot.status === '可租').length
+const sourceLabel = computed(() => {
+  if (sourceMeta.value.source === 'real') return '真实只读'
+  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
+  return 'Mock 预览'
+})
+
+const modelMetrics = computed(() => options.value.deviceModels.slice(0, 5).map((item) => {
+  const total = devices.value.filter((device) => device.model === item).length
+  const free = schedule.value.filter((slot) => slot.model === item && slot.date === sevenDates.value[0] && slot.status === '可租').length
   return { key: item, label: item, value: `${free}/${total}`, unit: '可租', trend: '今日余量', tone: free < 2 ? 'warning' : 'success' }
 }))
 
-const filteredDevices = computed(() => devices.filter((device) => {
+const filteredDevices = computed(() => devices.value.filter((device) => {
   const matchModel = model.value === '全部型号' || device.model === model.value
   const matchKeyword = !keyword.value || `${device.assetNo}${device.model}`.includes(keyword.value)
-  const matchStatus = status.value === '全部状态' || status.value === '全部型号' || sevenDates.some((date) => {
+  const matchStatus = status.value === '全部状态' || status.value === '全部型号' || sevenDates.value.some((date) => {
     const slotStatus = slotFor(device.id, date)?.status
     return status.value === '可安排' ? slotStatus === '可租'
       : status.value === '满租' ? slotStatus === '占用'
@@ -139,7 +155,7 @@ const filteredDevices = computed(() => devices.filter((device) => {
   return matchModel && matchKeyword && matchStatus
 }))
 
-const groupedDevices = computed(() => options.deviceModels.map((item) => ({
+const groupedDevices = computed(() => options.value.deviceModels.map((item) => ({
   model: item,
   devices: filteredDevices.value.filter((device) => device.model === item).slice(0, 6),
 })).filter((group) => group.devices.length))
@@ -153,7 +169,7 @@ const actionHint = computed(() => {
 })
 
 function slotFor(deviceId, date) {
-  return schedule.find((item) => item.deviceId === deviceId && item.date === date)
+  return schedule.value.find((item) => item.deviceId === deviceId && item.date === date)
 }
 
 function openSlot(slot) {
@@ -162,7 +178,7 @@ function openSlot(slot) {
 }
 
 function availabilityNumber(deviceId, date) {
-  const index = schedule.findIndex((item) => item.deviceId === deviceId && item.date === date)
+  const index = schedule.value.findIndex((item) => item.deviceId === deviceId && item.date === date)
   return Math.max(2, 26 - (index % 19))
 }
 
@@ -174,6 +190,47 @@ function slotPercent(deviceId, date) {
   if (slot.status === '冲突') return '余量不足'
   return '不可用'
 }
+
+function buildDevicesFromSchedule(slots = []) {
+  const rows = new Map()
+  for (const slot of slots) {
+    if (!slot?.deviceId || rows.has(slot.deviceId)) continue
+    rows.set(slot.deviceId, {
+      id: slot.deviceId,
+      assetNo: slot.assetNo || slot.deviceId,
+      model: slot.model || '未填写型号',
+    })
+  }
+  return Array.from(rows.values())
+}
+
+async function loadSchedule() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const nextSchedule = await uiV2Adapter.getSchedule()
+    schedule.value = Array.isArray(nextSchedule) ? nextSchedule : []
+    const nextDates = await uiV2Adapter.getScheduleDates()
+    sevenDates.value = (Array.isArray(nextDates) ? nextDates : []).slice(0, 7)
+    devices.value = buildDevicesFromSchedule(schedule.value)
+    const nextOptions = await uiV2Adapter.getOptions()
+    const models = Array.from(new Set(devices.value.map((device) => device.model).filter(Boolean)))
+    options.value = { deviceModels: [], ...nextOptions, deviceModels: models.length ? models : nextOptions?.deviceModels || [] }
+    selectedSlot.value = schedule.value[0] || null
+    sourceMeta.value = uiV2Adapter.getLastMeta('getSchedule')
+  } catch (error) {
+    schedule.value = []
+    devices.value = []
+    sevenDates.value = []
+    selectedSlot.value = null
+    sourceMeta.value = uiV2Adapter.getMeta()
+    loadError.value = error?.message || '档期只读数据读取失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadSchedule)
 </script>
 
 <style scoped>
@@ -181,6 +238,57 @@ function slotPercent(deviceId, date) {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-12);
+}
+
+.adapter-source-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-token-8);
+  flex-wrap: wrap;
+}
+
+.adapter-source,
+.adapter-source__reason,
+.adapter-source__error {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-pill);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.adapter-source.is-real {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.86);
+  color: var(--color-primary);
+}
+
+.adapter-source.is-mock-fallback,
+.adapter-source__reason {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+
+.adapter-source__error {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.9);
+  color: #b42318;
+}
+
+.adapter-state {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: #f8fbfa;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 760;
 }
 
 .filter-row {
