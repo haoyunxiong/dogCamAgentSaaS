@@ -505,3 +505,128 @@ CREATE TABLE IF NOT EXISTS session_reply_state (
   INDEX idx_session_state_account (account_id, state),
   INDEX idx_session_state_updated (updated_at)
 ) ENGINE=InnoDB;
+
+-- Phase 04: Operation Safe Mode migration ledger.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(255),
+  checksum VARCHAR(128),
+  applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  applied_by VARCHAR(128) NULL,
+  status VARCHAR(32) DEFAULT 'applied'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Phase 04: Operation Safe Mode audit logs.
+CREATE TABLE IF NOT EXISTS operation_audit_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  operation_id VARCHAR(64) NOT NULL,
+  operation_type VARCHAR(128) NOT NULL,
+  domain VARCHAR(64) NOT NULL,
+  risk_level VARCHAR(32) NOT NULL,
+  mode VARCHAR(32) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  actor_id VARCHAR(128) NULL,
+  actor_role VARCHAR(64) NULL,
+  actor_source VARCHAR(64) NULL,
+  session_id VARCHAR(128) NULL,
+  device_id VARCHAR(128) NULL,
+  ip_address VARCHAR(64) NULL,
+  target_type VARCHAR(64) NULL,
+  target_id VARCHAR(128) NULL,
+  client_request_id VARCHAR(128) NULL,
+  idempotency_key_hash CHAR(64) NULL,
+  confirm_token_id BIGINT NULL,
+  payload_hash CHAR(64) NULL,
+  impact_hash CHAR(64) NULL,
+  payload_redacted_json JSON NULL,
+  preview_response_json JSON NULL,
+  before_snapshot_json JSON NULL,
+  after_snapshot_json JSON NULL,
+  external_request_redacted_json JSON NULL,
+  external_response_redacted_json JSON NULL,
+  error_code VARCHAR(128) NULL,
+  error_message TEXT NULL,
+  rollback_plan_id BIGINT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_operation_audit_logs_operation_id (operation_id),
+  INDEX idx_operation_audit_logs_type_status_created (operation_type, status, created_at),
+  INDEX idx_operation_audit_logs_actor_created (actor_id, created_at),
+  INDEX idx_operation_audit_logs_target (target_type, target_id),
+  INDEX idx_operation_audit_logs_idempotency (idempotency_key_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Phase 04: Operation Safe Mode confirm tokens.
+CREATE TABLE IF NOT EXISTS operation_confirm_tokens (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  token_hash CHAR(64) NOT NULL,
+  operation_type VARCHAR(128) NOT NULL,
+  actor_id VARCHAR(128) NULL,
+  actor_role VARCHAR(64) NULL,
+  actor_source VARCHAR(64) NULL,
+  payload_hash CHAR(64) NOT NULL,
+  impact_hash CHAR(64) NOT NULL,
+  preview_audit_log_id BIGINT NULL,
+  idempotency_key_hash CHAR(64) NULL,
+  status VARCHAR(32) DEFAULT 'issued',
+  expires_at TIMESTAMP NOT NULL,
+  consumed_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_operation_confirm_tokens_token_hash (token_hash),
+  INDEX idx_operation_confirm_tokens_actor_operation_status (actor_id, operation_type, status),
+  INDEX idx_operation_confirm_tokens_expires_at (expires_at),
+  INDEX idx_operation_confirm_tokens_preview_audit (preview_audit_log_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Phase 04: Operation Safe Mode idempotency keys.
+CREATE TABLE IF NOT EXISTS operation_idempotency_keys (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  key_hash CHAR(64) NOT NULL,
+  actor_id VARCHAR(128) NULL,
+  operation_type VARCHAR(128) NOT NULL,
+  payload_hash CHAR(64) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  audit_log_id BIGINT NULL,
+  response_json JSON NULL,
+  error_code VARCHAR(128) NULL,
+  error_message TEXT NULL,
+  locked_until TIMESTAMP NULL,
+  expires_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_operation_idempotency_actor_type_key (actor_id, operation_type, key_hash),
+  INDEX idx_operation_idempotency_status_lock (status, locked_until),
+  INDEX idx_operation_idempotency_expires_at (expires_at),
+  INDEX idx_operation_idempotency_audit_log (audit_log_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Phase 04: Operation Safe Mode rollback and compensation plans.
+CREATE TABLE IF NOT EXISTS operation_rollback_plans (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  operation_id VARCHAR(64) NOT NULL,
+  audit_log_id BIGINT NULL,
+  operation_type VARCHAR(128) NOT NULL,
+  target_type VARCHAR(64) NULL,
+  target_id VARCHAR(128) NULL,
+  rollback_type VARCHAR(32) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  before_snapshot_json JSON NULL,
+  after_snapshot_json JSON NULL,
+  forward_effects_json JSON NULL,
+  compensation_steps_json JSON NULL,
+  external_refs_json JSON NULL,
+  requires_confirmation TINYINT(1) DEFAULT 1,
+  confirm_token_id BIGINT NULL,
+  executed_by VARCHAR(128) NULL,
+  executed_at TIMESTAMP NULL,
+  expires_at TIMESTAMP NULL,
+  error_message TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_operation_rollback_plans_operation_id (operation_id),
+  INDEX idx_operation_rollback_plans_audit_log (audit_log_id),
+  INDEX idx_operation_rollback_plans_type_status (operation_type, status),
+  INDEX idx_operation_rollback_plans_target (target_type, target_id),
+  INDEX idx_operation_rollback_plans_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
