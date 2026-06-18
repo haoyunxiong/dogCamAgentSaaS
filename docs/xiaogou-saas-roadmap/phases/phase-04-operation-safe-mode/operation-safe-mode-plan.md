@@ -24,7 +24,17 @@ caa056c feat: complete ui v2 readonly mvp aggregation
 - 未修改 `main` / `preload` / `IPC` / `DB` / `Python`；
 - 未实现真实写操作。
 
-Phase 04 当前只进入计划落档，不进入真实写操作实现。
+Phase 04 当前已进入安全骨架实现，但仍不进入真实写操作实现。
+
+当前代码状态：
+
+- `safeOps.getPolicy` / `safeOps.preview` 已完成；
+- 8 类 operation 已支持 dry-run preview；
+- UI-V2 危险入口仅展示 dry-run / 暂未开放 / 不会写入 / 不会调用外部服务；
+- migration SQL / rollback SQL / protected runner 已准备，尚未执行 SQL，尚未连接 DB；
+- persistence / crypto / repository skeleton 已完成，默认 noop，不 import DB，不落库；
+- execute disabled skeleton 已完成，未新增 execute IPC / preload；
+- 任意 execute 调用只应返回 `SAFE_OP_EXECUTE_DISABLED`，不得写 DB 或调用外部服务。
 
 ## 二、Phase 04 总体目标
 
@@ -100,6 +110,14 @@ DB migration 前必须具备：
 
 未获得用户明确确认前，不执行生产 DB migration。
 
+当前 migration 状态：
+
+- migration scaffolding 已落地；
+- protected runner 已落地；
+- `scripts/mysql_schema.sql` 已与 scaffolding 同步；
+- 本地 / 测试库 SQL 尚未执行；
+- 生产库 migration 禁止执行。
+
 ## 七、IPC / Preload / Main 原则
 
 不继续扩散零散的 `create` / `update` / `delete` wrapper。
@@ -108,9 +126,9 @@ DB migration 前必须具备：
 
 - `safeOps.getPolicy`；
 - `safeOps.preview`；
-- `safeOps.execute`；
-- `safeOps.getAuditLog`；
-- `safeOps.rollback`。
+- `safeOps.execute`（当前未暴露）；
+- `safeOps.getAuditLog`（当前未暴露）；
+- `safeOps.rollback`（当前未暴露）。
 
 UI-V2 页面不得直接调用 `window.electronAPI`。
 
@@ -131,13 +149,17 @@ UI-V2 页面不得直接调用 `window.electronAPI`。
 ## 九、推荐实施顺序
 
 1. 阶段状态与文档落档；
-2. `safeOps` policy / preview 骨架；
-3. Orders / Devices / Schedule dry-run；
-4. audit / idempotency / confirm DB；
-5. 内部 DB write；
-6. Logistics / Shipping safe mode；
-7. Deposit / Approval safe mode；
-8. 真实外部 write 用户确认后开启。
+2. `safeOps` policy / preview 骨架；（已完成）
+3. Orders / Devices / Schedule / Logistics / Deposit dry-run；（已完成）
+4. migration scaffolding + protected runner；（已完成，尚未执行）
+5. persistence / crypto / repository skeleton；（已完成，默认 noop）
+6. execute disabled skeleton；（已完成，未暴露 IPC）
+7. 用户确认后执行本地 DB migration；
+8. audit / idempotency / confirm DB persistence；
+9. 内部 DB write gated enablement；
+10. Logistics / Shipping external gated skeleton；
+11. Deposit / Approval external gated skeleton；
+12. 真实外部 write 用户确认后开启。
 
 ## 十、暂不建议做
 

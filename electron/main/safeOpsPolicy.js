@@ -1,16 +1,32 @@
 const SAFE_OPS_SAFE_MODE = 'dry-run-only'
+const SAFE_OPS_WRITE_ENABLED = false
+const SAFE_OPS_EXECUTE_ENABLED = false
 
 const AUDIT_POLICY = Object.freeze({
   mode: 'noop',
   persisted: false,
+  requiresDbMigrationForPersistence: true,
 })
 
 const CONFIRM_TOKEN_POLICY = Object.freeze({
   enabled: false,
+  requiredForWrite: true,
+  persisted: false,
+  requiresDbMigrationForPersistence: true,
 })
 
 const IDEMPOTENCY_POLICY = Object.freeze({
   mode: 'noop',
+  requiredForWrite: true,
+  persisted: false,
+  requiresDbMigrationForPersistence: true,
+})
+
+const EXECUTE_POLICY = Object.freeze({
+  enabled: SAFE_OPS_EXECUTE_ENABLED,
+  code: 'SAFE_OP_EXECUTE_DISABLED',
+  writeWillExecute: false,
+  externalCallWillExecute: false,
 })
 
 const OPERATION_POLICIES = Object.freeze([
@@ -20,9 +36,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'high',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: false,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'order.edit.preview',
@@ -30,9 +48,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'high',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: false,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'device.update.preview',
@@ -40,9 +60,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'high',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: false,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'device.delete.preview',
@@ -50,9 +72,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'high',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: false,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'schedule.block.preview',
@@ -60,9 +84,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'high',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: false,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'logistics.shipment.preview',
@@ -70,9 +96,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'critical',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: true,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'deposit.create.preview',
@@ -80,9 +108,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'critical',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: true,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
   {
     operationType: 'deposit.finish.preview',
@@ -90,9 +120,11 @@ const OPERATION_POLICIES = Object.freeze([
     riskLevel: 'critical',
     allowPreview: true,
     allowWrite: false,
+    allowExecute: false,
     requiresDbMigrationForWrite: true,
     requiresExternalCredential: true,
     requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
   },
 ])
 
@@ -119,12 +151,14 @@ function getSafeOpsPolicy() {
     ok: true,
     mode: 'policy',
     safeMode: SAFE_OPS_SAFE_MODE,
-    writeEnabled: false,
+    writeEnabled: SAFE_OPS_WRITE_ENABLED,
     externalWritesEnabled: false,
+    executeEnabled: SAFE_OPS_EXECUTE_ENABLED,
     operations: cloneJson(OPERATION_POLICIES),
     audit: cloneJson(AUDIT_POLICY),
     confirmToken: cloneJson(CONFIRM_TOKEN_POLICY),
     idempotency: cloneJson(IDEMPOTENCY_POLICY),
+    execute: cloneJson(EXECUTE_POLICY),
   }
 }
 
@@ -143,9 +177,12 @@ function buildUnsupportedOperationResponse(operationType) {
 module.exports = {
   AUDIT_POLICY,
   CONFIRM_TOKEN_POLICY,
+  EXECUTE_POLICY,
   IDEMPOTENCY_POLICY,
   OPERATION_POLICIES,
+  SAFE_OPS_EXECUTE_ENABLED,
   SAFE_OPS_SAFE_MODE,
+  SAFE_OPS_WRITE_ENABLED,
   buildUnsupportedOperationResponse,
   getOperationPolicy,
   getSafeOpsPolicy,

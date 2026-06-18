@@ -9,9 +9,12 @@
     <section v-if="depositPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
       <div><span>externalCallWillExecute</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
       <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
+      <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
+      <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
       <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
     </section>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
@@ -45,10 +48,13 @@
         <section v-if="depositPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
           <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ depositPreview.view.riskLevel }}</strong></div>
+          <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
+          <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
@@ -124,10 +130,17 @@ async function previewDepositCreate(reason) {
   depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
   depositPreview.value = await runSafeOpsPreview('deposit.create.preview', {
     target: {
+      type: 'deposit',
+      id: selectedReview.value?.id || selectedReview.value?.orderNo || '',
+      orderId: selectedReview.value?.orderNo || '',
       orderNo: selectedReview.value?.orderNo || '',
       reviewId: selectedReview.value?.id || '',
     },
     payload: {
+      orderId: selectedReview.value?.orderNo || '',
+      customerName: selectedReview.value?.customerName || '',
+      modelCode: selectedReview.value?.model || '',
+      requestedFreeAmount: selectedReview.value?.requestedFreeAmount || '',
       reason,
       source: 'deposit-page',
     },
@@ -138,10 +151,15 @@ async function previewDepositFinish() {
   depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
   depositPreview.value = await runSafeOpsPreview('deposit.finish.preview', {
     target: {
+      type: 'deposit',
+      id: selectedReview.value?.id || selectedReview.value?.orderNo || '',
+      orderId: selectedReview.value?.orderNo || '',
       orderNo: selectedReview.value?.orderNo || '',
       reviewId: selectedReview.value?.id || '',
     },
     payload: {
+      orderId: selectedReview.value?.orderNo || '',
+      customerName: selectedReview.value?.customerName || '',
       source: 'deposit-drawer',
     },
   })

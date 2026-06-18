@@ -2,7 +2,7 @@
   <UiV2Page title="订单中心" description="按状态、押金、物流和风险推进履约，数据由 UI-V2 adapter 统一提供。">
     <template #actions>
       <BaseButton variant="secondary" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? '收起筛选' : '高级筛选' }}</BaseButton>
-      <BaseButton>批量分配负责人</BaseButton>
+      <BaseButton @click="openBulkEditPreview">批量分配预览</BaseButton>
     </template>
 
     <div class="adapter-source-row">
@@ -10,6 +10,17 @@
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
+
+    <section v-if="orderPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-page-safeops-preview">
+      <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
+      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>execute</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
+      <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
+      <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>audit</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
+      <div><span>confirm</span><strong>{{ orderPreview.view.confirmLabel }}</strong></div>
+      <div><span>idempotency</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
+    </section>
 
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in orderMetrics" :key="metric.key" :metric="metric" />
@@ -35,9 +46,9 @@
 
     <div v-if="selectedRows.length" class="bulk-bar">
       <span>已选择 {{ selectedRows.length }} 单</span>
-      <BaseButton variant="secondary" size="sm">分配负责人</BaseButton>
+      <BaseButton variant="secondary" size="sm" @click="openBulkEditPreview">分配预览</BaseButton>
       <BaseButton variant="secondary" size="sm">导出</BaseButton>
-      <BaseButton variant="secondary" size="sm">标记已联系</BaseButton>
+      <BaseButton variant="secondary" size="sm" @click="openBulkEditPreview">联系预览</BaseButton>
     </div>
 
     <DataTable
@@ -88,10 +99,13 @@
         <section v-if="orderPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-action-safeops-preview">
           <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>execute</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
           <div><span>audit</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ orderPreview.view.riskLevel }}</strong></div>
+          <div><span>confirm</span><strong>{{ orderPreview.view.confirmLabel }}</strong></div>
+          <div><span>idempotency</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
         </section>
         <p v-if="orderPreview.error" class="adapter-source__error">{{ orderPreview.error }}</p>
         <section class="final-drawer-card ui-v2-detail-grid">
@@ -130,10 +144,13 @@
         <section v-if="shippingPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-safeops-preview">
           <div><span>操作预览</span><strong>{{ shippingPreview.view.title }}</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>execute</span><strong>{{ shippingPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ shippingPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ shippingPreview.view.externalCallWillExecute }}</strong></div>
           <div><span>audit</span><strong>{{ shippingPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ shippingPreview.view.riskLevel }}</strong></div>
+          <div><span>confirm</span><strong>{{ shippingPreview.view.confirmLabel }}</strong></div>
+          <div><span>idempotency</span><strong>{{ shippingPreview.view.idempotencyLabel }}</strong></div>
         </section>
         <p v-if="shippingPreview.error" class="adapter-source__error">{{ shippingPreview.error }}</p>
         <UiV2Section title="寄件信息">
@@ -341,15 +358,37 @@ async function openEditPreview() {
   })
 }
 
+async function openBulkEditPreview() {
+  orderPreview.value = { ...orderPreview.value, loading: true, error: '' }
+  orderPreview.value = await runSafeOpsPreview('order.edit.preview', {
+    target: {
+      type: 'order-bulk',
+      id: selectedRows.value.join(','),
+    },
+    payload: {
+      orderIds: selectedRows.value,
+      reason: 'bulk-assignee-or-contact-preview',
+      source: 'orders-page',
+    },
+  })
+}
+
 async function openShippingPreview() {
   shippingOpen.value = true
   shippingPreview.value = { ...shippingPreview.value, loading: true, error: '' }
   shippingPreview.value = await runSafeOpsPreview('logistics.shipment.preview', {
     target: {
+      type: 'shipment',
+      id: selectedOrder.value?.orderNo || '',
       orderNo: selectedOrder.value?.orderNo || '',
     },
     payload: {
       carrier: 'sf',
+      orderId: selectedOrder.value?.orderNo || '',
+      modelCode: selectedOrder.value?.model || '',
+      receiverName: selectedOrder.value?.customerName || '',
+      receiverAddress: selectedOrder.value?.address || '',
+      senderName: 'merchant',
       source: 'orders-drawer',
     },
   })

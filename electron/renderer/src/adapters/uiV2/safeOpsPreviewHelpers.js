@@ -13,9 +13,15 @@ function asFlag(value) {
   return value === true ? 'true' : 'false'
 }
 
+function disabledLabel(value) {
+  return value === true ? 'enabled' : 'disabled'
+}
+
 export function toSafeOpsPreviewView(result = {}) {
   const isOk = Boolean(result?.ok && result?.supported)
   const audit = result?.audit || {}
+  const execute = result?.execute || {}
+  const idempotency = result?.idempotency || {}
 
   return {
     title: isOk ? 'Operation preview / dry-run only' : 'Operation preview unavailable',
@@ -26,6 +32,12 @@ export function toSafeOpsPreviewView(result = {}) {
     writeWillExecute: asFlag(result?.writeWillExecute),
     externalCallWillExecute: asFlag(result?.externalCallWillExecute),
     auditLabel: `${audit.mode || 'noop'} / persisted=${asFlag(audit.persisted)}`,
+    executeLabel: execute.code || `execute ${disabledLabel(execute.enabled)}`,
+    confirmLabel: result?.requiresConfirm ? 'required before future write' : 'not required',
+    idempotencyLabel: result?.requiresIdempotencyKey || idempotency.required
+      ? 'required before future write'
+      : 'not required',
+    rollbackLabel: result?.rollback?.planned ? 'planned' : 'not planned',
     code: result?.code || '',
   }
 }
@@ -57,6 +69,11 @@ export async function runSafeOpsPreview(operationType, context = {}) {
       writeWillExecute: false,
       externalCallWillExecute: false,
       audit: { mode: 'noop', persisted: false },
+      requiresConfirm: true,
+      requiresIdempotencyKey: true,
+      execute: { enabled: false, code: 'SAFE_OP_EXECUTE_DISABLED' },
+      idempotency: { mode: 'noop', required: true, persisted: false },
+      rollback: { mode: 'noop', planned: false, persisted: false },
     }
 
     return {

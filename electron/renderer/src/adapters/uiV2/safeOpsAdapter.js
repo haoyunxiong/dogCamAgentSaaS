@@ -4,6 +4,12 @@ import {
 } from './mode.js'
 
 const SAFE_OPS_MODE = 'dry-run-only'
+const EXECUTE_DISABLED_POLICY = Object.freeze({
+  enabled: false,
+  code: 'SAFE_OP_EXECUTE_DISABLED',
+  writeWillExecute: false,
+  externalCallWillExecute: false,
+})
 
 const SAFE_OP_POLICIES = Object.freeze([
   { operationType: 'order.status.transition.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
@@ -64,8 +70,9 @@ function buildLocalPolicy() {
       requiresUserConfirmationForWrite: true,
     })),
     audit: { mode: 'noop', persisted: false },
-    confirmToken: { enabled: false },
-    idempotency: { mode: 'noop' },
+    confirmToken: { enabled: false, requiredForWrite: true, persisted: false },
+    idempotency: { mode: 'noop', requiredForWrite: true, persisted: false },
+    execute: cloneJson(EXECUTE_DISABLED_POLICY),
     source: 'renderer-noop',
   }
 }
@@ -103,9 +110,43 @@ function buildLocalPreview(payload = {}) {
       affectedRecords: [],
       externalEffects: [],
     },
-    audit: { mode: 'noop', persisted: false },
+    audit: {
+      mode: 'noop',
+      persisted: false,
+      operationId: null,
+      payloadHash: null,
+      impactHash: null,
+      status: 'previewed',
+    },
+    requiresConfirm: true,
+    requiresIdempotencyKey: true,
+    execute: cloneJson(EXECUTE_DISABLED_POLICY),
     confirmToken: null,
-    idempotency: { mode: 'noop' },
+    confirmRequirement: {
+      enabled: false,
+      required: true,
+      persisted: false,
+      token: null,
+      tokenHash: null,
+      expiresAt: null,
+      reason: 'renderer-preview-execute-disabled',
+    },
+    idempotency: {
+      mode: 'noop',
+      required: true,
+      persisted: false,
+      keyHash: null,
+      status: 'not-claimed',
+      reason: 'renderer-preview-execute-disabled',
+    },
+    rollback: {
+      mode: 'noop',
+      planned: false,
+      persisted: false,
+      canRollback: false,
+      compensationRequired: false,
+      reason: 'no-write-executed',
+    },
     source: 'renderer-noop',
   }
 }

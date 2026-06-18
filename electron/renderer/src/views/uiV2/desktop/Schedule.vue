@@ -14,9 +14,12 @@
     <section v-if="schedulePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="schedule-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>execute</span><strong>{{ schedulePreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ schedulePreview.view.writeWillExecute }}</strong></div>
       <div><span>externalCallWillExecute</span><strong>{{ schedulePreview.view.externalCallWillExecute }}</strong></div>
       <div><span>audit</span><strong>{{ schedulePreview.view.auditLabel }}</strong></div>
+      <div><span>confirm</span><strong>{{ schedulePreview.view.confirmLabel }}</strong></div>
+      <div><span>idempotency</span><strong>{{ schedulePreview.view.idempotencyLabel }}</strong></div>
       <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
     </section>
 
@@ -193,11 +196,19 @@ async function previewScheduleBlock(reason) {
   schedulePreview.value = { ...schedulePreview.value, loading: true, error: '' }
   schedulePreview.value = await runSafeOpsPreview('schedule.block.preview', {
     target: {
+      type: 'schedule',
+      id: `${selectedSlot.value?.deviceId || 'unknown'}-${selectedSlot.value?.date || sevenDates.value[0] || 'unknown'}`,
       deviceId: selectedSlot.value?.deviceId || '',
       assetNo: selectedSlot.value?.assetNo || '',
       date: selectedSlot.value?.date || '',
     },
     payload: {
+      unitId: selectedSlot.value?.deviceId || '',
+      deviceId: selectedSlot.value?.deviceId || '',
+      modelCode: selectedSlot.value?.model || '',
+      startDate: selectedSlot.value?.date || sevenDates.value[0] || '',
+      endDate: selectedSlot.value?.date || sevenDates.value[0] || '',
+      orderId: selectedSlot.value?.orderId || '',
       reason,
       source: 'schedule-page',
     },

@@ -1,10 +1,12 @@
 const {
   AUDIT_POLICY,
+  EXECUTE_POLICY,
   IDEMPOTENCY_POLICY,
   buildUnsupportedOperationResponse,
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
+const { buildSafeOperationPersistenceContext } = require('./safeOpsPersistence')
 const {
   buildDepositCreatePreview,
   buildDepositFinishPreview,
@@ -76,6 +78,14 @@ function previewSafeOperation(request = {}) {
     }
 
     const domainPreview = buildDomainPreview(operationType, request)
+    const persistence = buildSafeOperationPersistenceContext(
+      { ...request, operationType },
+      domainPreview.impact,
+      {
+        mode: 'dry-run',
+        status: domainPreview.blockers?.length ? 'blocked' : 'previewed',
+      }
+    )
 
     return {
       ok: true,
@@ -91,11 +101,29 @@ function previewSafeOperation(request = {}) {
       audit: {
         mode: AUDIT_POLICY.mode,
         persisted: AUDIT_POLICY.persisted,
+        operationId: persistence.audit.operationId,
+        payloadHash: persistence.audit.payloadHash,
+        impactHash: persistence.audit.impactHash,
+        status: persistence.audit.status,
+      },
+      requiresConfirm: true,
+      requiresIdempotencyKey: true,
+      execute: {
+        enabled: EXECUTE_POLICY.enabled,
+        code: EXECUTE_POLICY.code,
+        writeWillExecute: EXECUTE_POLICY.writeWillExecute,
+        externalCallWillExecute: EXECUTE_POLICY.externalCallWillExecute,
       },
       confirmToken: null,
+      confirmRequirement: persistence.confirmRequirement,
       idempotency: {
         mode: IDEMPOTENCY_POLICY.mode,
+        required: true,
+        persisted: IDEMPOTENCY_POLICY.persisted,
+        keyHash: persistence.idempotency.keyHash,
+        status: persistence.idempotency.status,
       },
+      rollback: persistence.rollback,
     }
   } catch (error) {
     return {
@@ -103,6 +131,12 @@ function previewSafeOperation(request = {}) {
       supported: false,
       code: 'SAFE_OP_PREVIEW_ERROR',
       message: error?.message || 'safeOps preview failed safely',
+      writeWillExecute: false,
+      externalCallWillExecute: false,
+      audit: {
+        mode: AUDIT_POLICY.mode,
+        persisted: AUDIT_POLICY.persisted,
+      },
     }
   }
 }

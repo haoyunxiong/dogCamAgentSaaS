@@ -9,9 +9,12 @@
     <section v-if="shipmentPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>execute</span><strong>{{ shipmentPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
       <div><span>externalCallWillExecute</span><strong>{{ shipmentPreview.view.externalCallWillExecute }}</strong></div>
       <div><span>audit</span><strong>{{ shipmentPreview.view.auditLabel }}</strong></div>
+      <div><span>confirm</span><strong>{{ shipmentPreview.view.confirmLabel }}</strong></div>
+      <div><span>idempotency</span><strong>{{ shipmentPreview.view.idempotencyLabel }}</strong></div>
       <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
     </section>
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" /></section>
@@ -56,10 +59,13 @@
         <section v-if="shipmentPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>execute</span><strong>{{ shipmentPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ shipmentPreview.view.externalCallWillExecute }}</strong></div>
           <div><span>audit</span><strong>{{ shipmentPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ shipmentPreview.view.riskLevel }}</strong></div>
+          <div><span>confirm</span><strong>{{ shipmentPreview.view.confirmLabel }}</strong></div>
+          <div><span>idempotency</span><strong>{{ shipmentPreview.view.idempotencyLabel }}</strong></div>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>保价金额</span><strong>¥{{ Number(selectedWaybill.insuredAmount || 0).toLocaleString() }}</strong></div>
@@ -137,10 +143,18 @@ async function previewShipment(reason) {
   shipmentPreview.value = { ...shipmentPreview.value, loading: true, error: '' }
   shipmentPreview.value = await runSafeOpsPreview('logistics.shipment.preview', {
     target: {
+      type: 'shipment',
+      id: selectedWaybill.value?.id || '',
       waybillId: selectedWaybill.value?.id || '',
       orderId: selectedWaybill.value?.orderId || '',
     },
     payload: {
+      shipmentId: selectedWaybill.value?.id || '',
+      orderId: selectedWaybill.value?.orderId || '',
+      modelCode: selectedWaybill.value?.model || '',
+      receiverName: selectedWaybill.value?.customerName || '',
+      receiverAddress: selectedWaybill.value?.receiverAddress || '',
+      senderName: 'merchant',
       reason,
       source: 'logistics-page',
     },
