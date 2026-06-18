@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Config
   getConfig: () => ipcRenderer.invoke('config:get'),
   saveConfig: (data) => ipcRenderer.invoke('config:save', data),
+  safeOps: {
+    getPolicy: (payload) => ipcRenderer.invoke('safeOps:policy', payload || {}),
+    preview: (payload) => ipcRenderer.invoke('safeOps:preview', payload || {}),
+  },
 
   // Prompts
   getPrompts: () => ipcRenderer.invoke('prompts:get'),

@@ -37,6 +37,8 @@ const {
   getDepositNotifyServerStatus,
   startDepositNotifyServer,
 } = require('./depositNotifyServer')
+const { getSafeOpsPolicy } = require('./safeOpsPolicy')
+const { previewSafeOperation } = require('./safeOpsPreview')
 
 // 单例 闲管家 客户端，凭据从 config 表动态拉取
 const xgjClient = new XianguanjiaClient({})
@@ -303,6 +305,23 @@ async function registerIpcHandlers(ipcMain, mainWindow) {
 
   ipcMain.handle('shell:open_url', async (_event, url) => {
     shell.openExternal(url)
+  })
+
+  ipcMain.handle('safeOps:policy', async () => {
+    try {
+      return getSafeOpsPolicy()
+    } catch (error) {
+      return {
+        ok: false,
+        mode: 'policy',
+        code: 'SAFE_OP_POLICY_ERROR',
+        message: error?.message || 'safeOps policy failed safely',
+      }
+    }
+  })
+
+  ipcMain.handle('safeOps:preview', async (_event, payload = {}) => {
+    return previewSafeOperation(payload || {})
   })
 
   ipcMain.handle('prompts:generate', async (_event, chatLog) => {
