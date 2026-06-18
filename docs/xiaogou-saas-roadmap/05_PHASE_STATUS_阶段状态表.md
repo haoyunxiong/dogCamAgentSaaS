@@ -3,15 +3,73 @@
 ## 当前阶段
 
 ```text
-当前阶段：Phase UI-V2 Demo - 新产品体验独立验证
-当前状态：规划中
-是否允许写代码：否
+当前阶段：Phase 04 - Operation Safe Mode
+当前状态：文档计划落档中 / 真实写操作未开始
+是否允许写代码：否（当前仅允许文档落档）
 是否允许操作 Figma：否
 是否允许改数据库：否
 是否允许跨阶段开发：否
 ```
 
 ## 当前阶段待办
+
+- [x] Phase 03 / UI-V2 Full MVP Readonly + Aggregation + Visualization 已完成
+- [x] Phase 03 readonly checkpoint commit：caa056c
+- [x] Orders 真实只读完成
+- [x] Devices 真实只读完成
+- [x] Schedule 真实只读完成
+- [x] Customers 派生只读完成
+- [x] Dashboard / Workbench 基础真实聚合完成
+- [x] Reports 基础真实聚合完成
+- [x] Logistics 只读物流可视化完成
+- [x] Deposit 本地缓存只读免押视图完成
+- [x] UI-V2 readonly 全路由验收通过
+- [x] Phase 03 未修改 main / preload / IPC / DB / Python
+- [x] Phase 03 未实现真实写操作
+- [x] Phase 04 Operation Safe Mode 计划会话已完成
+- [x] Phase 04 Operation Safe Mode 文档落档
+- [ ] safeOps policy / preview 骨架确认
+- [ ] Orders / Devices / Schedule dry-run 方案确认
+- [ ] audit / idempotency / confirm DB 方案确认
+- [ ] 内部 DB write 安全模式确认
+- [ ] Logistics / Shipping safe mode 方案确认
+- [ ] Deposit / Approval safe mode 方案确认
+- [ ] 真实外部 write 开关经用户单独确认
+
+## 当前下一步
+
+```text
+Phase 04 Operation Safe Mode：先完成 safeOps policy / preview / audit / rollback 方案确认，再决定是否进入代码实现。
+```
+
+Phase 04 尚未进入真实写操作实现。
+
+真实写操作必须先具备：
+
+- `safeOps` 统一入口；
+- `dry-run` 影响预览；
+- `confirmToken` 二次确认；
+- `idempotencyKey` 幂等保护；
+- `audit log` 操作审计；
+- before / after snapshot；
+- rollback / compensation 方案；
+- permission / actor 记录。
+
+未获得用户单独确认前，不允许：
+
+- 顺丰真实下单；
+- 免押真实审核、创建、完结、取消；
+- DB migration；
+- 真实外部账号 / 密钥 / 授权接入；
+- 无 `confirmToken` / `idempotencyKey` 的真实执行；
+- UI-V2 页面直接调用底层写 IPC。
+
+Phase 04 文档入口：
+
+- `docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/README.md`
+- `docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/operation-safe-mode-plan.md`
+
+## Phase 02 / UI-V2 历史待办记录
 
 - [x] Phase 02A Product Design / 产品设计输入整理完成
 - [x] Phase 02A checkpoint commit：04f65c9
@@ -28,7 +86,7 @@
 - [ ] Demo mock 数据范围确认
 - [ ] Demo 视觉和交互评审通过
 
-## 当前下一步
+## UI-V2 Demo 历史下一步记录
 
 ```text
 Figma 组件审计与校准 + Frontend Design Spec / UI 改造计划
