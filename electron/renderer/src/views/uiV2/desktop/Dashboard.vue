@@ -5,9 +5,17 @@
       <BaseButton>新建订单</BaseButton>
     </template>
 
+    <div class="adapter-source-row">
+      <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
+      <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
+    </div>
+
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" />
     </section>
+
+    <div v-if="loading" class="adapter-state">工作台只读聚合读取中...</div>
 
     <section class="dashboard-layout">
       <div class="final-panel today-panel">
@@ -79,7 +87,7 @@
           <span>查看更多 ›</span>
         </div>
         <div class="final-panel__body overview-grid">
-          <div class="trend-card"><strong>¥28,560.00</strong><span>收入趋势（元）</span><i class="trend-line"></i></div>
+          <div class="trend-card"><strong>{{ totalAmountLabel }}</strong><span>订单金额基础汇总</span><i class="trend-line"></i></div>
           <div class="trend-card"><strong>{{ todayActionTotal }}</strong><span>待处理单数</span><i class="trend-line blue"></i></div>
           <div v-for="item in overviewItems" :key="item.label" class="final-mini-card">
             <span>{{ item.label }}</span>
@@ -112,35 +120,124 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '../../../components/BaseButton.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
 const router = useRouter()
-const metrics = uiV2MockAdapter.getMetrics()
-const orders = uiV2MockAdapter.getOrders()
-const tasks = uiV2MockAdapter.getTasks()
-const risks = uiV2MockAdapter.getRisks().slice(0, 4)
+const metrics = ref([])
+const orders = ref([])
+const tasks = ref([])
+const risks = ref([])
+const devices = ref([])
+const schedule = ref([])
+const customers = ref([])
+const loading = ref(false)
+const loadError = ref('')
+const sourceMeta = ref(uiV2Adapter.getMeta())
+
+const sourceLabel = computed(() => {
+  if (sourceMeta.value.source === 'real') return '真实只读'
+  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
+  return 'Mock 预览'
+})
+
 const todayActionTotal = computed(() => countStatus('待发货') + countStatus('待归还') + countStatus('待押金') + countStatus('异常'))
-const overviewItems = [
-  { label: '活跃设备数', value: '1,248', trend: '较昨日 +36' },
-  { label: '在租订单数', value: '652', trend: '较昨日 +18' },
-  { label: '新客数', value: '23', trend: '较昨日 +5' },
-  { label: '复购率', value: '32.6%', trend: '较昨日 +2.1%' },
-]
+const totalAmountLabel = computed(() => `¥${orders.value.reduce((sum, order) => sum + Number(order.rentAmount || order.totalAmount || 0), 0).toLocaleString()}`)
+const overviewItems = computed(() => [
+  { label: '空闲设备', value: countDeviceStatus(['可租', '空闲']), trend: `设备总数 ${devices.value.length}` },
+  { label: '占用设备', value: countDeviceStatus(['在租', '已预订', '占用']), trend: '只读统计' },
+  { label: '维修设备', value: countDeviceStatus(['维修中', '维修', '异常']), trend: '不可分配' },
+  { label: '档期占用', value: schedule.value.filter((slot) => ['占用', '冲突'].includes(slot.status)).length, trend: '当前窗口' },
+  { label: '客户数', value: customers.value.length, trend: '派生只读' },
+  { label: '热门型号', value: topModel.value, trend: '按订单数' },
+  { label: '主要来源', value: topSource.value, trend: '字段缺失时降级' },
+])
+
+const topModel = computed(() => topBy(orders.value, (order) => order.model || '未填写型号'))
+const topSource = computed(() => topBy(orders.value, (order) => order.channel || order.source || '手工'))
 
 function countStatus(status) {
-  return orders.filter((order) => order.status === status).length
+  return orders.value.filter((order) => order.status === status).length
+}
+
+function countDeviceStatus(statuses) {
+  return devices.value.filter((device) => statuses.includes(device.status)).length
+}
+
+function topBy(rows, resolver) {
+  const counts = new Map()
+  rows.forEach((row) => {
+    const key = resolver(row)
+    if (!key) return
+    counts.set(key, (counts.get(key) || 0) + 1)
+  })
+  return Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0]?.[0] || '暂无数据'
+}
+
+function resolveDashboardMeta() {
+  const methodNames = ['getMetrics', 'getOrders', 'getTasks', 'getRisks', 'getDevices', 'getSchedule', 'getCustomers']
+  const metas = methodNames.map((methodName) => uiV2Adapter.getLastMeta(methodName)).filter(Boolean)
+  return metas.find((meta) => meta.source === 'mock-fallback')
+    || metas.find((meta) => meta.source === 'real')
+    || metas[0]
+    || uiV2Adapter.getMeta()
+}
+
+async function loadDashboard() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const [
+      nextMetrics,
+      nextOrders,
+      nextTasks,
+      nextRisks,
+      nextDevices,
+      nextSchedule,
+      nextCustomers,
+    ] = await Promise.all([
+      uiV2Adapter.getMetrics(),
+      uiV2Adapter.getOrders(),
+      uiV2Adapter.getTasks(),
+      uiV2Adapter.getRisks(),
+      uiV2Adapter.getDevices(),
+      uiV2Adapter.getSchedule(),
+      uiV2Adapter.getCustomers(),
+    ])
+    metrics.value = Array.isArray(nextMetrics) ? nextMetrics : []
+    orders.value = Array.isArray(nextOrders) ? nextOrders : []
+    tasks.value = Array.isArray(nextTasks) ? nextTasks.slice(0, 8) : []
+    risks.value = Array.isArray(nextRisks) ? nextRisks.slice(0, 4) : []
+    devices.value = Array.isArray(nextDevices) ? nextDevices : []
+    schedule.value = Array.isArray(nextSchedule) ? nextSchedule : []
+    customers.value = Array.isArray(nextCustomers) ? nextCustomers : []
+    sourceMeta.value = resolveDashboardMeta()
+  } catch (error) {
+    metrics.value = []
+    orders.value = []
+    tasks.value = []
+    risks.value = []
+    devices.value = []
+    schedule.value = []
+    customers.value = []
+    sourceMeta.value = uiV2Adapter.getMeta()
+    loadError.value = error?.message || '工作台只读聚合读取失败'
+  } finally {
+    loading.value = false
+  }
 }
 
 function goOrder(orderNo) {
   router.push({ path: '/ui-v2/orders', query: { order: orderNo } })
 }
+
+onMounted(loadDashboard)
 </script>
 
 <style scoped>
@@ -311,6 +408,58 @@ function goOrder(orderNo) {
 
 .activity-list em {
   font-style: normal;
+}
+
+.adapter-source-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-token-8);
+  flex-wrap: wrap;
+}
+
+.adapter-source,
+.adapter-source__reason,
+.adapter-source__error {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-pill);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.adapter-source.is-real {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.86);
+  color: var(--color-primary);
+}
+
+.adapter-source.is-mock-fallback,
+.adapter-source__reason {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+
+.adapter-source__error {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.9);
+  color: #b42318;
+}
+
+.adapter-state {
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-12);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  font-weight: 680;
 }
 
 @media (max-width: 1380px) {

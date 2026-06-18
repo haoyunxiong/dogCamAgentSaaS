@@ -1,12 +1,21 @@
 <template>
-  <UiV2Page title="报表中心" description="仅展示 mock 经营分析，不接真实统计接口。">
-    <template #actions><BaseButton variant="secondary">导出 Mock 报表</BaseButton></template>
+  <UiV2Page title="报表中心" description="基础经营统计只读聚合，不包含利润、税务和对账。">
+    <template #actions><BaseButton variant="secondary">导出报表</BaseButton></template>
+
+    <div class="adapter-source-row">
+      <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
+      <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
+    </div>
+
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in report.kpis" :key="metric.key" :metric="metric" /></section>
 
-    <FilterBar title="报表筛选" hint="仅前端 mock 统计，不接真实统计接口">
+    <div v-if="loading" class="adapter-state">报表只读聚合读取中...</div>
+
+    <FilterBar title="报表筛选" hint="基础只读聚合，字段缺失时自动降级">
       <div class="report-filter-row">
         <BaseSelect model-value="深圳南山店" label="门店" :options="['深圳南山店']" />
-        <BaseSelect model-value="2025-06-01 ~ 2025-06-14" label="时间范围" :options="['2025-06-01 ~ 2025-06-14']" />
+        <BaseSelect model-value="近 7 日 / 本月" label="时间范围" :options="['近 7 日 / 本月']" />
         <BaseSelect model-value="全部渠道" label="渠道" :options="['全部渠道', '闲鱼', '小红书', '抖音', '私域']" />
         <BaseSelect model-value="全部类型" label="设备类型" :options="['全部类型', '相机', '稳定器', '补光灯']" />
         <BaseButton variant="secondary">重置</BaseButton>
@@ -14,11 +23,11 @@
     </FilterBar>
 
     <section class="reports-layout">
-      <ChartCard class="reports-trend" title="收入趋势" subtitle="收入金额（元）" value="¥285,560.00" note="较上月 +12.6%" :data="report.revenueTrend" variant="trend" />
+      <ChartCard class="reports-trend" title="订单金额趋势" subtitle="近 7 日基础金额（元）" :value="reportAmountLabel" note="只读汇总" :data="report.revenueTrend" variant="trend" />
       <div class="final-panel">
         <div class="final-panel__head"><div><h2>订单来源占比</h2><p>按渠道统计订单量</p></div></div>
         <div class="final-panel__body channel-card">
-          <div class="donut">1,286<span>订单总量</span></div>
+          <div class="donut">{{ orderTotalLabel }}<span>订单总量</span></div>
           <div class="channel-list">
             <div v-for="item in report.channelTrend" :key="item.label">
               <i></i>
@@ -29,15 +38,15 @@
         </div>
       </div>
       <div class="final-panel">
-        <div class="final-panel__head"><div><h2>洞察与建议</h2><p>基于 mock 指标生成</p></div></div>
+        <div class="final-panel__head"><div><h2>洞察与建议</h2><p>基于只读指标生成</p></div></div>
         <div class="final-panel__body"><InsightPanel title="建议行动" tag="" :items="report.insights" /></div>
       </div>
       <div class="final-panel">
-        <div class="final-panel__head"><div><h2>设备租赁时长分布</h2><p>按租期分布</p></div></div>
+        <div class="final-panel__head"><div><h2>免押状态分布</h2><p>本地缓存优先，缺失时按订单押金字段降级</p></div></div>
         <div class="final-panel__body duration-card">
-          <div class="donut small">1,286<span>订单量</span></div>
+          <div class="donut small">{{ depositTotalLabel }}<span>记录数</span></div>
           <div class="channel-list">
-            <div v-for="item in durationRows" :key="item.label"><i></i><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>
+            <div v-for="item in depositRows" :key="item.label"><i></i><span>{{ item.label }}</span><strong>{{ item.valueLabel }}</strong></div>
           </div>
         </div>
       </div>
@@ -48,9 +57,9 @@
         </DataTable>
       </UiV2Section>
       <div class="final-panel">
-        <div class="final-panel__head"><div><h2>门店对比（收入）</h2><p>2025-06-01 ~ 2025-06-14</p></div></div>
+        <div class="final-panel__head"><div><h2>门店金额排行</h2><p>基础订单金额汇总</p></div></div>
         <div class="final-panel__body store-bars">
-          <div v-for="store in stores" :key="store.name">
+          <div v-for="store in storeRows" :key="store.name">
             <span>{{ store.name }}</span>
             <i :style="{ width: `${store.percent}%` }"></i>
             <strong>¥{{ store.value }}</strong>
@@ -62,31 +71,33 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseSelect from '../../../components/BaseSelect.vue'
 import DataTable from '../../../components/DataTable.vue'
 import FilterBar from '../../../components/FilterBar.vue'
 import { ChartCard, InsightPanel, MetricCard } from '../../../components/ui'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
 
-const report = uiV2MockAdapter.getReport()
-const durationRows = [
-  { label: '1-3天', value: '38.6%' },
-  { label: '4-7天', value: '24.3%' },
-  { label: '8-15天', value: '17.8%' },
-  { label: '16-30天', value: '11.2%' },
-  { label: '30天以上', value: '8.1%' },
-]
-const stores = [
-  { name: '深圳南山店', value: '285,560', percent: 100 },
-  { name: '广州天河店', value: '236,780', percent: 83 },
-  { name: '上海静安店', value: '198,450', percent: 69 },
-  { name: '北京朝阳店', value: '165,230', percent: 58 },
-  { name: '成都武侯店', value: '123,680', percent: 43 },
-]
+const emptyReport = {
+  kpis: [],
+  revenueTrend: [],
+  channelTrend: [],
+  depositTrend: [],
+  durationRows: [],
+  storeRanking: [],
+  modelRanking: [],
+  insights: [],
+}
+
+const report = ref(emptyReport)
+const loading = ref(false)
+const loadError = ref('')
+const sourceMeta = ref(uiV2Adapter.getMeta())
+
 const columns = [
   { key: 'rank', label: '排名' },
   { key: 'model', label: '型号' },
@@ -95,6 +106,51 @@ const columns = [
   { key: 'utilization', label: '利用率' },
   { key: 'signal', label: '信号' },
 ]
+
+const sourceLabel = computed(() => {
+  if (sourceMeta.value.source === 'real') return '真实只读'
+  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
+  return 'Mock 预览'
+})
+
+const reportAmountLabel = computed(() => {
+  const metric = report.value.kpis.find((item) => item.key === 'revenue' || item.key === 'orderAmount')
+  return metric ? `¥${metric.value}` : '¥0'
+})
+
+const orderTotalLabel = computed(() => {
+  const total = report.value.channelTrend.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  return total.toLocaleString()
+})
+
+const depositRows = computed(() => {
+  const rows = report.value.depositTrend || []
+  return rows.length ? rows : [{ label: '暂无数据', value: 0, valueLabel: '0单' }]
+})
+
+const depositTotalLabel = computed(() => depositRows.value.reduce((sum, item) => sum + Number(item.value || 0), 0).toLocaleString())
+const storeRows = computed(() => {
+  const rows = report.value.storeRanking || []
+  return rows.length ? rows : [{ name: '暂无数据', value: '0', percent: 6 }]
+})
+
+async function loadReport() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const nextReport = await uiV2Adapter.getReport()
+    report.value = { ...emptyReport, ...(nextReport || {}) }
+    sourceMeta.value = uiV2Adapter.getLastMeta('getReport')
+  } catch (error) {
+    report.value = emptyReport
+    sourceMeta.value = uiV2Adapter.getMeta()
+    loadError.value = error?.message || '报表只读聚合读取失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadReport)
 </script>
 
 <style scoped>
@@ -195,6 +251,58 @@ const columns = [
   height: 10px;
   border-radius: 999px;
   background: linear-gradient(90deg, #00a889, #7dd3c7);
+}
+
+.adapter-source-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-token-8);
+  flex-wrap: wrap;
+}
+
+.adapter-source,
+.adapter-source__reason,
+.adapter-source__error {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-pill);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.adapter-source.is-real {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.86);
+  color: var(--color-primary);
+}
+
+.adapter-source.is-mock-fallback,
+.adapter-source__reason {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+
+.adapter-source__error {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.9);
+  color: #b42318;
+}
+
+.adapter-state {
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-12);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  font-weight: 680;
 }
 
 @media (max-width: 1380px) {

@@ -1,7 +1,13 @@
 <template>
-  <UiV2Page title="免押管理" description="按最终系统风格派生页：审核免押队列，查看风险状态、押金状态和处理动作。">
-    <template #actions><BaseButton variant="secondary">批量复核</BaseButton></template>
+  <UiV2Page title="免押管理" description="免押本地缓存只读视图，查看风险状态、押金状态和后续处理提示。">
+    <template #actions><BaseButton variant="secondary" disabled>只读模式</BaseButton></template>
+    <div class="adapter-source-row">
+      <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
+      <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
+    </div>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
+    <div v-if="loading" class="adapter-state">免押本地缓存读取中...</div>
     <FilterBar title="审核筛选" hint="该页无最终图，结构从订单中心和系统设置派生">
       <div class="filter-row">
         <BaseInput v-model="keyword" search clearable placeholder="搜索订单、客户、设备" />
@@ -9,19 +15,27 @@
         <BaseSelect v-model="reviewStatus" label="审核状态" :options="['全部状态', '待审核', '待复核', '已通过', '已拒绝']" />
       </div>
     </FilterBar>
-    <DataTable :columns="columns" :rows="filteredReviews" row-key="id" :selected-key="selectedReview?.id || ''" compact @row-click="openReview">
+    <DataTable
+      :columns="columns"
+      :rows="filteredReviews"
+      row-key="id"
+      :selected-key="selectedReview?.id || ''"
+      compact
+      :empty-title="loading ? '免押本地缓存读取中' : '暂无免押记录'"
+      @row-click="openReview"
+    >
       <template #orderNo="{ row }"><strong>{{ row.orderNo }}</strong></template>
       <template #customerName="{ row }"><div class="ui-v2-cell-stack"><strong>{{ row.customerName }}</strong><small>{{ row.channel }} · {{ row.phoneMasked }}</small></div></template>
       <template #reviewStatus="{ row }"><StatusBadge :label="row.reviewStatus" size="sm" /></template>
       <template #riskLevel="{ row }"><StatusBadge :label="row.riskLevel" size="sm" /></template>
-      <template #requestedFreeAmount="{ row }">¥{{ row.requestedFreeAmount.toLocaleString() }}</template>
+      <template #requestedFreeAmount="{ row }">¥{{ Number(row.requestedFreeAmount || 0).toLocaleString() }}</template>
       <template #depositStatus="{ row }"><StatusBadge :label="row.depositStatus" size="sm" /></template>
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
-        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · ${selectedReview.phoneMasked}`" primary-label="通过免押" danger-label="驳回" />
+        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · ${selectedReview.phoneMasked}`" primary-label="只读模式" danger-label="暂未开放" />
         <section class="final-drawer-card ui-v2-detail-grid">
-          <div><span>免押金额</span><strong>¥{{ selectedReview.requestedFreeAmount.toLocaleString() }}</strong></div>
+          <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
           <div><span>押金状态</span><strong>{{ selectedReview.depositStatus }}</strong></div>
           <div><span>风险状态</span><strong>{{ selectedReview.riskLevel }}</strong></div>
           <div><span>负责人</span><strong>{{ selectedReview.assignee }}</strong></div>
@@ -33,7 +47,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseDrawer from '../../../components/BaseDrawer.vue'
 import BaseInput from '../../../components/BaseInput.vue'
@@ -42,17 +56,20 @@ import DataTable from '../../../components/DataTable.vue'
 import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard } from '../../../components/ui'
-import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { uiV2Adapter } from '../../../adapters/uiV2'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
 
-const reviews = uiV2MockAdapter.getDepositReviews()
+const reviews = ref([])
 const keyword = ref('')
 const risk = ref('全部风险')
 const reviewStatus = ref('全部状态')
 const selectedReview = ref(null)
 const drawerOpen = ref(false)
+const loading = ref(false)
+const loadError = ref('')
+const sourceMeta = ref(uiV2Adapter.getMeta())
 const columns = [
   { key: 'orderNo', label: '订单号' },
   { key: 'customerName', label: '客户/渠道' },
@@ -63,13 +80,18 @@ const columns = [
   { key: 'assignee', label: '负责人' },
   { key: 'nextAction', label: '下一步' },
 ]
+const sourceLabel = computed(() => {
+  if (sourceMeta.value.source === 'real') return '真实只读'
+  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
+  return 'Mock 预览'
+})
 const depositMetrics = computed(() => [
-  { key: 'queue', label: '审核队列', value: reviews.filter((item) => ['待审核', '待复核'].includes(item.reviewStatus)).length, unit: '单', trend: '今日需处理', tone: 'warning' },
-  { key: 'approved', label: '已通过', value: reviews.filter((item) => item.reviewStatus === '已通过').length, unit: '单', trend: 'mock 规则', tone: 'success' },
-  { key: 'risk', label: '高风险', value: reviews.filter((item) => item.riskLevel === '高').length, unit: '单', trend: '需人工判断', tone: 'danger' },
-  { key: 'amount', label: '免押金额', value: reviews.reduce((sum, item) => sum + item.requestedFreeAmount, 0).toLocaleString(), unit: '元', trend: '仅前端展示', tone: 'info' },
+  { key: 'queue', label: '审核队列', value: reviews.value.filter((item) => ['待审核', '待复核'].includes(item.reviewStatus)).length, unit: '单', trend: '只读统计', tone: 'warning' },
+  { key: 'approved', label: '已通过', value: reviews.value.filter((item) => item.reviewStatus === '已通过').length, unit: '单', trend: sourceLabel.value, tone: 'success' },
+  { key: 'risk', label: '高风险', value: reviews.value.filter((item) => item.riskLevel === '高').length, unit: '单', trend: '需人工判断', tone: 'danger' },
+  { key: 'amount', label: '免押金额', value: reviews.value.reduce((sum, item) => sum + Number(item.requestedFreeAmount || 0), 0).toLocaleString(), unit: '元', trend: '本地缓存', tone: 'info' },
 ])
-const filteredReviews = computed(() => reviews.filter((review) => {
+const filteredReviews = computed(() => reviews.value.filter((review) => {
   const text = `${review.orderNo}${review.customerName}${review.model}${review.phoneMasked}`
   return (risk.value === '全部风险' || review.riskLevel === risk.value)
     && (reviewStatus.value === '全部状态' || review.reviewStatus === reviewStatus.value)
@@ -79,6 +101,23 @@ function openReview(review) {
   selectedReview.value = review
   drawerOpen.value = true
 }
+async function loadDepositReviews() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const nextReviews = await uiV2Adapter.getDepositReviews()
+    reviews.value = Array.isArray(nextReviews) ? nextReviews : []
+    sourceMeta.value = uiV2Adapter.getLastMeta('getDepositReviews')
+  } catch (error) {
+    reviews.value = []
+    sourceMeta.value = uiV2Adapter.getMeta()
+    loadError.value = error?.message || '免押本地缓存读取失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadDepositReviews)
 </script>
 
 <style scoped>
@@ -87,5 +126,51 @@ function openReview(review) {
   grid-template-columns: 1.2fr repeat(2, minmax(180px, 0.6fr));
   gap: var(--space-12);
   align-items: end;
+}
+.adapter-source-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-token-8);
+  flex-wrap: wrap;
+}
+.adapter-source,
+.adapter-source__reason,
+.adapter-source__error {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-pill);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+.adapter-source.is-real {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.86);
+  color: var(--color-primary);
+}
+.adapter-source.is-mock-fallback,
+.adapter-source__reason {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+.adapter-source__error {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.9);
+  color: #b42318;
+}
+.adapter-state {
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-12);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  font-weight: 680;
 }
 </style>
