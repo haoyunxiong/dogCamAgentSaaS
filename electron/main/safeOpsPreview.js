@@ -5,6 +5,20 @@ const {
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
+const {
+  buildDepositCreatePreview,
+  buildDepositFinishPreview,
+} = require('./safeOpsDepositPreview')
+const {
+  buildDeviceDeletePreview,
+  buildDeviceUpdatePreview,
+} = require('./safeOpsDevicePreview')
+const { buildLogisticsShipmentPreview } = require('./safeOpsLogisticsPreview')
+const {
+  buildOrderEditPreview,
+  buildOrderStatusTransitionPreview,
+} = require('./safeOpsOrderPreview')
+const { buildScheduleBlockPreview } = require('./safeOpsSchedulePreview')
 
 const IMPACT_SUMMARIES = Object.freeze({
   'order.status.transition.preview': 'Order status transition dry-run only. No order, schedule, logistics, or notification state will be changed.',
@@ -19,9 +33,36 @@ const IMPACT_SUMMARIES = Object.freeze({
 
 function buildPreviewImpact(operationType) {
   return {
-    summary: IMPACT_SUMMARIES[operationType] || 'safeOps dry-run only. No real write will be executed.',
+    summary: IMPACT_SUMMARIES[operationType] || 'safeOps dry-run only. No real write will run.',
     affectedRecords: [],
     externalEffects: [],
+  }
+}
+
+function buildDomainPreview(operationType, request) {
+  switch (operationType) {
+    case 'order.status.transition.preview':
+      return buildOrderStatusTransitionPreview(request)
+    case 'order.edit.preview':
+      return buildOrderEditPreview(request)
+    case 'device.update.preview':
+      return buildDeviceUpdatePreview(request)
+    case 'device.delete.preview':
+      return buildDeviceDeletePreview(request)
+    case 'schedule.block.preview':
+      return buildScheduleBlockPreview(request)
+    case 'logistics.shipment.preview':
+      return buildLogisticsShipmentPreview(request)
+    case 'deposit.create.preview':
+      return buildDepositCreatePreview(request)
+    case 'deposit.finish.preview':
+      return buildDepositFinishPreview(request)
+    default:
+      return {
+        warnings: [],
+        blockers: [],
+        impact: buildPreviewImpact(operationType),
+      }
   }
 }
 
@@ -34,6 +75,8 @@ function previewSafeOperation(request = {}) {
       return buildUnsupportedOperationResponse(operationType)
     }
 
+    const domainPreview = buildDomainPreview(operationType, request)
+
     return {
       ok: true,
       supported: true,
@@ -42,9 +85,9 @@ function previewSafeOperation(request = {}) {
       writeWillExecute: false,
       externalCallWillExecute: false,
       riskLevel: policy.riskLevel,
-      warnings: [],
-      blockers: [],
-      impact: buildPreviewImpact(operationType),
+      warnings: domainPreview.warnings,
+      blockers: domainPreview.blockers,
+      impact: domainPreview.impact,
       audit: {
         mode: AUDIT_POLICY.mode,
         persisted: AUDIT_POLICY.persisted,

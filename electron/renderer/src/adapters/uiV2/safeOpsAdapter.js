@@ -18,6 +18,17 @@ const SAFE_OP_POLICIES = Object.freeze([
 
 const POLICY_BY_OPERATION = new Map(SAFE_OP_POLICIES.map((policy) => [policy.operationType, policy]))
 
+const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
+  'order.status.transition.preview': 'Renderer noop order status preview. This is dry-run only and will not change order state, schedule, logistics, or notifications.',
+  'order.edit.preview': 'Renderer noop order edit preview. This is dry-run only and will not change order fields, fees, devices, schedule, or logistics.',
+  'device.update.preview': 'Renderer noop device update preview. This is dry-run only and will not change device profile, inventory, or availability.',
+  'device.delete.preview': 'Renderer noop device delete preview. This is dry-run only and will not delete device data, schedule blocks, or order relations.',
+  'schedule.block.preview': 'Renderer noop schedule block preview. This is dry-run only and will not write schedule data or lock inventory.',
+  'logistics.shipment.preview': 'Renderer noop shipment preview. This is dry-run only and will not save shipment drafts, create waybills, charge fees, or call carrier services.',
+  'deposit.create.preview': 'Renderer noop deposit create preview. This is dry-run only and will not create deposit orders or change local cache.',
+  'deposit.finish.preview': 'Renderer noop deposit finish preview. This is dry-run only and will not finish deposit orders or change local cache.',
+})
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value))
 }
@@ -88,7 +99,7 @@ function buildLocalPreview(payload = {}) {
     warnings: [],
     blockers: [],
     impact: {
-      summary: 'Renderer noop safeOps preview. This action is dry-run only and will not write data or call external services.',
+      summary: LOCAL_PREVIEW_SUMMARIES[operationType] || 'Renderer noop safeOps preview. This action is dry-run only and will not write data or call external services.',
       affectedRecords: [],
       externalEffects: [],
     },

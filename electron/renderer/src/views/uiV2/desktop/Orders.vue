@@ -78,11 +78,22 @@
           :title="selectedOrder.customerName"
           :description="`${selectedOrder.channel} · ${selectedOrder.model}`"
           :meta="`${selectedOrder.rentStart || '-'} 至 ${selectedOrder.rentEnd || '-'}`"
-          primary-label="操作预览"
-          secondary-label="标记已联系"
-          danger-label="标记异常"
+          primary-label="顺丰预览"
+          secondary-label="状态预览"
+          danger-label="编辑预览"
           @primary="openShippingPreview"
+          @secondary="openStatusPreview"
+          @danger="openEditPreview"
         />
+        <section v-if="orderPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-action-safeops-preview">
+          <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
+          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
+          <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>audit</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
+          <div><span>风险等级</span><strong>{{ orderPreview.view.riskLevel }}</strong></div>
+        </section>
+        <p v-if="orderPreview.error" class="adapter-source__error">{{ orderPreview.error }}</p>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>客户电话</span><strong>{{ selectedOrder.phoneMasked }}</strong></div>
           <div><span>订单金额</span><strong>¥{{ selectedOrder.rentAmount.toLocaleString() }}</strong></div>
@@ -100,6 +111,8 @@
       </div>
       <template #footer>
         <BaseButton variant="secondary" @click="drawerOpen = false">关闭</BaseButton>
+        <BaseButton variant="secondary" data-testid="order-status-preview-button" @click="openStatusPreview">状态预览</BaseButton>
+        <BaseButton variant="secondary" data-testid="order-edit-preview-button" @click="openEditPreview">编辑预览</BaseButton>
         <BaseButton data-testid="order-create-shipping-button" @click="openShippingPreview">操作预览</BaseButton>
       </template>
     </BaseDrawer>
@@ -177,6 +190,7 @@ const selectedRows = ref([])
 const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
+const orderPreview = ref(createSafeOpsPreviewState())
 const shippingPreview = ref(createSafeOpsPreviewState())
 const sourceMeta = ref(uiV2Adapter.getMeta())
 
@@ -276,6 +290,55 @@ function toggleRow(orderNo) {
   selectedRows.value = selectedRows.value.includes(orderNo)
     ? selectedRows.value.filter((item) => item !== orderNo)
     : [...selectedRows.value, orderNo]
+}
+
+function nextPreviewStatus(currentStatus) {
+  const transitions = {
+    待确认: '待押金',
+    待押金: '待分配设备',
+    待分配设备: '待发货',
+    待发货: '运输中',
+    运输中: '租用中',
+    租用中: '待归还',
+    待归还: '待验机',
+    待验机: '已完成',
+  }
+  return transitions[currentStatus] || currentStatus || '待确认'
+}
+
+async function openStatusPreview() {
+  orderPreview.value = { ...orderPreview.value, loading: true, error: '' }
+  orderPreview.value = await runSafeOpsPreview('order.status.transition.preview', {
+    target: {
+      type: 'order',
+      id: selectedOrder.value?.orderNo || '',
+    },
+    payload: {
+      orderId: selectedOrder.value?.orderNo || '',
+      fromStatus: selectedOrder.value?.status || '',
+      toStatus: nextPreviewStatus(selectedOrder.value?.status),
+      source: 'orders-drawer',
+    },
+  })
+}
+
+async function openEditPreview() {
+  orderPreview.value = { ...orderPreview.value, loading: true, error: '' }
+  orderPreview.value = await runSafeOpsPreview('order.edit.preview', {
+    target: {
+      type: 'order',
+      id: selectedOrder.value?.orderNo || '',
+    },
+    payload: {
+      orderId: selectedOrder.value?.orderNo || '',
+      rentStartDate: selectedOrder.value?.rentStart || '',
+      rentEndDate: selectedOrder.value?.rentEnd || '',
+      deviceId: Array.isArray(selectedOrder.value?.deviceIds) ? selectedOrder.value.deviceIds[0] : '',
+      modelCode: selectedOrder.value?.model || '',
+      rentAmount: selectedOrder.value?.rentAmount || '',
+      source: 'orders-drawer',
+    },
+  })
 }
 
 async function openShippingPreview() {
