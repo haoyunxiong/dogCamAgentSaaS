@@ -1,6 +1,9 @@
 <template>
   <UiV2Page title="物流发货" description="物流只读可视化，展示运单、揽收、运输和异常状态。">
-    <template #actions><BaseButton @click="previewShipment('page-action')">发货预览</BaseButton></template>
+    <template #actions>
+      <BaseButton variant="secondary" @click="previewShipment('page-action')">顺丰/发货预览</BaseButton>
+      <BaseButton @click="previewLogisticsLocalRecordCreate">新增本地发货记录</BaseButton>
+    </template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
@@ -8,7 +11,7 @@
     </div>
     <section v-if="shipmentPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
-      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>模式</span><strong>{{ shipmentPreview.view.mode }}</strong></div>
       <div><span>persistence</span><strong>{{ shipmentPreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ shipmentPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
@@ -16,7 +19,9 @@
       <div><span>audit</span><strong>{{ shipmentPreview.view.auditLabel }}</strong></div>
       <div><span>confirm</span><strong>{{ shipmentPreview.view.confirmLabel }}</strong></div>
       <div><span>idempotency</span><strong>{{ shipmentPreview.view.idempotencyLabel }}</strong></div>
-      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+      <div><span>duplicate</span><strong>{{ shipmentPreview.view.duplicateRecordLabel }}</strong></div>
+      <div><span>开放状态</span><strong>{{ logisticsPreviewStatusLabel }}</strong></div>
+      <div><span>说明</span><strong>本地记录 / 不调用外部服务 / 不更新订单状态</strong></div>
     </section>
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" /></section>
     <div v-if="loading" class="adapter-state">物流只读数据读取中...</div>
@@ -59,7 +64,7 @@
         <DrawerSummary :status="selectedWaybill.shippingStatus" :title="selectedWaybill.customerName" :description="selectedWaybill.receiverAddress" :meta="`${selectedWaybill.carrier} · ${selectedWaybill.trackingNo || '待生成'} · dry-run only`" primary-label="发货预览" secondary-label="暂未开放" @primary="previewShipment('drawer-action')" @secondary="previewShipment('drawer-secondary')" />
         <section v-if="shipmentPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
-          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>模式</span><strong>{{ shipmentPreview.view.mode }}</strong></div>
           <div><span>persistence</span><strong>{{ shipmentPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ shipmentPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
@@ -68,6 +73,41 @@
           <div><span>风险等级</span><strong>{{ shipmentPreview.view.riskLevel }}</strong></div>
           <div><span>confirm</span><strong>{{ shipmentPreview.view.confirmLabel }}</strong></div>
           <div><span>idempotency</span><strong>{{ shipmentPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>duplicate</span><strong>{{ shipmentPreview.view.duplicateRecordLabel }}</strong></div>
+          <div><span>开放状态</span><strong>{{ logisticsPreviewStatusLabel }}</strong></div>
+        </section>
+        <section class="final-drawer-card logistics-local-record" data-testid="logistics-local-record-safeops">
+          <div class="logistics-local-record__head">
+            <div>
+              <span>本地发货记录</span>
+              <strong>shipping_records</strong>
+            </div>
+            <span>需要确认 · 已审计 · rollback 暂不可自动执行</span>
+          </div>
+          <div class="logistics-local-record__grid">
+            <BaseInput v-model="localRecordForm.orderId" label="订单 ID / 订单号" />
+            <BaseInput v-model="localRecordForm.trackingNo" label="人工运单号" placeholder="仅本地记录，不触发查询" />
+            <BaseSelect v-model="localRecordForm.carrier" label="承运方" :options="carrierOptions" />
+            <BaseSelect v-model="localRecordForm.shippingMode" label="物流方式" :options="shippingModeOptions" />
+            <BaseSelect v-model="localRecordForm.latestStatus" label="本地状态" :options="shippingStatusOptions" />
+            <BaseInput v-model="localRecordForm.actualShipAt" label="发货时间" placeholder="YYYY-MM-DD HH:mm" />
+            <BaseInput v-model="localRecordForm.shipFromCity" label="发出城市" />
+            <BaseInput v-model="localRecordForm.shipToCity" label="到达城市" />
+          </div>
+          <div class="logistics-local-record__actions">
+            <BaseButton size="sm" :loading="shipmentPreview.loading" @click="previewLogisticsLocalRecordCreate">本地记录预览</BaseButton>
+            <BaseButton
+              size="sm"
+              variant="primary"
+              :loading="logisticsWriteExecuting"
+              :disabled="!canExecuteLogisticsLocalRecord"
+              @click="executeLogisticsLocalRecordCreate"
+            >
+              确认创建本地记录
+            </BaseButton>
+          </div>
+          <p class="safeops-note">只写本地 shipping_records；不调用顺丰；不调用外部接口；不更新订单状态。</p>
+          <p v-if="shipmentPreview.view?.blockedReason" class="adapter-source__error">{{ shipmentPreview.view.blockedReason }}</p>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>保价金额</span><strong>¥{{ Number(selectedWaybill.insuredAmount || 0).toLocaleString() }}</strong></div>
@@ -93,7 +133,8 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
-import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
+import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -106,8 +147,47 @@ const drawerOpen = ref(false)
 const loading = ref(false)
 const loadError = ref('')
 const shipmentPreview = ref(createSafeOpsPreviewState())
+const localRecordPreviewPayload = ref(null)
+const logisticsWriteExecuting = ref(false)
+const localRecordForm = ref({
+  orderId: '',
+  carrier: 'manual',
+  trackingNo: '',
+  shippingMode: 'manual',
+  latestStatus: 'manual_recorded',
+  shipFromCity: '',
+  shipToCity: '',
+  plannedShipAt: '',
+  actualShipAt: '',
+  expectedArriveAt: '',
+  actualArriveAt: '',
+})
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const logisticsTabs = ['全部', '待下单', '待揽收', '运输中', '已签收', '异常', '已取消']
+const safeOpsActor = Object.freeze({ id: 'ui-v2-logistics-operator', source: 'ui-v2', role: 'operator' })
+const carrierOptions = [
+  { label: '手工记录', value: 'manual' },
+  { label: '顺丰（仅本地）', value: 'sf' },
+  { label: '京东物流', value: 'jd' },
+  { label: 'EMS', value: 'ems' },
+  { label: '德邦', value: 'deppon' },
+  { label: '其他', value: 'other' },
+]
+const shippingModeOptions = [
+  { label: '手工记录', value: 'manual' },
+  { label: '快递', value: 'express' },
+  { label: '上门揽收', value: 'pickup' },
+  { label: '网点寄出', value: 'dropoff' },
+  { label: '同城', value: 'same_city' },
+  { label: '归还', value: 'return' },
+]
+const shippingStatusOptions = [
+  { label: '手工已记录', value: 'manual_recorded' },
+  { label: '待揽收', value: 'pending_pickup' },
+  { label: '运输中', value: 'in_transit' },
+  { label: '已签收', value: 'delivered' },
+  { label: '异常', value: 'exception' },
+]
 const columns = [
   { key: 'orderId', label: '订单号' },
   { key: 'customerName', label: '客户/设备' },
@@ -134,12 +214,60 @@ const filteredWaybills = computed(() => waybills.value.filter((item) => {
   const text = `${item.orderId}${item.customerName}${item.model}${item.trackingNo}`
   return (status.value === '全部' || item.shippingStatus === status.value) && (!keyword.value || text.includes(keyword.value))
 }))
+const canExecuteLogisticsLocalRecord = computed(() => {
+  const result = shipmentPreview.value?.result || {}
+  return result.operationType === 'logistics.local_record.create'
+    && Boolean(result.executeEnabled)
+    && Boolean(result.confirmRequirement?.tokenId)
+    && !shipmentPreview.value?.view?.blockers?.length
+    && !logisticsWriteExecuting.value
+})
+const logisticsPreviewStatusLabel = computed(() => {
+  const result = shipmentPreview.value?.result || {}
+  if (result.mode === 'write' && result.code === 'SAFE_OP_EXECUTED') return '已执行'
+  if (result.operationType === 'logistics.local_record.create' && shipmentPreview.value?.view?.blockers?.length) return '已阻断'
+  if (result.operationType === 'logistics.local_record.create' && result.executeEnabled) return '需要确认'
+  return '暂未开放'
+})
 function countStatus(nextStatus) {
   return waybills.value.filter((item) => item.shippingStatus === nextStatus).length
 }
 function openWaybill(item) {
   selectedWaybill.value = item
+  syncLocalRecordForm(item)
   drawerOpen.value = true
+}
+function syncLocalRecordForm(item = {}) {
+  localRecordForm.value = {
+    ...localRecordForm.value,
+    orderId: item?.meta?.rawOrderId ? String(item.meta.rawOrderId) : String(item?.orderId || ''),
+    shipToCity: localRecordForm.value.shipToCity || '',
+  }
+}
+function toShipmentPreviewState(result = {}) {
+  const view = toSafeOpsPreviewView(result)
+  return {
+    loading: false,
+    result,
+    view,
+    error: result?.ok ? '' : view.summary,
+  }
+}
+function buildLocalRecordPayload() {
+  const source = selectedWaybill.value || waybills.value[0] || {}
+  return {
+    orderId: localRecordForm.value.orderId || (source?.meta?.rawOrderId ? String(source.meta.rawOrderId) : String(source?.orderId || '')),
+    carrier: localRecordForm.value.carrier || 'manual',
+    trackingNo: String(localRecordForm.value.trackingNo || '').trim(),
+    shippingMode: localRecordForm.value.shippingMode || 'manual',
+    latestStatus: localRecordForm.value.latestStatus || 'manual_recorded',
+    shipFromCity: String(localRecordForm.value.shipFromCity || '').trim(),
+    shipToCity: String(localRecordForm.value.shipToCity || '').trim(),
+    plannedShipAt: String(localRecordForm.value.plannedShipAt || '').trim(),
+    actualShipAt: String(localRecordForm.value.actualShipAt || '').trim(),
+    expectedArriveAt: String(localRecordForm.value.expectedArriveAt || '').trim(),
+    actualArriveAt: String(localRecordForm.value.actualArriveAt || '').trim(),
+  }
 }
 async function previewShipment(reason) {
   shipmentPreview.value = { ...shipmentPreview.value, loading: true, error: '' }
@@ -162,12 +290,41 @@ async function previewShipment(reason) {
     },
   })
 }
+async function previewLogisticsLocalRecordCreate() {
+  shipmentPreview.value = { ...shipmentPreview.value, loading: true, error: '' }
+  const payload = buildLocalRecordPayload()
+  localRecordPreviewPayload.value = payload
+  const result = await safeOpsAdapter.previewLogisticsLocalRecordCreate({
+    ...payload,
+    actor: safeOpsActor,
+    clientRequestId: `ui-v2-logistics-local-record-preview-${Date.now()}`,
+  })
+  shipmentPreview.value = toShipmentPreviewState(result)
+}
+async function executeLogisticsLocalRecordCreate() {
+  if (!canExecuteLogisticsLocalRecord.value) return
+  logisticsWriteExecuting.value = true
+  try {
+    const payload = localRecordPreviewPayload.value || buildLocalRecordPayload()
+    const result = await safeOpsAdapter.executeLogisticsLocalRecordCreate({
+      ...payload,
+      previewResult: shipmentPreview.value.result,
+      actor: safeOpsActor,
+      clientRequestId: `ui-v2-logistics-local-record-execute-${Date.now()}`,
+    })
+    shipmentPreview.value = toShipmentPreviewState(result)
+    if (result?.ok && result?.mode === 'write') await loadWaybills()
+  } finally {
+    logisticsWriteExecuting.value = false
+  }
+}
 async function loadWaybills() {
   loading.value = true
   loadError.value = ''
   try {
     const nextWaybills = await uiV2Adapter.getWaybills()
     waybills.value = Array.isArray(nextWaybills) ? nextWaybills : []
+    if (!selectedWaybill.value && waybills.value[0]) syncLocalRecordForm(waybills.value[0])
     sourceMeta.value = uiV2Adapter.getLastMeta('getWaybills')
   } catch (error) {
     waybills.value = []
@@ -240,5 +397,34 @@ onMounted(loadWaybills)
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 680;
+}
+.logistics-local-record {
+  gap: 12px;
+}
+.logistics-local-record__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+.logistics-local-record__head div {
+  display: grid;
+  gap: 2px;
+}
+.logistics-local-record__head strong {
+  color: var(--ui-text);
+  font-size: 13px;
+}
+.logistics-local-record__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.logistics-local-record__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 </style>

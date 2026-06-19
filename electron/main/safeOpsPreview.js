@@ -80,6 +80,9 @@ const DEVICE_BASIC_STATUS_ALIASES = Object.freeze({
 const SCHEDULE_CREATE_ALLOWED_BLOCK_TYPES = new Set(['manual_hold', 'internal_hold', 'maintenance', 'block', 'buffer'])
 const SCHEDULE_CREATE_ALLOWED_STATUSES = new Set(['active'])
 const SCHEDULE_CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'deleted', 'inactive'])
+const LOGISTICS_LOCAL_ALLOWED_CARRIERS = new Set(['manual', 'sf', 'jd', 'ems', 'deppon', 'zto', 'sto', 'yto', 'yunda', 'other'])
+const LOGISTICS_LOCAL_ALLOWED_SHIPPING_MODES = new Set(['manual', 'express', 'pickup', 'dropoff', 'same_city', 'return'])
+const LOGISTICS_LOCAL_ALLOWED_STATUSES = new Set(['pending', 'pending_pickup', 'picked_up', 'in_transit', 'delivered', 'returned', 'exception', 'cancelled', 'manual_recorded'])
 
 function getOrderInternalNotePayload(request = {}) {
   const payload = request.payload || {}
@@ -190,6 +193,13 @@ function normalizeDateOnly(value) {
   return date.toISOString().slice(0, 10) === text ? text : ''
 }
 
+function normalizeDateTimeText(value) {
+  const text = normalizeText(value).replace('T', ' ')
+  if (!text) return ''
+  if (!/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}(?::\d{2})?)?$/.test(text)) return ''
+  return text.slice(0, 30)
+}
+
 function normalizeScheduleBlockCreatePayload(request = {}) {
   const payload = request.payload || {}
   return {
@@ -246,6 +256,85 @@ function findUnsupportedScheduleCancelPayloadFields(payload = {}) {
     'source',
     'reason',
   ].includes(key))
+}
+
+function normalizeLogisticsLocalRecordCreatePayload(request = {}) {
+  const payload = request.payload || {}
+  return {
+    orderId: normalizeText(payload.orderId || payload.order_id || request.target?.id),
+    carrier: normalizeText(payload.carrier || 'manual').toLowerCase() || 'manual',
+    trackingNo: normalizeText(payload.trackingNo || payload.tracking_no),
+    shippingMode: normalizeText(payload.shippingMode || payload.shipping_mode || 'manual').toLowerCase() || 'manual',
+    latestStatus: normalizeText(payload.latestStatus || payload.latest_status || 'manual_recorded').toLowerCase() || 'manual_recorded',
+    shipFromCity: normalizeText(payload.shipFromCity || payload.ship_from_city).slice(0, 100),
+    shipToCity: normalizeText(payload.shipToCity || payload.ship_to_city).slice(0, 100),
+    plannedShipAt: normalizeDateTimeText(payload.plannedShipAt || payload.planned_ship_at),
+    actualShipAt: normalizeDateTimeText(payload.actualShipAt || payload.actual_ship_at),
+    expectedArriveAt: normalizeDateTimeText(payload.expectedArriveAt || payload.expected_arrive_at),
+    actualArriveAt: normalizeDateTimeText(payload.actualArriveAt || payload.actual_arrive_at),
+    rawPayload: payload,
+  }
+}
+
+function findUnsupportedLogisticsLocalPayloadFields(payload = {}) {
+  return Object.keys(payload).filter((key) => ![
+    'orderId',
+    'order_id',
+    'carrier',
+    'trackingNo',
+    'tracking_no',
+    'shippingMode',
+    'shipping_mode',
+    'latestStatus',
+    'latest_status',
+    'shipFromCity',
+    'ship_from_city',
+    'shipToCity',
+    'ship_to_city',
+    'plannedShipAt',
+    'planned_ship_at',
+    'actualShipAt',
+    'actual_ship_at',
+    'expectedArriveAt',
+    'expected_arrive_at',
+    'actualArriveAt',
+    'actual_arrive_at',
+    'source',
+    'reason',
+  ].includes(key))
+}
+
+function maskLocalText(value) {
+  const text = String(value || '')
+  if (!text) return ''
+  if (text.length <= 4) return '<redacted>'
+  return `${text.slice(0, 2)}***${text.slice(-2)}`
+}
+
+function buildLogisticsLocalAfterSnapshot(payload, shippingRecordId = null) {
+  return {
+    shippingRecordId: shippingRecordId === null || shippingRecordId === undefined ? null : String(shippingRecordId),
+    orderId: payload.orderId || null,
+    carrier: payload.carrier,
+    trackingNoMasked: maskLocalText(payload.trackingNo),
+    shippingMode: payload.shippingMode,
+    latestStatus: payload.latestStatus,
+    shipFromCity: payload.shipFromCity || null,
+    shipToCity: payload.shipToCity || null,
+    plannedShipAt: payload.plannedShipAt || null,
+    actualShipAt: payload.actualShipAt || null,
+    expectedArriveAt: payload.expectedArriveAt || null,
+    actualArriveAt: payload.actualArriveAt || null,
+  }
+}
+
+function buildDuplicateRecordCheck(duplicateResult = {}, blockers = []) {
+  return {
+    checked: true,
+    passed: !blockers.length && !duplicateResult.exists,
+    duplicate: Boolean(duplicateResult.exists),
+    duplicateRecord: duplicateResult.record || null,
+  }
 }
 
 function summarizeScheduleNote(value) {
@@ -608,6 +697,106 @@ async function buildScheduleBlockCancelPreview(request = {}) {
   }
 }
 
+async function buildLogisticsLocalRecordCreatePreview(request = {}) {
+  const warnings = []
+  const blockers = []
+  const payload = normalizeLogisticsLocalRecordCreatePayload(request)
+  const unsupportedFields = findUnsupportedLogisticsLocalPayloadFields(payload.rawPayload)
+
+  if (unsupportedFields.length) {
+    blockers.push(`Unsupported payload fields for logistics.local_record.create: ${unsupportedFields.join(', ')}.`)
+  }
+  if (!payload.orderId) blockers.push('orderId is required for logistics.local_record.create.')
+  if (!payload.trackingNo) blockers.push('trackingNo is required for logistics.local_record.create.')
+  if (!LOGISTICS_LOCAL_ALLOWED_CARRIERS.has(payload.carrier)) {
+    blockers.push(`Unsupported carrier for logistics.local_record.create: ${payload.carrier}.`)
+  }
+  if (!LOGISTICS_LOCAL_ALLOWED_SHIPPING_MODES.has(payload.shippingMode)) {
+    blockers.push(`Unsupported shippingMode for logistics.local_record.create: ${payload.shippingMode}.`)
+  }
+  if (!LOGISTICS_LOCAL_ALLOWED_STATUSES.has(payload.latestStatus)) {
+    blockers.push(`Unsupported latestStatus for logistics.local_record.create: ${payload.latestStatus}.`)
+  }
+  for (const [key, rawKey] of [
+    ['plannedShipAt', 'plannedShipAt'],
+    ['actualShipAt', 'actualShipAt'],
+    ['expectedArriveAt', 'expectedArriveAt'],
+    ['actualArriveAt', 'actualArriveAt'],
+  ]) {
+    const supplied = payload.rawPayload[rawKey] || payload.rawPayload[rawKey.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)]
+    if (supplied && !payload[key]) blockers.push(`${rawKey} must use YYYY-MM-DD or YYYY-MM-DD HH:mm format.`)
+  }
+
+  let orderResult = null
+  let duplicateResult = { exists: false, record: null }
+  let normalizedPayload = { ...payload, orderId: payload.orderId }
+  if (!blockers.length) {
+    const repository = await createSafeOpsRepository({ enabled: true })
+    orderResult = await repository.getRentalOrderForLocalShipping({ orderId: payload.orderId })
+    if (!orderResult.available) {
+      blockers.push(orderResult.reason || 'safeOps DB repository is unavailable; cannot verify linked order.')
+    } else if (!orderResult.exists || !orderResult.raw) {
+      blockers.push('Linked order_id does not exist in local rental_orders.')
+    } else {
+      normalizedPayload = {
+        ...payload,
+        orderId: String(orderResult.raw.id),
+      }
+      duplicateResult = await repository.getShippingDuplicateRecord({
+        orderId: orderResult.raw.id,
+        carrier: payload.carrier,
+        trackingNo: payload.trackingNo,
+      })
+      if (!duplicateResult.available) {
+        blockers.push(duplicateResult.reason || 'safeOps DB repository is unavailable; cannot check duplicate shipping record.')
+      } else if (duplicateResult.exists) {
+        blockers.push('Duplicate local shipping record exists for the same order_id + carrier + tracking_no.')
+      }
+    }
+  }
+
+  warnings.push('This creates a local shipping_records row only; it will not call carrier APIs, query tracking routes, create a waybill, charge fees, or update order status.')
+  if (payload.carrier === 'sf') warnings.push('carrier=sf is treated as local metadata only; no SF API will be called.')
+
+  const duplicateRecordCheck = buildDuplicateRecordCheck(duplicateResult, blockers)
+  const afterSnapshot = blockers.length ? null : buildLogisticsLocalAfterSnapshot(normalizedPayload)
+  return {
+    warnings,
+    blockers,
+    beforeSnapshot: orderResult?.record ? {
+      order: orderResult.record,
+      duplicateRecordCheck,
+    } : null,
+    afterSnapshot,
+    duplicateRecordCheck,
+    normalizedPayload: {
+      orderId: normalizedPayload.orderId,
+      carrier: normalizedPayload.carrier,
+      trackingNo: normalizedPayload.trackingNo,
+      shippingMode: normalizedPayload.shippingMode,
+      latestStatus: normalizedPayload.latestStatus,
+      shipFromCity: normalizedPayload.shipFromCity || null,
+      shipToCity: normalizedPayload.shipToCity || null,
+      plannedShipAt: normalizedPayload.plannedShipAt || null,
+      actualShipAt: normalizedPayload.actualShipAt || null,
+      expectedArriveAt: normalizedPayload.expectedArriveAt || null,
+      actualArriveAt: normalizedPayload.actualArriveAt || null,
+    },
+    impact: {
+      summary: blockers.length
+        ? 'Cannot preview logistics.local_record.create until blockers are resolved. No shipping record will be written.'
+        : `Preview one local shipping_records insert for order ${normalizedPayload.orderId}. This preview will not write shipping_records or update order status.`,
+      affectedRecords: normalizedPayload.orderId
+        ? [
+            { type: 'shipping_record', id: 'new', action: 'create' },
+            { type: 'order', id: String(normalizedPayload.orderId), action: 'read-only-check' },
+          ]
+        : [],
+      externalEffects: [],
+    },
+  }
+}
+
 async function buildDomainPreview(operationType, request) {
   switch (operationType) {
     case 'order.internal_note.update':
@@ -618,6 +807,8 @@ async function buildDomainPreview(operationType, request) {
       return buildScheduleBlockCreatePreview(request)
     case 'schedule.block.cancel':
       return buildScheduleBlockCancelPreview(request)
+    case 'logistics.local_record.create':
+      return buildLogisticsLocalRecordCreatePreview(request)
     case 'order.status.transition.preview':
       return buildOrderStatusTransitionPreview(request)
     case 'order.edit.preview':
@@ -666,6 +857,7 @@ async function previewSafeOperation(request = {}) {
       blockers: domainPreview.blockers,
       impact: domainPreview.impact,
       conflictCheck: domainPreview.conflictCheck || null,
+      duplicateRecordCheck: domainPreview.duplicateRecordCheck || null,
     }
     const persistence = await persistSafeOperationContext({
       request: { ...request, operationType },

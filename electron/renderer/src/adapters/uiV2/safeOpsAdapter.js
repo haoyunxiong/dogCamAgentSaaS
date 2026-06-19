@@ -16,6 +16,7 @@ const SAFE_OP_POLICIES = Object.freeze([
   { operationType: 'device.basic.update', domain: 'Devices', riskLevel: 'medium-low', requiresExternalCredential: false, allowExecute: true, allowedFields: ['city', 'note', 'status'] },
   { operationType: 'schedule.block.create', domain: 'Schedule', riskLevel: 'medium-high', requiresExternalCredential: false, allowExecute: true },
   { operationType: 'schedule.block.cancel', domain: 'Schedule', riskLevel: 'medium', requiresExternalCredential: false, allowExecute: true },
+  { operationType: 'logistics.local_record.create', domain: 'Logistics', riskLevel: 'medium', requiresExternalCredential: false, allowExecute: true },
   { operationType: 'order.status.transition.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'order.edit.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'device.update.preview', domain: 'Devices', riskLevel: 'high', requiresExternalCredential: false },
@@ -33,6 +34,7 @@ const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
   'device.basic.update': 'Renderer noop device basic update preview. Real local write requires Electron safeOps execute and will only update city, note, status.',
   'schedule.block.create': 'Renderer noop schedule block create preview. Real local write requires Electron safeOps execute and will only insert one local schedule block.',
   'schedule.block.cancel': 'Renderer noop schedule block cancel preview. Real local write requires Electron safeOps execute and will only soft-cancel one local schedule block.',
+  'logistics.local_record.create': 'Renderer noop local logistics record preview. Real local write requires Electron safeOps execute and will only insert one local shipping_records row.',
   'order.status.transition.preview': 'Renderer noop order status preview. This is dry-run only and will not change order state, schedule, logistics, or notifications.',
   'order.edit.preview': 'Renderer noop order edit preview. This is dry-run only and will not change order fields, fees, devices, schedule, or logistics.',
   'device.update.preview': 'Renderer noop device update preview. This is dry-run only and will not change device profile, inventory, or availability.',
@@ -222,7 +224,7 @@ async function preview(payload = {}) {
 async function execute(payload = {}) {
   try {
     const operationType = normalizeOperationType(payload.operationType)
-    if (!['order.internal_note.update', 'device.basic.update', 'schedule.block.create', 'schedule.block.cancel'].includes(operationType)) {
+    if (!['order.internal_note.update', 'device.basic.update', 'schedule.block.create', 'schedule.block.cancel', 'logistics.local_record.create'].includes(operationType)) {
       return buildLocalExecuteDisabled(operationType)
     }
 
@@ -436,6 +438,85 @@ export async function executeScheduleBlockCancel({
   })
 }
 
+export async function previewLogisticsLocalRecordCreate({
+  orderId,
+  carrier,
+  trackingNo,
+  shippingMode,
+  latestStatus,
+  shipFromCity,
+  shipToCity,
+  plannedShipAt,
+  actualShipAt,
+  expectedArriveAt,
+  actualArriveAt,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(orderId || '')
+  return preview({
+    operationType: 'logistics.local_record.create',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'shipping_record', id: `new-${id}-${trackingNo || ''}` },
+    payload: {
+      orderId: id,
+      carrier: carrier || 'manual',
+      trackingNo: String(trackingNo || ''),
+      shippingMode: shippingMode || 'manual',
+      latestStatus: latestStatus || 'manual_recorded',
+      shipFromCity: String(shipFromCity || ''),
+      shipToCity: String(shipToCity || ''),
+      plannedShipAt: String(plannedShipAt || ''),
+      actualShipAt: String(actualShipAt || ''),
+      expectedArriveAt: String(expectedArriveAt || ''),
+      actualArriveAt: String(actualArriveAt || ''),
+    },
+    clientRequestId: clientRequestId || `ui-v2-logistics-local-record-preview-${Date.now()}`,
+  })
+}
+
+export async function executeLogisticsLocalRecordCreate({
+  previewResult,
+  orderId,
+  carrier,
+  trackingNo,
+  shippingMode,
+  latestStatus,
+  shipFromCity,
+  shipToCity,
+  plannedShipAt,
+  actualShipAt,
+  expectedArriveAt,
+  actualArriveAt,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(orderId || '')
+  return execute({
+    operationType: 'logistics.local_record.create',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'shipping_record', id: `new-${id}-${trackingNo || ''}` },
+    payload: {
+      orderId: id,
+      carrier: carrier || 'manual',
+      trackingNo: String(trackingNo || ''),
+      shippingMode: shippingMode || 'manual',
+      latestStatus: latestStatus || 'manual_recorded',
+      shipFromCity: String(shipFromCity || ''),
+      shipToCity: String(shipToCity || ''),
+      plannedShipAt: String(plannedShipAt || ''),
+      actualShipAt: String(actualShipAt || ''),
+      expectedArriveAt: String(expectedArriveAt || ''),
+      actualArriveAt: String(actualArriveAt || ''),
+    },
+    clientRequestId: clientRequestId || `ui-v2-logistics-local-record-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
@@ -448,4 +529,6 @@ export const safeOpsAdapter = {
   executeScheduleBlockCreate,
   previewScheduleBlockCancel,
   executeScheduleBlockCancel,
+  previewLogisticsLocalRecordCreate,
+  executeLogisticsLocalRecordCreate,
 }

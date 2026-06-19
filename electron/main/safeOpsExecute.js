@@ -19,11 +19,13 @@ const ORDER_INTERNAL_NOTE_OPERATION_TYPE = 'order.internal_note.update'
 const DEVICE_BASIC_UPDATE_OPERATION_TYPE = 'device.basic.update'
 const SCHEDULE_BLOCK_CREATE_OPERATION_TYPE = 'schedule.block.create'
 const SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE = 'schedule.block.cancel'
+const LOGISTICS_LOCAL_RECORD_CREATE_OPERATION_TYPE = 'logistics.local_record.create'
 const ENABLED_OPERATION_TYPES = new Set([
   ORDER_INTERNAL_NOTE_OPERATION_TYPE,
   DEVICE_BASIC_UPDATE_OPERATION_TYPE,
   SCHEDULE_BLOCK_CREATE_OPERATION_TYPE,
   SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE,
+  LOGISTICS_LOCAL_RECORD_CREATE_OPERATION_TYPE,
 ])
 
 function assertLocalSafeOpsWriteTarget() {
@@ -105,6 +107,9 @@ const DEVICE_BASIC_STATUS_ALIASES = Object.freeze({
 const SCHEDULE_CREATE_ALLOWED_BLOCK_TYPES = new Set(['manual_hold', 'internal_hold', 'maintenance', 'block', 'buffer'])
 const SCHEDULE_CREATE_ALLOWED_STATUSES = new Set(['active'])
 const SCHEDULE_CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'deleted', 'inactive'])
+const LOGISTICS_LOCAL_ALLOWED_CARRIERS = new Set(['manual', 'sf', 'jd', 'ems', 'deppon', 'zto', 'sto', 'yto', 'yunda', 'other'])
+const LOGISTICS_LOCAL_ALLOWED_SHIPPING_MODES = new Set(['manual', 'express', 'pickup', 'dropoff', 'same_city', 'return'])
+const LOGISTICS_LOCAL_ALLOWED_STATUSES = new Set(['pending', 'pending_pickup', 'picked_up', 'in_transit', 'delivered', 'returned', 'exception', 'cancelled', 'manual_recorded'])
 
 function getDeviceBasicPayload(request = {}) {
   const payload = request.payload || {}
@@ -186,6 +191,13 @@ function normalizeDateOnly(value) {
   return date.toISOString().slice(0, 10) === text ? text : ''
 }
 
+function normalizeDateTimeText(value) {
+  const text = normalizeText(value).replace('T', ' ')
+  if (!text) return ''
+  if (!/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}(?::\d{2})?)?$/.test(text)) return ''
+  return text.slice(0, 30)
+}
+
 function getScheduleBlockCreatePayload(request = {}) {
   const payload = request.payload || {}
   return {
@@ -242,6 +254,114 @@ function findUnsupportedScheduleCancelPayloadFields(payload = {}) {
     'source',
     'reason',
   ].includes(key))
+}
+
+function getLogisticsLocalRecordPayload(request = {}) {
+  const payload = request.payload || {}
+  return {
+    orderId: normalizeText(payload.orderId || payload.order_id || request.target?.id),
+    carrier: normalizeText(payload.carrier || 'manual').toLowerCase() || 'manual',
+    trackingNo: normalizeText(payload.trackingNo || payload.tracking_no),
+    shippingMode: normalizeText(payload.shippingMode || payload.shipping_mode || 'manual').toLowerCase() || 'manual',
+    latestStatus: normalizeText(payload.latestStatus || payload.latest_status || 'manual_recorded').toLowerCase() || 'manual_recorded',
+    shipFromCity: normalizeText(payload.shipFromCity || payload.ship_from_city).slice(0, 100),
+    shipToCity: normalizeText(payload.shipToCity || payload.ship_to_city).slice(0, 100),
+    plannedShipAt: normalizeDateTimeText(payload.plannedShipAt || payload.planned_ship_at),
+    actualShipAt: normalizeDateTimeText(payload.actualShipAt || payload.actual_ship_at),
+    expectedArriveAt: normalizeDateTimeText(payload.expectedArriveAt || payload.expected_arrive_at),
+    actualArriveAt: normalizeDateTimeText(payload.actualArriveAt || payload.actual_arrive_at),
+    rawPayload: payload,
+  }
+}
+
+function findUnsupportedLogisticsLocalPayloadFields(payload = {}) {
+  return Object.keys(payload).filter((key) => ![
+    'orderId',
+    'order_id',
+    'carrier',
+    'trackingNo',
+    'tracking_no',
+    'shippingMode',
+    'shipping_mode',
+    'latestStatus',
+    'latest_status',
+    'shipFromCity',
+    'ship_from_city',
+    'shipToCity',
+    'ship_to_city',
+    'plannedShipAt',
+    'planned_ship_at',
+    'actualShipAt',
+    'actual_ship_at',
+    'expectedArriveAt',
+    'expected_arrive_at',
+    'actualArriveAt',
+    'actual_arrive_at',
+    'source',
+    'reason',
+  ].includes(key))
+}
+
+function buildLogisticsLocalBlockers(payload = {}) {
+  const blockers = []
+  const unsupportedFields = findUnsupportedLogisticsLocalPayloadFields(payload.rawPayload)
+  if (unsupportedFields.length) {
+    blockers.push(`Unsupported payload fields for logistics.local_record.create: ${unsupportedFields.join(', ')}.`)
+  }
+  if (!payload.orderId) blockers.push('orderId is required for logistics.local_record.create.')
+  if (!payload.trackingNo) blockers.push('trackingNo is required for logistics.local_record.create.')
+  if (!LOGISTICS_LOCAL_ALLOWED_CARRIERS.has(payload.carrier)) {
+    blockers.push(`Unsupported carrier for logistics.local_record.create: ${payload.carrier}.`)
+  }
+  if (!LOGISTICS_LOCAL_ALLOWED_SHIPPING_MODES.has(payload.shippingMode)) {
+    blockers.push(`Unsupported shippingMode for logistics.local_record.create: ${payload.shippingMode}.`)
+  }
+  if (!LOGISTICS_LOCAL_ALLOWED_STATUSES.has(payload.latestStatus)) {
+    blockers.push(`Unsupported latestStatus for logistics.local_record.create: ${payload.latestStatus}.`)
+  }
+  for (const [key, rawKey, snakeKey] of [
+    ['plannedShipAt', 'plannedShipAt', 'planned_ship_at'],
+    ['actualShipAt', 'actualShipAt', 'actual_ship_at'],
+    ['expectedArriveAt', 'expectedArriveAt', 'expected_arrive_at'],
+    ['actualArriveAt', 'actualArriveAt', 'actual_arrive_at'],
+  ]) {
+    const supplied = payload.rawPayload[rawKey] || payload.rawPayload[snakeKey]
+    if (supplied && !payload[key]) blockers.push(`${rawKey} must use YYYY-MM-DD or YYYY-MM-DD HH:mm format.`)
+  }
+  return blockers
+}
+
+function maskLocalText(value) {
+  const text = String(value || '')
+  if (!text) return ''
+  if (text.length <= 4) return '<redacted>'
+  return `${text.slice(0, 2)}***${text.slice(-2)}`
+}
+
+function buildLogisticsLocalAfterSnapshot(payload, shippingRecordId = null) {
+  return {
+    shippingRecordId: shippingRecordId === null || shippingRecordId === undefined ? null : String(shippingRecordId),
+    orderId: payload.orderId || null,
+    carrier: payload.carrier,
+    trackingNoMasked: maskLocalText(payload.trackingNo),
+    shippingMode: payload.shippingMode,
+    latestStatus: payload.latestStatus,
+    shipFromCity: payload.shipFromCity || null,
+    shipToCity: payload.shipToCity || null,
+    plannedShipAt: payload.plannedShipAt || null,
+    actualShipAt: payload.actualShipAt || null,
+    expectedArriveAt: payload.expectedArriveAt || null,
+    actualArriveAt: payload.actualArriveAt || null,
+  }
+}
+
+function buildDuplicateRecordCheck(duplicateResult = {}, blockers = []) {
+  return {
+    checked: true,
+    passed: !blockers.length && !duplicateResult.exists,
+    duplicate: Boolean(duplicateResult.exists),
+    duplicateRecord: duplicateResult.record || null,
+  }
 }
 
 function summarizeScheduleNote(value) {
@@ -1335,6 +1455,236 @@ async function executeScheduleBlockCancel(request = {}, policy = {}) {
   return response
 }
 
+async function executeLogisticsLocalRecordCreate(request = {}, policy = {}) {
+  assertLocalSafeOpsWriteTarget()
+
+  const operationType = LOGISTICS_LOCAL_RECORD_CREATE_OPERATION_TYPE
+  const actor = normalizeActor(request.actor || {})
+  const payload = getLogisticsLocalRecordPayload(request)
+  const blockers = buildLogisticsLocalBlockers(payload)
+
+  if (!actor.id || actor.id === 'unknown') blockers.push('actor.id is required for safeOps execute.')
+  if (!request.confirmTokenId) blockers.push('confirmTokenId is required for safeOps execute.')
+  if (!request.auditLogId) blockers.push('auditLogId is required for safeOps execute.')
+  if (!request.impactHash) blockers.push('impactHash from preview is required for safeOps execute.')
+
+  if (blockers.length) {
+    return buildRejectedResponse({ operationType, policy, blockers })
+  }
+
+  const repository = await createSafeOpsRepository({ enabled: true })
+  const health = typeof repository.healthCheckSafeOpsTables === 'function'
+    ? await repository.healthCheckSafeOpsTables()
+    : { available: false, reason: repository.reason || 'safeOps repository unavailable' }
+  if (!health.available) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: [health.reason || 'safeOps DB persistence is unavailable.'],
+    })
+  }
+
+  const payloadHash = hashPayload(payload.rawPayload)
+  const stableIdempotencyKey = buildStableIdempotencyKey({
+    actor,
+    operationType,
+    payloadHash,
+  })
+  const keyHash = hashIdempotencyKey(stableIdempotencyKey)
+  const idempotencyResult = await repository.getIdempotencyKey({
+    actorId: actor.id,
+    operationType,
+    keyHash,
+  })
+  const idempotencyRecord = idempotencyResult.record
+
+  if (!idempotencyRecord) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['idempotency key is missing; execute must start from preview.'],
+    })
+  }
+  if (idempotencyRecord.payloadHash !== payloadHash) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['payload hash does not match idempotency record.'],
+    })
+  }
+  if (idempotencyRecord.status === 'executed' && idempotencyRecord.response) {
+    return duplicateResponseFromIdempotency(idempotencyRecord)
+  }
+
+  const confirmResult = await repository.getConfirmToken({ id: request.confirmTokenId })
+  const confirmRecord = confirmResult.record
+  if (!confirmRecord) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token record is missing.'] })
+  }
+  if (confirmRecord.operationType !== operationType) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token operationType mismatch.'] })
+  }
+  if (confirmRecord.actorId !== actor.id) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token actor mismatch.'] })
+  }
+  if (confirmRecord.payloadHash !== payloadHash) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token payloadHash mismatch.'] })
+  }
+  if (confirmRecord.impactHash !== request.impactHash) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token impactHash mismatch.'] })
+  }
+  if (String(confirmRecord.previewAuditLogId || '') !== String(request.auditLogId || '')) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token preview audit mismatch.'] })
+  }
+
+  const orderResult = await repository.getRentalOrderForLocalShipping({ orderId: payload.orderId })
+  if (!orderResult.exists || !orderResult.raw) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['linked order_id does not exist in local rental_orders.'] })
+  }
+  const normalizedPayload = {
+    ...payload,
+    orderId: String(orderResult.raw.id),
+  }
+  const duplicateResult = await repository.getShippingDuplicateRecord({
+    orderId: orderResult.raw.id,
+    carrier: payload.carrier,
+    trackingNo: payload.trackingNo,
+  })
+  if (!duplicateResult.available) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: [duplicateResult.reason || 'safeOps DB persistence is unavailable for duplicate shipping record check.'],
+    })
+  }
+  if (duplicateResult.exists) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['Duplicate local shipping record exists for the same order_id + carrier + tracking_no.'],
+    })
+  }
+
+  const duplicateRecordCheck = buildDuplicateRecordCheck(duplicateResult, [])
+  const beforeSnapshot = {
+    order: orderResult.record,
+    duplicateRecordCheck,
+  }
+  const previewAfterSnapshot = buildLogisticsLocalAfterSnapshot(normalizedPayload)
+
+  const consumeResult = await repository.consumeConfirmToken({
+    id: request.confirmTokenId,
+    actorId: actor.id,
+    operationType,
+    payloadHash,
+    impactHash: request.impactHash,
+    previewAuditLogId: request.auditLogId,
+  })
+  if (!consumeResult.consumed) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['confirm token is expired, consumed, or no longer valid.'],
+    })
+  }
+
+  const insertResult = await repository.insertLocalShippingRecord(normalizedPayload)
+  if (insertResult.affectedRows !== 1 || !insertResult.insertId) {
+    await repository.updateAuditLogStatus({
+      id: request.auditLogId,
+      status: 'failed',
+      errorCode: 'SAFE_OP_INSERT_FAILED',
+      errorMessage: 'logistics.local_record.create affected no rows',
+      beforeSnapshot,
+      afterSnapshot: previewAfterSnapshot,
+    })
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['logistics.local_record.create affected no rows.'],
+      message: 'safeOps execute failed safely',
+    })
+  }
+
+  const createdResult = await repository.getShippingRecordSnapshot({ recordId: insertResult.insertId })
+  const response = {
+    ok: true,
+    supported: true,
+    operationType,
+    mode: 'write',
+    code: 'SAFE_OP_EXECUTED',
+    message: 'logistics.local_record.create executed through safeOps.',
+    writeWillExecute: true,
+    externalCallWillExecute: false,
+    riskLevel: policy.riskLevel,
+    warnings: [],
+    blockers: [],
+    duplicateRecordCheck,
+    impact: {
+      summary: 'Inserted one local shipping_records row only. No order status, schedule, device, Python, carrier API, or external service was changed.',
+      affectedRecords: [
+        { type: 'shipping_record', id: String(insertResult.insertId), action: 'create' },
+        { type: 'order', id: String(orderResult.raw.id), action: 'read-only-check' },
+      ],
+      externalEffects: [],
+    },
+    audit: {
+      mode: 'db',
+      persisted: true,
+      auditLogId: request.auditLogId,
+      status: 'executed',
+      payloadHash,
+      impactHash: request.impactHash,
+    },
+    confirmRequirement: {
+      enabled: true,
+      required: true,
+      persisted: true,
+      exists: true,
+      tokenId: request.confirmTokenId,
+      token: null,
+      tokenHash: null,
+      status: 'consumed',
+    },
+    idempotency: {
+      mode: 'db',
+      required: true,
+      persisted: true,
+      id: idempotencyRecord.id,
+      keyHash,
+      status: 'executed',
+      duplicate: false,
+      reason: 'idempotency-result-recorded',
+    },
+    rollback: {
+      mode: 'db',
+      planned: true,
+      persisted: true,
+      status: 'not_executable',
+      canRollback: false,
+      compensationRequired: false,
+      reason: 'rollback-placeholder-not-executable',
+    },
+    beforeSnapshot,
+    afterSnapshot: createdResult.record || buildLogisticsLocalAfterSnapshot(normalizedPayload, insertResult.insertId),
+  }
+
+  await repository.updateAuditLogStatus({
+    id: request.auditLogId,
+    status: 'executed',
+    beforeSnapshot,
+    afterSnapshot: response.afterSnapshot,
+  })
+  await repository.markIdempotencyResult({
+    id: idempotencyRecord.id,
+    status: 'executed',
+    response,
+    auditLogId: request.auditLogId,
+  })
+
+  return response
+}
+
 async function executeSafeOperation(request = {}) {
   try {
     const operationType = normalizeOperationType(request?.operationType)
@@ -1368,6 +1718,9 @@ async function executeSafeOperation(request = {}) {
     }
     if (operationType === SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE) {
       return executeScheduleBlockCancel({ ...request, operationType }, policy)
+    }
+    if (operationType === LOGISTICS_LOCAL_RECORD_CREATE_OPERATION_TYPE) {
+      return executeLogisticsLocalRecordCreate({ ...request, operationType }, policy)
     }
 
     return persistDisabledExecuteAudit(

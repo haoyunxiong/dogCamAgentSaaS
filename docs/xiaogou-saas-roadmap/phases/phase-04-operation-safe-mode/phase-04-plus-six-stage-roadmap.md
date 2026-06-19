@@ -4,10 +4,10 @@
 
 ## 一、当前完成状态
 
-阶段 2B 执行前 checkpoint：
+阶段 2C 执行前 checkpoint：
 
 ```text
-b9ce2c3 feat: enable safeops device basic update
+b2c11ed feat: enable safeops schedule block operations
 ```
 
 已完成：
@@ -21,6 +21,7 @@ b9ce2c3 feat: enable safeops device basic update
 - 阶段 1B `order.internal_note.update` 已开放为首个真实内部写 operation；
 - 阶段 2A `device.basic.update` 已开放为第二个真实内部写 operation。
 - 阶段 2B `schedule.block.create` / `schedule.block.cancel` 已开放为档期 block 创建 / 取消内部写 operation。
+- 阶段 2C `logistics.local_record.create` 已开放为物流本地发货记录创建内部写 operation。
 
 当前 safeOps 能力：
 
@@ -28,10 +29,10 @@ b9ce2c3 feat: enable safeops device basic update
 - `preview` 可生成并写入 confirm token hash；
 - `preview` 可生成并写入 idempotency key；
 - `preview` 可生成并写入 rollback placeholder；
-- `execute` 仅对 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel` gated enabled；
+- `execute` 仅对 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create` gated enabled；
 - `rollback` 仍 unavailable；
 - 外部 API 禁用；
-- 业务表真实写仅限 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消。
+- 业务表真实写仅限 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消、单条本地 `shipping_records` 创建。
 
 当前禁止：
 
@@ -94,7 +95,7 @@ b9ce2c3 feat: enable safeops device basic update
 
 - 设备基础字段更新；（阶段 2A 已完成：`device.basic.update`）
 - 档期 block 创建 / 取消；（阶段 2B 已完成：`schedule.block.create` / `schedule.block.cancel`）
-- 物流发货记录本地创建；
+- 物流发货记录本地创建；（阶段 2C 已完成：`logistics.local_record.create`）
 - 订单低风险状态流转。
 
 规则：
@@ -123,6 +124,16 @@ b9ce2c3 feat: enable safeops device basic update
 - create 必须重新检查同 `unit_id` 日期区间 active/current block 冲突；
 - cancel 必须校验目标 block 存在且未取消 / 未停用；
 - 禁止批量锁库、物理删除、订单 / 设备 / 物流 / 免押联动；
+- Python、顺丰、免押、闲鱼、外部 API 仍禁用；
+- rollback 仍只写 placeholder，不开放 executor。
+
+阶段 2C 已完成边界：
+
+- `logistics.local_record.create` 只允许插入一条本地 `shipping_records` 记录；
+- 必须只读校验目标订单存在；
+- 必须检查相同 `order_id + carrier + tracking_no` 重复记录；
+- 禁止顺丰真实下单、预下单、取消、查询；
+- 禁止修改订单状态、档期、设备、免押表；
 - Python、顺丰、免押、闲鱼、外部 API 仍禁用；
 - rollback 仍只写 placeholder，不开放 executor。
 

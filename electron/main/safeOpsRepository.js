@@ -191,6 +191,18 @@ function createNoopSafeOpsRepository(reason = 'safeOps DB persistence unavailabl
     async cancelScheduleBlock(payload) {
       return createNoopResult('cancelScheduleBlock', payload, reason)
     },
+    async getRentalOrderForLocalShipping(payload) {
+      return createNoopResult('getRentalOrderForLocalShipping', payload, reason)
+    },
+    async getShippingDuplicateRecord(payload) {
+      return createNoopResult('getShippingDuplicateRecord', payload, reason)
+    },
+    async getShippingRecordSnapshot(payload) {
+      return createNoopResult('getShippingRecordSnapshot', payload, reason)
+    },
+    async insertLocalShippingRecord(payload) {
+      return createNoopResult('insertLocalShippingRecord', payload, reason)
+    },
     async persistAuditLog(payload) {
       return createNoopResult('persistAuditLog', payload, reason)
     },
@@ -783,6 +795,38 @@ function mapScheduleBlockConflict(row) {
   }
 }
 
+function mapLocalShippingOrderSnapshot(row) {
+  if (!row) return null
+  return {
+    orderId: String(row.id),
+    orderNoMasked: maskIdentifier(row.order_no),
+    orderStatus: row.order_status || null,
+    modelCode: row.model_code || null,
+    existingTrackingNoMasked: maskIdentifier(row.tracking_no),
+    existingLogisticsStatus: row.latest_logistics_status || null,
+  }
+}
+
+function mapShippingRecordSnapshot(row) {
+  if (!row) return null
+  return {
+    shippingRecordId: String(row.id),
+    orderId: row.order_id === null || row.order_id === undefined ? null : String(row.order_id),
+    carrier: row.carrier || null,
+    trackingNoMasked: maskIdentifier(row.tracking_no),
+    shippingMode: row.shipping_mode || null,
+    latestStatus: row.latest_status || null,
+    shipFromCity: row.ship_from_city || null,
+    shipToCity: row.ship_to_city || null,
+    plannedShipAt: row.planned_ship_at || null,
+    actualShipAt: row.actual_ship_at || null,
+    expectedArriveAt: row.expected_arrive_at || null,
+    actualArriveAt: row.actual_arrive_at || null,
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+  }
+}
+
 async function getRentalOrderInternalNoteSnapshot({ orderId } = {}) {
   return withConnection(async (conn) => {
     const normalizedOrderId = String(orderId || '').trim()
@@ -1042,6 +1086,140 @@ async function getRentalOrderExists({ orderId } = {}) {
   })
 }
 
+async function getRentalOrderForLocalShipping({ orderId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedOrderId = String(orderId || '').trim()
+    if (!normalizedOrderId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        exists: false,
+        record: null,
+      }
+    }
+
+    const numericId = /^\d+$/.test(normalizedOrderId) ? Number(normalizedOrderId) : null
+    const [rows] = await conn.execute(`
+      SELECT id, order_no, order_status, model_code, tracking_no, latest_logistics_status
+      FROM rental_orders
+      WHERE ${numericId !== null ? 'id = ? OR order_no = ?' : 'order_no = ?'}
+      ORDER BY id ASC
+      LIMIT 1
+    `, numericId !== null ? [numericId, normalizedOrderId] : [normalizedOrderId])
+    const row = rows[0]
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      exists: Boolean(row),
+      record: mapLocalShippingOrderSnapshot(row),
+      raw: row || null,
+    }
+  })
+}
+
+async function getShippingDuplicateRecord({ orderId, carrier, trackingNo } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedOrderId = String(orderId || '').trim()
+    const normalizedCarrier = String(carrier || '').trim()
+    const normalizedTrackingNo = String(trackingNo || '').trim()
+    if (!normalizedOrderId || !normalizedCarrier || !normalizedTrackingNo) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        exists: false,
+        record: null,
+      }
+    }
+
+    const [rows] = await conn.execute(`
+      SELECT *
+      FROM shipping_records
+      WHERE order_id = ?
+        AND carrier = ?
+        AND tracking_no = ?
+      ORDER BY id ASC
+      LIMIT 1
+    `, [normalizedOrderId, normalizedCarrier, normalizedTrackingNo])
+    const row = rows[0]
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      exists: Boolean(row),
+      record: mapShippingRecordSnapshot(row),
+      raw: row || null,
+    }
+  })
+}
+
+async function getShippingRecordSnapshot({ recordId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedRecordId = String(recordId || '').trim()
+    if (!normalizedRecordId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        record: null,
+      }
+    }
+    const [rows] = await conn.execute(`
+      SELECT *
+      FROM shipping_records
+      WHERE id = ?
+      LIMIT 1
+    `, [normalizedRecordId])
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      record: mapShippingRecordSnapshot(rows[0]),
+      raw: rows[0] || null,
+    }
+  })
+}
+
+async function insertLocalShippingRecord(payload = {}) {
+  return withConnection(async (conn) => {
+    const [result] = await conn.execute(`
+      INSERT INTO shipping_records (
+        order_id, carrier, tracking_no, shipping_mode, latest_status,
+        ship_from_city, ship_to_city, planned_ship_at, actual_ship_at,
+        expected_arrive_at, actual_arrive_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      payload.orderId,
+      payload.carrier,
+      payload.trackingNo,
+      payload.shippingMode || null,
+      payload.latestStatus || null,
+      payload.shipFromCity || null,
+      payload.shipToCity || null,
+      payload.plannedShipAt || null,
+      payload.actualShipAt || null,
+      payload.expectedArriveAt || null,
+      payload.actualArriveAt || null,
+    ])
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: true,
+      insertId: result.insertId,
+      affectedRows: result.affectedRows,
+    }
+  })
+}
+
 async function listScheduleBlockConflicts({ unitId, startDate, endDate, excludeBlockId = null } = {}) {
   return withConnection(async (conn) => {
     const params = [unitId, endDate, startDate]
@@ -1176,6 +1354,10 @@ function createDbSafeOpsRepository() {
     getScheduleBlockSnapshot,
     insertScheduleBlock,
     cancelScheduleBlock,
+    getRentalOrderForLocalShipping,
+    getShippingDuplicateRecord,
+    getShippingRecordSnapshot,
+    insertLocalShippingRecord,
     persistAuditLog: createAuditLog,
     claimIdempotencyKey: createIdempotencyKey,
     saveRollbackPlan: createRollbackPlan,

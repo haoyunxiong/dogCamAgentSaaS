@@ -33,6 +33,7 @@ export function toSafeOpsPreviewView(result = {}) {
   const blockers = Array.isArray(result?.blockers) ? result.blockers.filter(Boolean) : []
   const warnings = Array.isArray(result?.warnings) ? result.warnings.filter(Boolean) : []
   const conflictCheck = result?.conflictCheck || {}
+  const duplicateRecordCheck = result?.duplicateRecordCheck || {}
 
   return {
     title: isExecuted ? 'Operation executed' : (isOk ? 'Operation preview' : 'Operation preview unavailable'),
@@ -57,6 +58,9 @@ export function toSafeOpsPreviewView(result = {}) {
     conflictLabel: conflictCheck.checked
       ? `${conflictCheck.passed ? 'passed' : 'blocked'} / conflicts=${formatMaybe(conflictCheck.conflictCount, 0)}`
       : (conflictCheck.reason || 'not checked'),
+    duplicateRecordLabel: duplicateRecordCheck.checked
+      ? `${duplicateRecordCheck.duplicate ? 'duplicate' : 'clear'} / passed=${asFlag(duplicateRecordCheck.passed)}`
+      : 'not checked',
     blockers,
     warnings,
     blockedReason: blockers.join('；'),
