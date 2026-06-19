@@ -108,6 +108,15 @@ function maskAddress(value, city = '') {
   }
 }
 
+function maskTitle(value) {
+  const text = String(value || '').trim()
+  return {
+    hasValue: Boolean(text),
+    length: text.length,
+    preview: text ? '<redacted-title>' : null,
+  }
+}
+
 function numberOrNull(value) {
   if (value === null || value === undefined || value === '') return null
   const number = Number(value)
@@ -292,6 +301,112 @@ function buildLocalDepositSandboxPayloadPreview(payloadPreview = {}) {
   }
 }
 
+const XIANYU_SYNC_DIRECTIONS = Object.freeze([
+  'pull_remote_order',
+  'push_local_state',
+  'reconcile_status',
+])
+
+function normalizeXianyuSyncDirection(value) {
+  const text = String(value || '').trim()
+  return XIANYU_SYNC_DIRECTIONS.includes(text) ? text : 'pull_remote_order'
+}
+
+function buildLocalXianyuRequestPayloadPreview(payload = {}, mode = 'mock') {
+  const credentials = payload.credentials && typeof payload.credentials === 'object' ? payload.credentials : {}
+  const syncDirection = normalizeXianyuSyncDirection(payload.syncDirection || payload.sync_direction || payload.direction)
+  return {
+    providerName: 'xianyu_platform',
+    operationType: 'xianyu.order.sync',
+    externalAction: 'sync_order',
+    mode,
+    realRequestWillBeSent: false,
+    sync: {
+      direction: syncDirection,
+      willPullRemoteOrder: false,
+      willPushLocalState: false,
+      willReconcileStatus: false,
+      willWriteLocalOrder: false,
+      willUpdateRemoteOrder: false,
+    },
+    order: {
+      orderId: String(payload.orderId || payload.order_id || '').trim() || null,
+      orderNo: String(payload.orderNo || payload.order_no || '').trim() || null,
+      localOrderId: String(payload.localOrderId || payload.local_order_id || '').trim() || null,
+      xianyuOrderId: String(payload.xianyuOrderId || payload.xianyu_order_id || payload.remoteOrderId || payload.remote_order_id || '').trim() || null,
+      channel: 'xianyu',
+    },
+    buyer: {
+      buyerIdMasked: maskAccount(payload.buyerId || payload.buyer_id),
+      contactName: maskName(payload.contactName || payload.contact_name || payload.buyerName || payload.buyer_name),
+      buyerName: maskName(payload.buyerName || payload.buyer_name),
+      phoneMasked: maskPhone(payload.buyerPhone || payload.buyer_phone || payload.phone),
+      address: maskAddress(payload.receiverAddress || payload.receiver_address || payload.address, payload.receiverCity || payload.receiver_city),
+    },
+    seller: {
+      sellerIdMasked: maskAccount(payload.sellerId || payload.seller_id),
+      sellerName: maskName(payload.sellerName || payload.seller_name),
+    },
+    item: {
+      itemId: String(payload.itemId || payload.item_id || '').trim() || null,
+      skuId: String(payload.skuId || payload.sku_id || '').trim() || null,
+      modelCode: String(payload.modelCode || payload.model_code || '').trim() || null,
+      title: maskTitle(payload.itemTitle || payload.item_title || payload.title),
+    },
+    credentials: {
+      tokenPresent: Boolean(payload.token || payload.accessToken || payload.access_token || credentials.token || credentials.accessToken),
+      refreshTokenPresent: Boolean(payload.refreshToken || payload.refresh_token || credentials.refreshToken),
+      cookiePresent: Boolean(payload.cookie || credentials.cookie),
+      sessionPresent: Boolean(payload.session || credentials.session),
+      apiKeyMasked: maskAccount(payload.apiKey || payload.api_key || credentials.apiKey),
+    },
+    service: {
+      scenario: String(payload.scenario || 'xianyu_order_sync_preview').trim(),
+      requestedAt: String(payload.requestedAt || payload.requested_at || '').trim() || null,
+      remark: payload.remark || payload.reason ? '<redacted-remark>' : null,
+    },
+  }
+}
+
+function buildLocalXianyuMockSyncPreview(payloadPreview = {}) {
+  const seedSource = `${payloadPreview.order?.orderId || payloadPreview.order?.orderNo || 'preview'}:${payloadPreview.order?.xianyuOrderId || ''}:${payloadPreview.sync?.direction || ''}`
+  const seed = Array.from(seedSource).reduce((total, char) => total + char.charCodeAt(0), 0)
+  return {
+    mockSyncId: `XYMOCK${String(seed).padStart(8, '0')}`,
+    providerName: 'xianyu_platform',
+    operation: 'sync_order',
+    status: 'mock_sync_preview_only',
+    syncDirection: payloadPreview.sync?.direction || 'pull_remote_order',
+    willReadRemoteOrder: false,
+    willWriteLocalOrder: false,
+    willUpdateRemoteOrder: false,
+    willNotifyBuyer: false,
+    localOrderPreview: {
+      orderId: payloadPreview.order?.orderId || null,
+      orderNo: payloadPreview.order?.orderNo || null,
+      xianyuOrderId: payloadPreview.order?.xianyuOrderId || null,
+    },
+  }
+}
+
+function buildLocalXianyuSandboxPayloadPreview(payloadPreview = {}) {
+  return {
+    endpointMode: 'sandbox-preview-only',
+    providerName: 'xianyu_platform',
+    operation: 'sync_order',
+    willSendHttpRequest: false,
+    payloadShape: {
+      sync: payloadPreview.sync,
+      order: payloadPreview.order,
+      buyer: payloadPreview.buyer,
+      seller: payloadPreview.seller,
+      item: payloadPreview.item,
+      credentials: payloadPreview.credentials,
+      service: payloadPreview.service,
+    },
+  }
+}
+
 function getSafeOpsBridge() {
   if (isUiV2PreviewMode()) return null
   if (!hasUiV2RuntimeBridge()) return null
@@ -333,7 +448,7 @@ function buildLocalPolicy() {
       providers: [
         { providerName: 'sf_express', currentMode: 'disabled', realEnabled: false, sandboxEnabled: true, mockEnabled: true, externalWritesEnabled: false, status: 'disabled', previewModes: ['disabled', 'mock', 'sandbox'] },
         { providerName: 'deposit_service', currentMode: 'disabled', realEnabled: false, sandboxEnabled: true, mockEnabled: true, externalWritesEnabled: false, status: 'disabled', previewModes: ['disabled', 'mock', 'sandbox'] },
-        { providerName: 'xianyu_platform', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
+        { providerName: 'xianyu_platform', currentMode: 'disabled', realEnabled: false, sandboxEnabled: true, mockEnabled: true, externalWritesEnabled: false, status: 'disabled', previewModes: ['disabled', 'mock', 'sandbox'] },
       ],
     },
     persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
@@ -542,6 +657,113 @@ function buildLocalPreview(payload = {}) {
       mockWaybillPreview: null,
       mockDepositPreview: mode === 'mock' ? buildLocalDepositMockPreview(requestPayloadPreview) : null,
       sandboxPayloadPreview: mode === 'sandbox' ? buildLocalDepositSandboxPayloadPreview(requestPayloadPreview) : null,
+      confirmToken: null,
+      confirmRequirement: {
+        enabled: false,
+        required: true,
+        persisted: false,
+        token: null,
+        tokenHash: null,
+        expiresAt: null,
+        reason: externalPreviewOpen ? 'renderer-preview-no-bridge' : 'renderer-preview-execute-disabled',
+      },
+      idempotency: {
+        mode: 'noop',
+        required: true,
+        persisted: false,
+        keyHash: null,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+        reason: 'renderer-preview-no-bridge',
+      },
+      rollback: {
+        mode: 'noop',
+        planned: externalPreviewOpen,
+        persisted: false,
+        canRollback: false,
+        compensationRequired: true,
+        reason: 'renderer-preview-no-write-executed',
+      },
+      source: 'renderer-noop',
+    }
+  }
+  if (operationType === 'xianyu.order.sync') {
+    const mode = normalizeExternalMode(payload.payload?.mode)
+    const requestPayloadPreview = buildLocalXianyuRequestPayloadPreview(payload.payload || {}, mode)
+    const externalPreviewOpen = mode === 'mock' || mode === 'sandbox'
+    return {
+      ok: true,
+      supported: true,
+      operationType,
+      code: externalPreviewOpen ? undefined : 'SAFE_OP_EXTERNAL_DISABLED',
+      mode: externalPreviewOpen
+        ? `external-preview-${mode}`
+        : (mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled'),
+      writeWillExecute: false,
+      externalCallWillExecute: false,
+      riskLevel: policy.riskLevel,
+      warnings: externalPreviewOpen
+        ? ['Renderer Xianyu order sync preview only. No external request will be sent.']
+        : ['External gateway is disabled by default.', 'Xianyu real order sync is not open.'],
+      blockers: externalPreviewOpen
+        ? []
+        : [
+            mode === 'real' ? 'Real mode is disabled for Xianyu order sync.' : 'External gateway mode is disabled.',
+            'External execute is not implemented for this operationType.',
+          ],
+      impact: {
+        summary: externalPreviewOpen
+          ? `Renderer Xianyu order sync ${mode} preview. No Xianyu sync will run and no local order will be changed.`
+          : 'Renderer Xianyu order sync preview is disabled. No Xianyu sync will run and no local order will be changed.',
+        affectedRecords: [],
+        externalEffects: [],
+      },
+      audit: {
+        mode: 'noop',
+        persisted: false,
+        operationId: null,
+        payloadHash: null,
+        impactHash: null,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+      requiresConfirm: true,
+      requiresIdempotencyKey: true,
+      execute: cloneJson(EXTERNAL_EXECUTE_DISABLED_POLICY),
+      externalGateway: {
+        providerName: policy.providerName,
+        currentMode: mode,
+        realEnabled: false,
+        sandboxEnabled: true,
+        mockEnabled: true,
+        externalWritesEnabled: false,
+        externalCallWillExecute: false,
+        providerStatus: 'disabled',
+        compensationRequired: true,
+      },
+      externalAudit: {
+        mode: 'external-audit-shape',
+        required: true,
+        persisted: false,
+        providerName: policy.providerName,
+        operationType,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      externalIdempotency: {
+        mode: 'external-idempotency-shape',
+        required: true,
+        persisted: false,
+        providerName: policy.providerName,
+        operationType,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      expectedExternalAction: 'sync_order',
+      externalPreviewMode: mode,
+      realExecutionBlocked: true,
+      requestPayloadPreview,
+      mockWaybillPreview: null,
+      mockDepositPreview: null,
+      mockXianyuSyncPreview: mode === 'mock' ? buildLocalXianyuMockSyncPreview(requestPayloadPreview) : null,
+      sandboxPayloadPreview: mode === 'sandbox' ? buildLocalXianyuSandboxPayloadPreview(requestPayloadPreview) : null,
       confirmToken: null,
       confirmRequirement: {
         enabled: false,
@@ -1232,6 +1454,106 @@ export async function executeDepositFinish({
   })
 }
 
+function buildXianyuOrderSyncPayload({
+  mode = 'disabled',
+  syncDirection = 'pull_remote_order',
+  orderId,
+  orderNo,
+  localOrderId,
+  xianyuOrderId,
+  remoteOrderId,
+  buyerId,
+  buyerName,
+  contactName,
+  buyerPhone,
+  phone,
+  receiverAddress,
+  receiverCity,
+  address,
+  sellerId,
+  sellerName,
+  itemId,
+  skuId,
+  modelCode,
+  itemTitle,
+  title,
+  token,
+  cookie,
+  session,
+  apiKey,
+  credentials,
+  scenario,
+  requestedAt,
+  reason,
+} = {}) {
+  return {
+    mode: normalizeExternalMode(mode),
+    syncDirection: normalizeXianyuSyncDirection(syncDirection),
+    orderId: String(orderId || ''),
+    orderNo: String(orderNo || ''),
+    localOrderId: String(localOrderId || ''),
+    xianyuOrderId: String(xianyuOrderId || remoteOrderId || ''),
+    buyerId: String(buyerId || ''),
+    buyerName: String(buyerName || ''),
+    contactName: String(contactName || buyerName || ''),
+    buyerPhone: String(buyerPhone || phone || ''),
+    phone: String(phone || buyerPhone || ''),
+    receiverAddress: String(receiverAddress || address || ''),
+    receiverCity: String(receiverCity || ''),
+    sellerId: String(sellerId || ''),
+    sellerName: String(sellerName || ''),
+    itemId: String(itemId || ''),
+    skuId: String(skuId || ''),
+    modelCode: String(modelCode || ''),
+    itemTitle: String(itemTitle || title || ''),
+    token: String(token || ''),
+    cookie: String(cookie || ''),
+    session: String(session || ''),
+    apiKey: String(apiKey || ''),
+    credentials: credentials || {},
+    scenario: String(scenario || 'xianyu_order_sync_preview'),
+    requestedAt: String(requestedAt || ''),
+    providerName: 'xianyu_platform',
+    reason: String(reason || ''),
+    source: 'ui-v2-xianyu-sync-preview',
+  }
+}
+
+export async function previewXianyuOrderSync({
+  actor,
+  clientRequestId,
+  ...payload
+} = {}) {
+  const id = String(payload.xianyuOrderId || payload.remoteOrderId || payload.orderId || payload.orderNo || '')
+  return preview({
+    operationType: 'xianyu.order.sync',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'xianyu_order_sync_preview', id },
+    payload: buildXianyuOrderSyncPayload(payload),
+    clientRequestId: clientRequestId || `ui-v2-xianyu-order-sync-preview-${Date.now()}`,
+  })
+}
+
+export async function executeXianyuOrderSync({
+  previewResult,
+  actor,
+  clientRequestId,
+  ...payload
+} = {}) {
+  const id = String(payload.xianyuOrderId || payload.remoteOrderId || payload.orderId || payload.orderNo || '')
+  return execute({
+    operationType: 'xianyu.order.sync',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'xianyu_order_sync_preview', id },
+    payload: buildXianyuOrderSyncPayload(payload),
+    clientRequestId: clientRequestId || `ui-v2-xianyu-order-sync-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
@@ -1252,4 +1574,6 @@ export const safeOpsAdapter = {
   previewDepositFinish,
   executeDepositCreate,
   executeDepositFinish,
+  previewXianyuOrderSync,
+  executeXianyuOrderSync,
 }

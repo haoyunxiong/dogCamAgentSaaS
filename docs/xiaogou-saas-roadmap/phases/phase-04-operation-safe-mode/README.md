@@ -18,7 +18,8 @@
 - 阶段 3A 已完成：外部 API 安全网关骨架已落地，real mode 默认 disabled；
 - 阶段 3B 已完成：`logistics.sf.create_order` 顺丰 mock/sandbox preview-only 网关已接入，真实顺丰调用仍 disabled；
 - 阶段 3C 已完成：`deposit.create` / `deposit.finish` 免押 mock/sandbox preview-only 网关已接入，真实免押调用仍 disabled；
-- Phase 04 当前仅开放五个真实内部写 operation，另有顺丰与免押外部 preview-only operation，其它 execute 仍 disabled。
+- 阶段 3D 已完成：`xianyu.order.sync` 闲鱼 mock/sandbox preview-only 网关已接入，真实闲鱼同步仍 disabled；
+- Phase 04 当前仅开放五个真实内部写 operation，另有顺丰、免押、闲鱼外部 preview-only operation，其它 execute 仍 disabled。
 
 阶段 2 收口 checkpoint：
 
@@ -35,6 +36,7 @@
 - 其它 operationType execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
 - `logistics.sf.create_order` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - `deposit.create` / `deposit.finish` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `xianyu.order.sync` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - 顺丰真实下单、免押真实审核、新增 DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：
@@ -57,6 +59,7 @@
 - 顺丰 / 免押真实外部写入；
 - 顺丰真实下单、预下单、取消、查询、费用写入或外部 tracking 写入。
 - 免押真实创建、完结、取消、查询、资金或信用状态写入；
+- 闲鱼真实订单同步、订单状态推送、远端拉取写入或通知；
 - 新增 `deposit_orders` 表或写入免押业务表。
 
 当前 DB persistence 范围：
@@ -260,6 +263,45 @@ Mode：
 - 新增 `deposit_orders` 表；
 - 写 `rental_orders`；
 - 修改订单状态、设备、档期、物流或外部平台；
+- 新增 DB migration；
+- 开放 rollback executor。
+
+## 阶段 3D：闲鱼 mock/sandbox 同步预览网关
+
+阶段 3D 已为闲鱼订单同步建立 preview-only 外部网关能力。
+
+- operationType：`xianyu.order.sync`
+- provider：`xianyu_platform`
+- 默认 mode：`disabled`
+- `mode=mock`：生成 mock sync preview，不真实同步闲鱼订单；
+- `mode=sandbox`：生成 sandbox payload preview，不发送 HTTP；
+- `mode=real`：返回 disabled / blocked；
+- execute：始终返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `writeWillExecute=false`；
+- `externalCallWillExecute=false`。
+
+阶段 3D persistence：
+
+- mock / sandbox preview 可写入 `operation_audit_logs`；
+- mock / sandbox preview 可写入 confirm token hash；
+- mock / sandbox preview 可写入 idempotency key；
+- mock / sandbox preview 可写入 rollback placeholder；
+- rollback executor 仍为 unavailable。
+
+阶段 3D UI 边界：
+
+- Orders 页面显示“闲鱼同步预览 / 不真实同步 / 外部真实调用未开放 / 当前仅 mock/sandbox payload 预览”；
+- 真实闲鱼同步按钮保持 disabled；
+- 不显示手机号、地址、姓名、商品标题、cookie、session、token、API key 明文；
+- 和 `order.internal_note.update` 内部备注真实写操作分开。
+
+阶段 3D 禁止：
+
+- 调用闲鱼真实 API、sandbox API 或任何 HTTP 请求；
+- 引入闲鱼 SDK、axios、request、node-fetch；
+- 调用 Python；
+- 写 `rental_orders`；
+- 修改订单状态、设备、档期、物流、免押或外部平台；
 - 新增 DB migration；
 - 开放 rollback executor。
 

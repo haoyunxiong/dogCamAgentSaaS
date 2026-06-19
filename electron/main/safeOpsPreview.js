@@ -884,10 +884,14 @@ async function previewSafeOperation(request = {}) {
       requestPayloadPreview: domainPreview.requestPayloadPreview || null,
       mockWaybillPreview: domainPreview.mockWaybillPreview || null,
       mockDepositPreview: domainPreview.mockDepositPreview || null,
+      mockXianyuSyncPreview: domainPreview.mockXianyuSyncPreview || null,
       sandboxPayloadPreview: domainPreview.sandboxPayloadPreview || null,
     }
+    const persistenceRequest = domainPreview.sanitizedRequestPayload
+      ? { ...request, operationType, payload: domainPreview.sanitizedRequestPayload }
+      : { ...request, operationType }
     const persistence = await persistSafeOperationContext({
-      request: { ...request, operationType },
+      request: persistenceRequest,
       policy,
       impact: domainPreview.impact,
       previewResponse: baseResponse,

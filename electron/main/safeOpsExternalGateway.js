@@ -135,6 +135,15 @@ function maskAccount(value) {
   return `${text.slice(0, 2)}***${text.slice(-2)}`
 }
 
+function maskTitle(value) {
+  const text = normalizeText(value)
+  return {
+    hasValue: Boolean(text),
+    length: text.length,
+    preview: text ? '<redacted-title>' : null,
+  }
+}
+
 function asNumberOrNull(value) {
   if (value === null || value === undefined || value === '') return null
   const number = Number(value)
@@ -317,6 +326,124 @@ function buildDepositSandboxPayloadPreview(payloadPreview = {}) {
   }
 }
 
+const XIANYU_SYNC_DIRECTIONS = new Set([
+  'pull_remote_order',
+  'push_local_state',
+  'reconcile_status',
+])
+
+function normalizeXianyuSyncDirection(value) {
+  const text = normalizeText(value)
+  return XIANYU_SYNC_DIRECTIONS.has(text) ? text : 'pull_remote_order'
+}
+
+function buildXianyuRequestPayloadPreview(payload = {}, mode = 'mock', operationPolicy = {}) {
+  const syncDirection = normalizeXianyuSyncDirection(payload.syncDirection || payload.sync_direction || payload.direction)
+  const credentials = payload.credentials && typeof payload.credentials === 'object' ? payload.credentials : {}
+  const tokenValue = payload.token || payload.accessToken || payload.access_token || credentials.token || credentials.accessToken
+  const refreshTokenValue = payload.refreshToken || payload.refresh_token || credentials.refreshToken
+  const cookieValue = payload.cookie || credentials.cookie
+  const sessionValue = payload.session || credentials.session
+  const apiKeyValue = payload.apiKey || payload.api_key || credentials.apiKey
+  return {
+    providerName: 'xianyu_platform',
+    operationType: operationPolicy.operationType || 'xianyu.order.sync',
+    externalAction: operationPolicy.externalAction || 'sync_order',
+    mode,
+    realRequestWillBeSent: false,
+    sync: {
+      direction: syncDirection,
+      willPullRemoteOrder: false,
+      willPushLocalState: false,
+      willReconcileStatus: false,
+      willWriteLocalOrder: false,
+      willUpdateRemoteOrder: false,
+    },
+    order: {
+      orderId: normalizeText(payload.orderId || payload.order_id) || null,
+      orderNo: normalizeText(payload.orderNo || payload.order_no) || null,
+      localOrderId: normalizeText(payload.localOrderId || payload.local_order_id) || null,
+      xianyuOrderId: normalizeText(payload.xianyuOrderId || payload.xianyu_order_id || payload.remoteOrderId || payload.remote_order_id) || null,
+      channel: 'xianyu',
+    },
+    buyer: {
+      buyerIdMasked: maskAccount(payload.buyerId || payload.buyer_id),
+      contactName: maskName(payload.contactName || payload.contact_name || payload.buyerName || payload.buyer_name),
+      buyerName: maskName(payload.buyerName || payload.buyer_name),
+      phoneMasked: maskPhone(payload.buyerPhone || payload.buyer_phone || payload.phone),
+      address: maskAddress(payload.receiverAddress || payload.receiver_address || payload.address, payload.receiverCity || payload.receiver_city),
+    },
+    seller: {
+      sellerIdMasked: maskAccount(payload.sellerId || payload.seller_id),
+      sellerName: maskName(payload.sellerName || payload.seller_name),
+    },
+    item: {
+      itemId: normalizeText(payload.itemId || payload.item_id) || null,
+      skuId: normalizeText(payload.skuId || payload.sku_id) || null,
+      modelCode: normalizeText(payload.modelCode || payload.model_code) || null,
+      title: maskTitle(payload.itemTitle || payload.item_title || payload.title),
+    },
+    credentials: {
+      tokenHash: tokenValue ? sha256Hex(String(tokenValue)).slice(0, 16) : null,
+      refreshTokenHash: refreshTokenValue ? sha256Hex(String(refreshTokenValue)).slice(0, 16) : null,
+      cookiePresent: Boolean(cookieValue),
+      sessionPresent: Boolean(sessionValue),
+      apiKeyMasked: maskAccount(apiKeyValue),
+    },
+    service: {
+      scenario: normalizeText(payload.scenario || 'xianyu_order_sync_preview'),
+      requestedAt: normalizeText(payload.requestedAt || payload.requested_at) || null,
+      remark: payload.remark || payload.reason ? '<redacted-remark>' : null,
+    },
+  }
+}
+
+function buildMockXianyuSyncPreview(payloadPreview = {}) {
+  const stableSource = JSON.stringify({
+    providerName: payloadPreview.providerName,
+    operationType: payloadPreview.operationType,
+    externalAction: payloadPreview.externalAction,
+    sync: payloadPreview.sync,
+    order: payloadPreview.order,
+    item: payloadPreview.item,
+  })
+  const digest = sha256Hex(stableSource).slice(0, 12).toUpperCase()
+  return {
+    mockSyncId: `XYMOCK${digest}`,
+    providerName: 'xianyu_platform',
+    operation: 'sync_order',
+    status: 'mock_sync_preview_only',
+    syncDirection: payloadPreview.sync?.direction || 'pull_remote_order',
+    willReadRemoteOrder: false,
+    willWriteLocalOrder: false,
+    willUpdateRemoteOrder: false,
+    willNotifyBuyer: false,
+    localOrderPreview: {
+      orderId: payloadPreview.order?.orderId || null,
+      orderNo: payloadPreview.order?.orderNo || null,
+      xianyuOrderId: payloadPreview.order?.xianyuOrderId || null,
+    },
+  }
+}
+
+function buildXianyuSandboxPayloadPreview(payloadPreview = {}) {
+  return {
+    endpointMode: 'sandbox-preview-only',
+    providerName: 'xianyu_platform',
+    operation: 'sync_order',
+    willSendHttpRequest: false,
+    payloadShape: {
+      sync: payloadPreview.sync,
+      order: payloadPreview.order,
+      buyer: payloadPreview.buyer,
+      seller: payloadPreview.seller,
+      item: payloadPreview.item,
+      credentials: payloadPreview.credentials,
+      service: payloadPreview.service,
+    },
+  }
+}
+
 function buildExternalGatewayDescriptor(operationPolicy, provider, mode) {
   return {
     providerName: operationPolicy.providerName,
@@ -332,6 +459,99 @@ function buildExternalGatewayDescriptor(operationPolicy, provider, mode) {
     retryPolicy: provider.retryPolicy || { enabled: false, maxAttempts: 0, backoffMs: 0 },
     sensitiveFields: provider.sensitiveFields || [],
     redactionRules: provider.redactionRules || {},
+  }
+}
+
+function buildXianyuOrderSyncPreview(operationInput, operationPolicy, provider) {
+  const normalizedMode = normalizeMode(operationInput, provider, operationPolicy)
+  const mode = normalizedMode.mode
+  const payload = operationInput.payload || {}
+  const gateway = buildExternalGatewayDescriptor(operationPolicy, provider, mode)
+  const base = {
+    ok: true,
+    supported: true,
+    operationType: operationPolicy.operationType,
+    writeWillExecute: false,
+    externalCallWillExecute: false,
+    riskLevel: operationPolicy.riskLevel,
+    expectedExternalAction: 'sync_order',
+    realExecutionBlocked: true,
+    externalPreviewMode: mode,
+    externalGateway: gateway,
+    externalAudit: {
+      ...buildExternalAuditShape(operationPolicy),
+      status: mode === 'mock' || mode === 'sandbox' ? 'previewed' : 'blocked',
+    },
+    externalIdempotency: {
+      ...buildExternalIdempotencyShape(operationPolicy),
+      status: mode === 'mock' || mode === 'sandbox' ? 'previewed' : 'blocked',
+    },
+  }
+
+  if (mode === 'mock') {
+    const requestPayloadPreview = buildXianyuRequestPayloadPreview(payload, mode, operationPolicy)
+    return {
+      ...base,
+      mode: 'external-preview-mock',
+      warnings: [
+        ...normalizedMode.warnings,
+        'Xianyu order sync mock preview only. No external request will be sent.',
+        'Buyer, seller, item title, address, phone, cookie, session, token, and API key fields are redacted before preview persistence.',
+      ],
+      blockers: [],
+      impact: buildExternalImpact(operationPolicy, mode),
+      requestPayloadPreview,
+      sanitizedRequestPayload: requestPayloadPreview,
+      mockWaybillPreview: null,
+      mockDepositPreview: null,
+      mockXianyuSyncPreview: buildMockXianyuSyncPreview(requestPayloadPreview),
+      sandboxPayloadPreview: null,
+    }
+  }
+
+  if (mode === 'sandbox') {
+    const requestPayloadPreview = buildXianyuRequestPayloadPreview(payload, mode, operationPolicy)
+    return {
+      ...base,
+      mode: 'external-preview-sandbox',
+      warnings: [
+        ...normalizedMode.warnings,
+        'Xianyu order sync sandbox payload preview only. No sandbox or real HTTP request will be sent.',
+        'Buyer, seller, item title, address, phone, cookie, session, token, and API key fields are redacted before preview persistence.',
+      ],
+      blockers: [],
+      impact: buildExternalImpact(operationPolicy, mode),
+      requestPayloadPreview,
+      sanitizedRequestPayload: requestPayloadPreview,
+      mockWaybillPreview: null,
+      mockDepositPreview: null,
+      mockXianyuSyncPreview: null,
+      sandboxPayloadPreview: buildXianyuSandboxPayloadPreview(requestPayloadPreview),
+    }
+  }
+
+  return {
+    ...base,
+    code: 'SAFE_OP_EXTERNAL_DISABLED',
+    mode: mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled',
+    warnings: [
+      ...normalizedMode.warnings,
+      'External gateway is disabled by default.',
+      'Xianyu real order sync is not open.',
+    ],
+    blockers: [
+      mode === 'real'
+        ? 'Real mode is disabled for Xianyu order sync.'
+        : 'External gateway mode is disabled.',
+      'External execute is not implemented for this operationType.',
+    ],
+    impact: buildExternalImpact(operationPolicy, mode),
+    requestPayloadPreview: buildXianyuRequestPayloadPreview(payload, 'disabled', operationPolicy),
+    sanitizedRequestPayload: buildXianyuRequestPayloadPreview(payload, 'disabled', operationPolicy),
+    mockWaybillPreview: null,
+    mockDepositPreview: null,
+    mockXianyuSyncPreview: null,
+    sandboxPayloadPreview: null,
   }
 }
 
@@ -518,6 +738,9 @@ function previewExternalOperation(operationInput = {}) {
   }
   if (operationType === 'deposit.create' || operationType === 'deposit.finish') {
     return buildDepositOperationPreview(operationInput, operationPolicy, provider)
+  }
+  if (operationType === 'xianyu.order.sync') {
+    return buildXianyuOrderSyncPreview(operationInput, operationPolicy, provider)
   }
 
   return {

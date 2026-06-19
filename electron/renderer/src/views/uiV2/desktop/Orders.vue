@@ -163,6 +163,23 @@
           </section>
           <p v-if="internalNoteError" class="adapter-source__error">{{ internalNoteError }}</p>
         </UiV2Section>
+        <UiV2Section title="闲鱼同步预览" hint="mock/sandbox only">
+          <div class="internal-note-editor">
+            <div class="filter-row">
+              <BaseSelect v-model="xianyuSyncMode" label="预览模式" :options="xianyuSyncModeOptions" />
+              <BaseSelect v-model="xianyuSyncDirection" label="同步方向" :options="xianyuSyncDirectionOptions" />
+            </div>
+            <div class="internal-note-editor__actions">
+              <BaseButton variant="secondary" :disabled="xianyuSyncLoading" data-testid="order-xianyu-sync-inline-preview-button" @click="openXianyuSyncPreview">
+                闲鱼同步预览
+              </BaseButton>
+              <BaseButton disabled data-testid="order-xianyu-sync-real-disabled-button">
+                真实同步未开放
+              </BaseButton>
+            </div>
+            <p class="drawer-note">不真实同步；外部真实调用未开放；当前仅 mock/sandbox payload 预览；不会写入订单、不会调用闲鱼。</p>
+          </div>
+        </UiV2Section>
         <UiV2Section title="风险提醒">
           <p class="drawer-note">{{ selectedOrderInternalNote || selectedOrder.note || '暂无特殊备注，按标准履约流程推进。' }}</p>
         </UiV2Section>
@@ -171,6 +188,7 @@
         <BaseButton variant="secondary" @click="drawerOpen = false">关闭</BaseButton>
         <BaseButton variant="secondary" data-testid="order-status-preview-button" @click="openStatusPreview">状态预览</BaseButton>
         <BaseButton variant="secondary" data-testid="order-edit-preview-button" @click="openEditPreview">编辑预览</BaseButton>
+        <BaseButton variant="secondary" data-testid="order-xianyu-sync-preview-button" @click="openXianyuSyncPreview">闲鱼同步预览</BaseButton>
         <BaseButton data-testid="order-create-shipping-button" @click="openShippingPreview">操作预览</BaseButton>
       </template>
     </BaseDrawer>
@@ -213,6 +231,40 @@
         </UiV2Section>
       </div>
     </BaseDrawer>
+
+    <BaseDrawer v-model="xianyuOpen" title="闲鱼同步预览" :subtitle="selectedOrder?.orderNo || ''" width="560" test-id="xianyu-sync-drawer">
+      <div v-if="selectedOrder" class="ui-v2-stack">
+        <DrawerSummary
+          status="mock/sandbox only"
+          :title="selectedOrder.orderNo"
+          description="不真实同步 · 外部真实调用未开放"
+          :meta="`${xianyuSyncDirection} · mode=${xianyuSyncMode}`"
+          primary-label="重新预览"
+          @primary="openXianyuSyncPreview"
+        />
+        <section v-if="xianyuPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-xianyu-safeops-preview">
+          <div><span>操作预览</span><strong>{{ xianyuPreview.view.title }}</strong></div>
+          <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
+          <div><span>persistence</span><strong>{{ xianyuPreview.view.persistenceLabel }}</strong></div>
+          <div><span>execute</span><strong>{{ xianyuPreview.view.executeLabel }}</strong></div>
+          <div><span>writeWillExecute</span><strong>{{ xianyuPreview.view.writeWillExecute }}</strong></div>
+          <div><span>externalCallWillExecute</span><strong>{{ xianyuPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>audit</span><strong>{{ xianyuPreview.view.auditLabel }}</strong></div>
+          <div><span>风险等级</span><strong>{{ xianyuPreview.view.riskLevel }}</strong></div>
+          <div><span>external gateway</span><strong>{{ xianyuPreview.view.externalGatewayLabel }}</strong></div>
+          <div><span>external action</span><strong>{{ xianyuPreview.view.expectedExternalActionLabel }}</strong></div>
+          <div><span>payload preview</span><strong>{{ xianyuPreview.view.requestPayloadPreviewLabel }}</strong></div>
+          <div><span>mock sync</span><strong>{{ xianyuPreview.view.mockXianyuSyncLabel }}</strong></div>
+          <div><span>sandbox payload</span><strong>{{ xianyuPreview.view.sandboxPayloadLabel }}</strong></div>
+        </section>
+        <p v-if="xianyuPreview.error" class="adapter-source__error">{{ xianyuPreview.error }}</p>
+        <UiV2Section title="安全边界">
+          <p class="drawer-note">当前仅生成闲鱼同步预览 payload，不发送 HTTP，不执行 Python，不调用闲鱼，不更新本地订单状态。</p>
+          <p class="drawer-note">手机号、地址、姓名、商品标题、cookie、session、token、API key 不在此预览中明文展示。</p>
+          <p v-if="xianyuPreview.view" class="drawer-note">{{ xianyuPreview.view.summary }}</p>
+        </UiV2Section>
+      </div>
+    </BaseDrawer>
   </UiV2Page>
 </template>
 
@@ -235,6 +287,7 @@ import {
 } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import {
   executeOrderInternalNoteUpdate,
+  previewXianyuOrderSync,
   previewOrderInternalNoteUpdate,
 } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
@@ -256,6 +309,7 @@ const page = ref(1)
 const selectedOrder = ref(null)
 const drawerOpen = ref(false)
 const shippingOpen = ref(false)
+const xianyuOpen = ref(false)
 const showAdvanced = ref(false)
 const selectedRows = ref([])
 const loading = ref(false)
@@ -263,11 +317,15 @@ const detailLoading = ref(false)
 const loadError = ref('')
 const orderPreview = ref(createSafeOpsPreviewState())
 const shippingPreview = ref(createSafeOpsPreviewState())
+const xianyuPreview = ref(createSafeOpsPreviewState())
 const internalNotePreview = ref(createSafeOpsPreviewState())
 const internalNoteExecute = ref(createSafeOpsPreviewState())
 const internalNoteDraft = ref('')
 const internalNoteLoading = ref(false)
 const internalNoteError = ref('')
+const xianyuSyncLoading = ref(false)
+const xianyuSyncMode = ref('disabled')
+const xianyuSyncDirection = ref('pull_remote_order')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 
 const columns = [
@@ -282,6 +340,17 @@ const columns = [
   { key: 'store', label: '门店' },
   { key: 'createdAt', label: '下单时间' },
   { key: 'nextAction', label: '操作' },
+]
+const xianyuSyncModeOptions = [
+  { label: 'disabled', value: 'disabled' },
+  { label: 'mock', value: 'mock' },
+  { label: 'sandbox', value: 'sandbox' },
+  { label: 'real disabled', value: 'real' },
+]
+const xianyuSyncDirectionOptions = [
+  { label: '拉取远端订单', value: 'pull_remote_order' },
+  { label: '推送本地状态', value: 'push_local_state' },
+  { label: '对账状态', value: 'reconcile_status' },
 ]
 
 const sourceLabel = computed(() => {
@@ -365,6 +434,7 @@ async function openOrder(order) {
   drawerOpen.value = true
   internalNotePreview.value = createSafeOpsPreviewState()
   internalNoteExecute.value = createSafeOpsPreviewState()
+  xianyuPreview.value = createSafeOpsPreviewState()
   internalNoteDraft.value = String(order?.raw?.internal_note || order?.internalNote || '')
   internalNoteError.value = ''
   detailLoading.value = true
@@ -570,6 +640,52 @@ async function openShippingPreview() {
       source: 'orders-drawer',
     },
   })
+}
+
+function getXianyuOrderSyncTargetId() {
+  return String(
+    selectedOrder.value?.raw?.xianyu_order_id
+    || selectedOrder.value?.raw?.external_order_id
+    || selectedOrder.value?.xianyuOrderId
+    || selectedOrder.value?.orderNo
+    || ''
+  )
+}
+
+async function openXianyuSyncPreview() {
+  if (!selectedOrder.value) return
+  xianyuOpen.value = true
+  xianyuSyncLoading.value = true
+  xianyuPreview.value = { ...xianyuPreview.value, loading: true, error: '' }
+  try {
+    const result = await previewXianyuOrderSync({
+      mode: xianyuSyncMode.value,
+      syncDirection: xianyuSyncDirection.value,
+      orderId: selectedOrderSafeId.value,
+      orderNo: selectedOrder.value?.orderNo || '',
+      localOrderId: selectedOrderSafeId.value,
+      xianyuOrderId: getXianyuOrderSyncTargetId(),
+      modelCode: selectedOrder.value?.raw?.model_code || selectedOrder.value?.modelCode || '',
+      scenario: 'orders_page_preview_only',
+      reason: 'ui-v2-xianyu-sync-preview',
+      actor: buildUiActor(),
+    })
+    xianyuPreview.value = {
+      loading: false,
+      result,
+      view: toSafeOpsPreviewView(result),
+      error: result?.ok ? '' : (result?.message || '闲鱼同步预览失败'),
+    }
+  } catch (error) {
+    xianyuPreview.value = {
+      loading: false,
+      result: null,
+      view: null,
+      error: error?.message || '闲鱼同步预览失败',
+    }
+  } finally {
+    xianyuSyncLoading.value = false
+  }
 }
 
 watch(

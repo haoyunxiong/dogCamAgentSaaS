@@ -38,6 +38,7 @@ export function toSafeOpsPreviewView(result = {}) {
   const requestPayloadPreview = result?.requestPayloadPreview || {}
   const mockWaybillPreview = result?.mockWaybillPreview || {}
   const mockDepositPreview = result?.mockDepositPreview || {}
+  const mockXianyuSyncPreview = result?.mockXianyuSyncPreview || {}
   const sandboxPayloadPreview = result?.sandboxPayloadPreview || {}
 
   return {
@@ -73,6 +74,9 @@ export function toSafeOpsPreviewView(result = {}) {
       : 'not generated',
     mockDepositLabel: mockDepositPreview.mockDepositNo
       ? `${mockDepositPreview.mockDepositNo} / operation=${mockDepositPreview.operation || 'deposit'} / funds=${asFlag(mockDepositPreview.willChargeOrReleaseFunds)}`
+      : 'not generated',
+    mockXianyuSyncLabel: mockXianyuSyncPreview.mockSyncId
+      ? `${mockXianyuSyncPreview.mockSyncId} / direction=${mockXianyuSyncPreview.syncDirection || 'pull_remote_order'} / localWrite=${asFlag(mockXianyuSyncPreview.willWriteLocalOrder)} / remoteWrite=${asFlag(mockXianyuSyncPreview.willUpdateRemoteOrder)}`
       : 'not generated',
     sandboxPayloadLabel: sandboxPayloadPreview.endpointMode
       ? `${sandboxPayloadPreview.endpointMode} / http=${asFlag(sandboxPayloadPreview.willSendHttpRequest)}`
