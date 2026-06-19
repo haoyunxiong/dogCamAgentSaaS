@@ -8,8 +8,8 @@
 - 关键 checkpoint：`caa056c`；
 - Phase 04 已完成 safeOps policy / preview / 8 类 dry-run preview；
 - UI-V2 已接入 disabled preview entry，页面仍不直接调用底层 bridge；
-- safeOps migration SQL / rollback SQL / protected runner 已准备，但尚未执行、尚未连接 DB；
-- safeOps persistence / crypto / repository skeleton 已完成，默认 noop 不落库；
+- safeOps migration SQL / rollback SQL / protected runner 已准备，本地测试库已 apply；
+- safeOps persistence / crypto / repository 已接入本地 safeOps 表，DB 不可用时安全降级 noop；
 - safeOps execute disabled skeleton 已完成，未新增 execute IPC / preload；
 - Phase 04 尚未进入真实写操作实现。
 
@@ -37,8 +37,22 @@
 - `safeOps.execute` IPC / preload；
 - `safeOps.rollback`；
 - `safeOps.audit:list`；
-- DB-backed audit / confirm / idempotency persistence；
+- 真实业务表 write；
 - 顺丰 / 免押真实外部写入。
+
+当前 DB persistence 范围：
+
+- `operation_audit_logs`：记录 preview / blocked / disabled / failed；
+- `operation_confirm_tokens`：只保存 token hash，不保存完整 token；
+- `operation_idempotency_keys`：按 actor + operationType + payloadHash 生成稳定幂等记录；
+- `operation_rollback_plans`：仅创建 `not_executable` placeholder，不开放 rollback executor。
+
+当前仍然禁止：
+
+- 新增 `safeOps:execute` / `safeOps:rollback` / `safeOps:audit:list` IPC；
+- 修改订单、设备、档期、物流、免押等业务表；
+- 调用顺丰、免押或其他外部写接口；
+- 展示完整 confirm token。
 
 主计划文档：
 

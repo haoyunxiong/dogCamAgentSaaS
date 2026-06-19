@@ -4,9 +4,9 @@ const {
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
-const { buildSafeOperationPersistenceContext } = require('./safeOpsPersistence')
+const { persistSafeOperationContext } = require('./safeOpsPersistence')
 
-function executeSafeOperation(request = {}) {
+async function executeSafeOperation(request = {}) {
   try {
     const operationType = normalizeOperationType(request?.operationType)
     const policy = getOperationPolicy(operationType)
@@ -25,22 +25,7 @@ function executeSafeOperation(request = {}) {
       affectedRecords: [],
       externalEffects: [],
     }
-    const persistence = buildSafeOperationPersistenceContext(
-      { ...request, operationType },
-      impact,
-      {
-        mode: 'execute-disabled',
-        status: 'rejected',
-        rollback: {
-          planned: false,
-          canRollback: false,
-          compensationRequired: false,
-          reason: 'execute-disabled-no-write-executed',
-        },
-      }
-    )
-
-    return {
+    const baseResponse = {
       ok: false,
       supported: true,
       code: EXECUTE_POLICY.code,
@@ -59,8 +44,28 @@ function executeSafeOperation(request = {}) {
       impact,
       requiresConfirm: true,
       requiresIdempotencyKey: true,
-      audit: persistence.audit,
       confirmToken: null,
+    }
+    const persistence = await persistSafeOperationContext({
+      request: { ...request, operationType },
+      policy,
+      impact,
+      previewResponse: baseResponse,
+      mode: 'execute-disabled',
+      status: 'disabled',
+      issueConfirmToken: false,
+      rollback: {
+        planned: false,
+        canRollback: false,
+        compensationRequired: false,
+        reason: 'execute-disabled-no-write-executed',
+      },
+    })
+
+    return {
+      ...baseResponse,
+      persistence: persistence.persistence,
+      audit: persistence.audit,
       confirmRequirement: persistence.confirmRequirement,
       idempotency: persistence.idempotency,
       rollback: persistence.rollback,

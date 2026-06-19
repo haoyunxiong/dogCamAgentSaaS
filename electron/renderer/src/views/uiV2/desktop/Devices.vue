@@ -14,6 +14,7 @@
     <section v-if="devicePreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>persistence</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
       <div><span>externalCallWillExecute</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
@@ -82,6 +83,7 @@
         <section v-if="devicePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>persistence</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>

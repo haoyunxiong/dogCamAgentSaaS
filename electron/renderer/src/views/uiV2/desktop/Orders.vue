@@ -14,6 +14,7 @@
     <section v-if="orderPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-page-safeops-preview">
       <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>persistence</span><strong>{{ orderPreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
       <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
@@ -99,6 +100,7 @@
         <section v-if="orderPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-action-safeops-preview">
           <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>persistence</span><strong>{{ orderPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
@@ -144,6 +146,7 @@
         <section v-if="shippingPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-safeops-preview">
           <div><span>操作预览</span><strong>{{ shippingPreview.view.title }}</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>persistence</span><strong>{{ shippingPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ shippingPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ shippingPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ shippingPreview.view.externalCallWillExecute }}</strong></div>

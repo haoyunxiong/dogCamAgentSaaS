@@ -73,6 +73,7 @@ function buildLocalPolicy() {
     confirmToken: { enabled: false, requiredForWrite: true, persisted: false },
     idempotency: { mode: 'noop', requiredForWrite: true, persisted: false },
     execute: cloneJson(EXECUTE_DISABLED_POLICY),
+    persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
     source: 'renderer-noop',
   }
 }
@@ -118,6 +119,7 @@ function buildLocalPreview(payload = {}) {
       impactHash: null,
       status: 'previewed',
     },
+    persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
     requiresConfirm: true,
     requiresIdempotencyKey: true,
     execute: cloneJson(EXECUTE_DISABLED_POLICY),

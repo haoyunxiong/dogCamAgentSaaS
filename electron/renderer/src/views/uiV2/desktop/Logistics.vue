@@ -9,6 +9,7 @@
     <section v-if="shipmentPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>persistence</span><strong>{{ shipmentPreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ shipmentPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
       <div><span>externalCallWillExecute</span><strong>{{ shipmentPreview.view.externalCallWillExecute }}</strong></div>
@@ -59,6 +60,7 @@
         <section v-if="shipmentPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>persistence</span><strong>{{ shipmentPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ shipmentPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ shipmentPreview.view.writeWillExecute }}</strong></div>
           <div><span>externalCallWillExecute</span><strong>{{ shipmentPreview.view.externalCallWillExecute }}</strong></div>

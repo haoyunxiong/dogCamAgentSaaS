@@ -39,6 +39,7 @@ const {
 } = require('./depositNotifyServer')
 const { getSafeOpsPolicy } = require('./safeOpsPolicy')
 const { previewSafeOperation } = require('./safeOpsPreview')
+const { getSafeOpsPersistenceStatus } = require('./safeOpsPersistence')
 
 // 单例 闲管家 客户端，凭据从 config 表动态拉取
 const xgjClient = new XianguanjiaClient({})
@@ -309,7 +310,27 @@ async function registerIpcHandlers(ipcMain, mainWindow) {
 
   ipcMain.handle('safeOps:policy', async () => {
     try {
-      return getSafeOpsPolicy()
+      const policy = getSafeOpsPolicy()
+      const persistence = await getSafeOpsPersistenceStatus()
+      return {
+        ...policy,
+        persistence,
+        audit: {
+          ...policy.audit,
+          mode: persistence.available ? 'db' : policy.audit.mode,
+          persisted: Boolean(persistence.available),
+        },
+        confirmToken: {
+          ...policy.confirmToken,
+          enabled: Boolean(persistence.available),
+          persisted: Boolean(persistence.available),
+        },
+        idempotency: {
+          ...policy.idempotency,
+          mode: persistence.available ? 'db' : policy.idempotency.mode,
+          persisted: Boolean(persistence.available),
+        },
+      }
     } catch (error) {
       return {
         ok: false,

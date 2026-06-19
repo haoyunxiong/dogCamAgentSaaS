@@ -6,7 +6,7 @@ const {
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
-const { buildSafeOperationPersistenceContext } = require('./safeOpsPersistence')
+const { persistSafeOperationContext } = require('./safeOpsPersistence')
 const {
   buildDepositCreatePreview,
   buildDepositFinishPreview,
@@ -68,7 +68,7 @@ function buildDomainPreview(operationType, request) {
   }
 }
 
-function previewSafeOperation(request = {}) {
+async function previewSafeOperation(request = {}) {
   try {
     const operationType = normalizeOperationType(request?.operationType)
     const policy = getOperationPolicy(operationType)
@@ -78,16 +78,8 @@ function previewSafeOperation(request = {}) {
     }
 
     const domainPreview = buildDomainPreview(operationType, request)
-    const persistence = buildSafeOperationPersistenceContext(
-      { ...request, operationType },
-      domainPreview.impact,
-      {
-        mode: 'dry-run',
-        status: domainPreview.blockers?.length ? 'blocked' : 'previewed',
-      }
-    )
-
-    return {
+    const status = domainPreview.blockers?.length ? 'blocked' : 'previewed'
+    const baseResponse = {
       ok: true,
       supported: true,
       operationType,
@@ -98,13 +90,29 @@ function previewSafeOperation(request = {}) {
       warnings: domainPreview.warnings,
       blockers: domainPreview.blockers,
       impact: domainPreview.impact,
+    }
+    const persistence = await persistSafeOperationContext({
+      request: { ...request, operationType },
+      policy,
+      impact: domainPreview.impact,
+      previewResponse: baseResponse,
+      mode: 'dry-run',
+      status,
+      issueConfirmToken: true,
+    })
+
+    return {
+      ...baseResponse,
+      persistence: persistence.persistence,
       audit: {
-        mode: AUDIT_POLICY.mode,
-        persisted: AUDIT_POLICY.persisted,
+        mode: persistence.audit?.mode || AUDIT_POLICY.mode,
+        persisted: Boolean(persistence.audit?.persisted),
+        auditLogId: persistence.audit?.auditLogId || null,
         operationId: persistence.audit.operationId,
         payloadHash: persistence.audit.payloadHash,
         impactHash: persistence.audit.impactHash,
         status: persistence.audit.status,
+        reason: persistence.audit?.reason,
       },
       requiresConfirm: true,
       requiresIdempotencyKey: true,
@@ -117,11 +125,14 @@ function previewSafeOperation(request = {}) {
       confirmToken: null,
       confirmRequirement: persistence.confirmRequirement,
       idempotency: {
-        mode: IDEMPOTENCY_POLICY.mode,
+        mode: persistence.idempotency?.mode || IDEMPOTENCY_POLICY.mode,
         required: true,
-        persisted: IDEMPOTENCY_POLICY.persisted,
+        persisted: Boolean(persistence.idempotency?.persisted),
+        id: persistence.idempotency?.id || null,
         keyHash: persistence.idempotency.keyHash,
         status: persistence.idempotency.status,
+        duplicate: Boolean(persistence.idempotency?.duplicate),
+        reason: persistence.idempotency?.reason,
       },
       rollback: persistence.rollback,
     }

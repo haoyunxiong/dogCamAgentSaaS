@@ -4,7 +4,7 @@
 
 ```text
 当前阶段：Phase 04 - Operation Safe Mode
-当前状态：safeOps dry-run + execute disabled skeleton 统一验收中 / 真实写操作未开始
+当前状态：safeOps dry-run persistence DB wiring 已完成 / execute 仍禁用 / 真实写操作未开始
 是否允许写代码：是（仅限 Phase 04 safeOps 安全骨架；真实 write 仍禁止）
 是否允许操作 Figma：否
 是否允许改数据库：否
@@ -31,26 +31,26 @@
 - [x] safeOps policy / preview 后端骨架完成
 - [x] UI-V2 safeOps disabled preview entries 完成
 - [x] 8 类 operation dry-run preview 完成
-- [x] safeOps migration scaffolding 已完成，SQL 尚未执行
-- [x] protected migration runner 已准备，尚未连接 DB / 尚未执行 SQL
+- [x] safeOps migration scaffolding 已完成
+- [x] protected migration runner 已准备
 - [x] safeOps persistence / crypto / repository skeleton 完成，默认 noop 不落库
 - [x] safeOps execute disabled skeleton 完成，未新增 execute IPC / preload
 - [x] Orders / Devices / Schedule dry-run 方案确认
 - [x] audit / idempotency / confirm DB 方案确认
 - [x] Logistics / Shipping safe mode 方案确认
 - [x] Deposit / Approval safe mode 方案确认
-- [ ] DB migration 本地执行经用户确认
-- [ ] audit / idempotency / confirm DB persistence 接入
+- [x] DB migration 本地执行经用户确认并已 apply
+- [x] audit / idempotency / confirm / rollback-plan DB persistence 接入
 - [ ] 内部 DB write 安全模式确认
 - [ ] 真实外部 write 开关经用户单独确认
 
 ## 当前下一步
 
 ```text
-Phase 04 Operation Safe Mode：完成 dry-run + execute disabled skeleton 统一验收；下一步必须先经用户确认后执行本地 migration，再考虑 DB-backed audit / confirm / idempotency persistence。
+Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；下一步是验收 DB-backed audit / confirm / idempotency / rollback-plan，并在单独确认后规划内部 DB write gated enablement。
 ```
 
-Phase 04 尚未进入真实写操作实现；当前 execute 仅返回 `SAFE_OP_EXECUTE_DISABLED`。
+Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 execute IPC / rollback IPC / audit:list IPC。
 
 真实写操作必须先具备：
 
