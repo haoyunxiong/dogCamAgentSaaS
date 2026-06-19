@@ -18,6 +18,16 @@ function jsonOrNull(value) {
   return JSON.stringify(value)
 }
 
+function jsonValue(value) {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'object') return value
+  try {
+    return JSON.parse(value)
+  } catch (_error) {
+    return null
+  }
+}
+
 function dateOrNull(value) {
   if (!value) return null
   const date = value instanceof Date ? value : new Date(value)
@@ -148,6 +158,12 @@ function createNoopSafeOpsRepository(reason = 'safeOps DB persistence unavailabl
     async getRollbackPlan(payload) {
       return createNoopResult('getRollbackPlan', payload, reason)
     },
+    async getRentalOrderInternalNoteSnapshot(payload) {
+      return createNoopResult('getRentalOrderInternalNoteSnapshot', payload, reason)
+    },
+    async updateRentalOrderInternalNote(payload) {
+      return createNoopResult('updateRentalOrderInternalNote', payload, reason)
+    },
     async persistAuditLog(payload) {
       return createNoopResult('persistAuditLog', payload, reason)
     },
@@ -218,6 +234,7 @@ function mapIdempotency(row) {
     keyHash: row.key_hash,
     status: row.status,
     auditLogId: row.audit_log_id,
+    response: jsonValue(row.response_json),
     errorCode: row.error_code,
     errorMessage: row.error_message,
     lockedUntil: row.locked_until,
@@ -333,7 +350,17 @@ async function createAuditLog(payload = {}) {
   })
 }
 
-async function updateAuditLogStatus({ id, operationId, status, errorCode = null, errorMessage = null, confirmTokenId = null, rollbackPlanId = null } = {}) {
+async function updateAuditLogStatus({
+  id,
+  operationId,
+  status,
+  errorCode = null,
+  errorMessage = null,
+  confirmTokenId = null,
+  rollbackPlanId = null,
+  beforeSnapshot = undefined,
+  afterSnapshot = undefined,
+} = {}) {
   return withConnection(async (conn) => {
     const [result] = await conn.execute(`
       UPDATE operation_audit_logs
@@ -341,10 +368,21 @@ async function updateAuditLogStatus({ id, operationId, status, errorCode = null,
           error_code = COALESCE(?, error_code),
           error_message = COALESCE(?, error_message),
           confirm_token_id = COALESCE(?, confirm_token_id),
-          rollback_plan_id = COALESCE(?, rollback_plan_id)
+          rollback_plan_id = COALESCE(?, rollback_plan_id),
+          before_snapshot_json = COALESCE(?, before_snapshot_json),
+          after_snapshot_json = COALESCE(?, after_snapshot_json)
       WHERE ${id ? 'id = ?' : 'operation_id = ?'}
       LIMIT 1
-    `, [status || null, errorCode, errorMessage, confirmTokenId, rollbackPlanId, id || operationId])
+    `, [
+      status || null,
+      errorCode,
+      errorMessage,
+      confirmTokenId,
+      rollbackPlanId,
+      beforeSnapshot === undefined ? null : jsonOrNull(beforeSnapshot),
+      afterSnapshot === undefined ? null : jsonOrNull(afterSnapshot),
+      id || operationId,
+    ])
     return {
       ok: true,
       mode: 'db',
@@ -406,18 +444,37 @@ async function createConfirmToken(payload = {}) {
   })
 }
 
-async function consumeConfirmToken({ tokenHash, actorId, operationType } = {}) {
+async function consumeConfirmToken({
+  id,
+  tokenHash,
+  actorId,
+  operationType,
+  payloadHash,
+  impactHash,
+  previewAuditLogId = null,
+} = {}) {
   return withConnection(async (conn) => {
     const [result] = await conn.execute(`
       UPDATE operation_confirm_tokens
       SET status = 'consumed', consumed_at = CURRENT_TIMESTAMP
-      WHERE token_hash = ?
+      WHERE ${id ? 'id = ?' : 'token_hash = ?'}
         AND operation_type = ?
-        AND (actor_id = ? OR actor_id IS NULL)
+        AND actor_id <=> ?
+        AND payload_hash = ?
+        AND impact_hash = ?
+        AND (preview_audit_log_id <=> ? OR ? IS NULL)
         AND status = 'issued'
         AND expires_at > CURRENT_TIMESTAMP
       LIMIT 1
-    `, [tokenHash, operationType, actorId || null])
+    `, [
+      id || tokenHash,
+      operationType,
+      actorId || null,
+      payloadHash,
+      impactHash,
+      previewAuditLogId,
+      previewAuditLogId,
+    ])
     return {
       ok: true,
       mode: 'db',
@@ -603,6 +660,85 @@ async function getRollbackPlan({ id, operationId } = {}) {
   })
 }
 
+function maskIdentifier(value) {
+  const text = String(value || '')
+  if (!text) return ''
+  if (text.length <= 4) return '<redacted>'
+  return `${text.slice(0, 2)}***${text.slice(-2)}`
+}
+
+function summarizeInternalNote(value) {
+  const text = String(value || '')
+  return {
+    hasValue: Boolean(text.trim()),
+    length: text.length,
+    preview: text ? maskIdentifier(text) : '',
+  }
+}
+
+function mapRentalOrderInternalNoteSnapshot(row, overrideNote) {
+  if (!row) return null
+  const note = overrideNote === undefined ? row.internal_note : overrideNote
+  return {
+    orderId: String(row.id),
+    orderNoMasked: maskIdentifier(row.order_no),
+    orderStatus: row.order_status || null,
+    modelCode: row.model_code || null,
+    internalNote: summarizeInternalNote(note),
+  }
+}
+
+async function getRentalOrderInternalNoteSnapshot({ orderId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedOrderId = String(orderId || '').trim()
+    if (!normalizedOrderId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        record: null,
+      }
+    }
+
+    const numericId = /^\d+$/.test(normalizedOrderId) ? Number(normalizedOrderId) : null
+    const [rows] = await conn.execute(`
+      SELECT id, order_no, order_status, model_code, internal_note
+      FROM rental_orders
+      WHERE ${numericId !== null ? 'id = ? OR order_no = ?' : 'order_no = ?'}
+      ORDER BY id ASC
+      LIMIT 1
+    `, numericId !== null ? [numericId, normalizedOrderId] : [normalizedOrderId])
+
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      record: mapRentalOrderInternalNoteSnapshot(rows[0]),
+      raw: rows[0] || null,
+    }
+  })
+}
+
+async function updateRentalOrderInternalNote({ id, internalNote } = {}) {
+  return withConnection(async (conn) => {
+    const [result] = await conn.execute(`
+      UPDATE rental_orders
+      SET internal_note = ?
+      WHERE id = ?
+      LIMIT 1
+    `, [internalNote ?? null, id])
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: true,
+      affectedRows: result.affectedRows,
+    }
+  })
+}
+
 function createDbSafeOpsRepository() {
   return {
     mode: 'db',
@@ -619,6 +755,8 @@ function createDbSafeOpsRepository() {
     markIdempotencyResult,
     createRollbackPlan,
     getRollbackPlan,
+    getRentalOrderInternalNoteSnapshot,
+    updateRentalOrderInternalNote,
     persistAuditLog: createAuditLog,
     claimIdempotencyKey: createIdempotencyKey,
     saveRollbackPlan: createRollbackPlan,

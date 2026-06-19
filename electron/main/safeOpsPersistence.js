@@ -54,6 +54,8 @@ function buildAuditLogPayload({
   mode = 'dry-run',
   status = 'previewed',
   operationId,
+  beforeSnapshot = null,
+  afterSnapshot = null,
 } = {}) {
   const identity = operationId
     ? {
@@ -75,8 +77,8 @@ function buildAuditLogPayload({
     impactHash: identity.impactHash,
     payloadPreview: redactSensitive(request.payload || {}),
     impactPreview: redactSensitive(impact || {}),
-    beforeSnapshot: null,
-    afterSnapshot: null,
+    beforeSnapshot: redactSensitive(beforeSnapshot),
+    afterSnapshot: redactSensitive(afterSnapshot),
     externalRequest: null,
     externalResponse: null,
     rollbackPlanId: null,
@@ -268,6 +270,8 @@ function buildSafeOperationPersistenceContext(request = {}, impact = {}, options
     mode: options.mode || 'dry-run',
     status: options.status || 'previewed',
     operationId: baseAuditPayload.operationId,
+    beforeSnapshot: options.beforeSnapshot || null,
+    afterSnapshot: options.afterSnapshot || null,
   })
 
   return {
@@ -293,6 +297,8 @@ function buildSafeOperationPersistenceContext(request = {}, impact = {}, options
     rollbackPlanPayload: buildRollbackPlanPayload({
       request,
       operationId: auditPayload.operationId,
+      beforeSnapshot: options.beforeSnapshot || null,
+      afterSnapshot: options.afterSnapshot || null,
     }),
     rollback: buildRollbackDescriptor(options.rollback || {}),
     issuedConfirmToken: token,
@@ -335,12 +341,16 @@ async function persistSafeOperationContext({
   status = 'previewed',
   issueConfirmToken = true,
   rollback = {},
+  beforeSnapshot = null,
+  afterSnapshot = null,
 } = {}) {
   const context = buildSafeOperationPersistenceContext(request, impact, {
     mode,
     status,
     issueConfirmToken,
     rollback,
+    beforeSnapshot,
+    afterSnapshot,
   })
 
   try {

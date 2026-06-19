@@ -39,6 +39,7 @@ const {
 } = require('./depositNotifyServer')
 const { getSafeOpsPolicy } = require('./safeOpsPolicy')
 const { previewSafeOperation } = require('./safeOpsPreview')
+const { executeSafeOperation } = require('./safeOpsExecute')
 const { getSafeOpsPersistenceStatus } = require('./safeOpsPersistence')
 
 // 单例 闲管家 客户端，凭据从 config 表动态拉取
@@ -343,6 +344,10 @@ async function registerIpcHandlers(ipcMain, mainWindow) {
 
   ipcMain.handle('safeOps:preview', async (_event, payload = {}) => {
     return previewSafeOperation(payload || {})
+  })
+
+  ipcMain.handle('safeOps:execute', async (_event, payload = {}) => {
+    return executeSafeOperation(payload || {})
   })
 
   ipcMain.handle('prompts:generate', async (_event, chatLog) => {

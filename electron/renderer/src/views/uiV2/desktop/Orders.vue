@@ -121,8 +121,50 @@
         <UiV2Section title="履约步骤" hint="mock 时间线">
           <TrackingTimeline :steps="orderSteps" />
         </UiV2Section>
+        <UiV2Section title="内部备注/标记" hint="本地 safeOps 操作">
+          <div class="internal-note-editor">
+            <textarea
+              v-model="internalNoteDraft"
+              class="internal-note-editor__input"
+              rows="4"
+              maxlength="5000"
+              placeholder="填写仅本地可见的商家内部备注"
+            />
+            <div class="internal-note-editor__actions">
+              <BaseButton variant="secondary" :disabled="internalNoteLoading" data-testid="order-internal-note-preview-button" @click="previewInternalNoteUpdate">
+                预览
+              </BaseButton>
+              <BaseButton :disabled="!canExecuteInternalNote || internalNoteLoading" data-testid="order-internal-note-execute-button" @click="executeInternalNoteUpdate">
+                确认写入
+              </BaseButton>
+            </div>
+            <p class="drawer-note">本地安全操作；不调用外部接口；需要确认；可审计；rollback 暂不可自动执行。</p>
+          </div>
+          <section v-if="internalNotePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-internal-note-preview">
+            <div><span>操作预览</span><strong>{{ internalNotePreview.view.title }}</strong></div>
+            <div><span>开放状态</span><strong>{{ internalNotePreview.view.status }}</strong></div>
+            <div><span>persistence</span><strong>{{ internalNotePreview.view.persistenceLabel }}</strong></div>
+            <div><span>execute</span><strong>{{ internalNotePreview.view.executeLabel }}</strong></div>
+            <div><span>writeWillExecute</span><strong>{{ internalNotePreview.view.writeWillExecute }}</strong></div>
+            <div><span>externalCallWillExecute</span><strong>{{ internalNotePreview.view.externalCallWillExecute }}</strong></div>
+            <div><span>audit</span><strong>{{ internalNotePreview.view.auditLabel }}</strong></div>
+            <div><span>confirm</span><strong>{{ internalNotePreview.view.confirmLabel }}</strong></div>
+            <div><span>idempotency</span><strong>{{ internalNotePreview.view.idempotencyLabel }}</strong></div>
+            <div><span>rollback</span><strong>{{ internalNotePreview.view.rollbackLabel }}</strong></div>
+          </section>
+          <section v-if="internalNoteExecute.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-internal-note-execute">
+            <div><span>执行结果</span><strong>{{ internalNoteExecute.view.title }}</strong></div>
+            <div><span>状态</span><strong>{{ internalNoteExecute.view.status }}</strong></div>
+            <div><span>writeWillExecute</span><strong>{{ internalNoteExecute.view.writeWillExecute }}</strong></div>
+            <div><span>externalCallWillExecute</span><strong>{{ internalNoteExecute.view.externalCallWillExecute }}</strong></div>
+            <div><span>audit</span><strong>{{ internalNoteExecute.view.auditLabel }}</strong></div>
+            <div><span>idempotency</span><strong>{{ internalNoteExecute.view.idempotencyLabel }}</strong></div>
+            <div><span>rollback</span><strong>{{ internalNoteExecute.view.rollbackLabel }}</strong></div>
+          </section>
+          <p v-if="internalNoteError" class="adapter-source__error">{{ internalNoteError }}</p>
+        </UiV2Section>
         <UiV2Section title="风险提醒">
-          <p class="drawer-note">{{ selectedOrder.note || '暂无特殊备注，按标准履约流程推进。' }}</p>
+          <p class="drawer-note">{{ selectedOrderInternalNote || selectedOrder.note || '暂无特殊备注，按标准履约流程推进。' }}</p>
         </UiV2Section>
       </div>
       <template #footer>
@@ -185,7 +227,15 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, Pagination, StatusTabs, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
-import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import {
+  createSafeOpsPreviewState,
+  runSafeOpsPreview,
+  toSafeOpsPreviewView,
+} from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import {
+  executeOrderInternalNoteUpdate,
+  previewOrderInternalNoteUpdate,
+} from '../../../adapters/uiV2/safeOpsAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -212,6 +262,11 @@ const detailLoading = ref(false)
 const loadError = ref('')
 const orderPreview = ref(createSafeOpsPreviewState())
 const shippingPreview = ref(createSafeOpsPreviewState())
+const internalNotePreview = ref(createSafeOpsPreviewState())
+const internalNoteExecute = ref(createSafeOpsPreviewState())
+const internalNoteDraft = ref('')
+const internalNoteLoading = ref(false)
+const internalNoteError = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 
 const columns = [
@@ -255,6 +310,23 @@ const filteredOrders = computed(() => orders.value.filter((order) => {
 }))
 
 const drawerSubtitle = computed(() => selectedOrder.value ? `${selectedOrder.value.customerName} · ${selectedOrder.value.model}` : '')
+const selectedOrderInternalNote = computed(() => String(
+  selectedOrder.value?.raw?.internal_note
+  || selectedOrder.value?.internalNote
+  || ''
+))
+const selectedOrderSafeId = computed(() => String(
+  selectedOrder.value?.rawId
+  || selectedOrder.value?.raw?.id
+  || selectedOrder.value?.id
+  || ''
+))
+const canExecuteInternalNote = computed(() => Boolean(
+  internalNotePreview.value?.result?.ok
+  && internalNotePreview.value?.result?.executeEnabled
+  && internalNotePreview.value?.result?.confirmRequirement?.tokenId
+  && selectedOrderSafeId.value
+))
 const orderSteps = computed(() => selectedOrder.value ? [
   { label: '订单创建', desc: selectedOrder.value.createdAt, done: true },
   { label: '押金/免押确认', desc: selectedOrder.value.depositStatus, done: !['待收', '免押审核中'].includes(selectedOrder.value.depositStatus), current: ['待押金'].includes(selectedOrder.value.status) },
@@ -290,11 +362,16 @@ async function loadOrders() {
 async function openOrder(order) {
   selectedOrder.value = order
   drawerOpen.value = true
+  internalNotePreview.value = createSafeOpsPreviewState()
+  internalNoteExecute.value = createSafeOpsPreviewState()
+  internalNoteDraft.value = String(order?.raw?.internal_note || order?.internalNote || '')
+  internalNoteError.value = ''
   detailLoading.value = true
   try {
     const detail = await uiV2Adapter.getOrder(order.orderNo)
     if (detail) {
       selectedOrder.value = { ...order, ...detail }
+      internalNoteDraft.value = String(detail?.raw?.internal_note || detail?.internalNote || '')
     } else if (uiV2Adapter.getLastMeta('getOrder')?.source === 'mock-fallback') {
       loadError.value = '真实详情读取失败，当前显示列表只读摘要。'
     }
@@ -303,6 +380,102 @@ async function openOrder(order) {
     loadError.value = error?.message || '订单详情读取失败'
   } finally {
     detailLoading.value = false
+  }
+}
+
+function buildUiActor() {
+  return {
+    id: 'ui-v2-local-operator',
+    role: 'operator',
+    source: 'orders-page',
+  }
+}
+
+async function refreshSelectedOrderAfterInternalNote() {
+  const currentOrderNo = selectedOrder.value?.orderNo
+  if (!currentOrderNo) return
+  await loadOrders()
+  const refreshedListOrder = orders.value.find((order) => order.orderNo === currentOrderNo) || selectedOrder.value
+  const detail = await uiV2Adapter.getOrder(refreshedListOrder.rawId || refreshedListOrder.orderNo)
+  selectedOrder.value = {
+    ...refreshedListOrder,
+    ...detail,
+  }
+  internalNoteDraft.value = String(selectedOrder.value?.raw?.internal_note || selectedOrder.value?.internalNote || internalNoteDraft.value || '')
+}
+
+async function previewInternalNoteUpdate() {
+  internalNoteLoading.value = true
+  internalNoteError.value = ''
+  internalNoteExecute.value = createSafeOpsPreviewState()
+  try {
+    const result = await previewOrderInternalNoteUpdate({
+      orderId: selectedOrderSafeId.value,
+      internalNote: internalNoteDraft.value,
+      actor: buildUiActor(),
+    })
+    internalNotePreview.value = {
+      loading: false,
+      result,
+      view: toSafeOpsPreviewView(result),
+      error: result?.ok ? '' : (result?.message || '内部备注预览失败'),
+    }
+    internalNoteError.value = internalNotePreview.value.error
+  } catch (error) {
+    internalNoteError.value = error?.message || '内部备注预览失败'
+    internalNotePreview.value = {
+      loading: false,
+      result: null,
+      view: null,
+      error: internalNoteError.value,
+    }
+  } finally {
+    internalNoteLoading.value = false
+  }
+}
+
+async function executeInternalNoteUpdate() {
+  if (!canExecuteInternalNote.value) {
+    internalNoteError.value = '请先完成内部备注预览。'
+    return
+  }
+  internalNoteLoading.value = true
+  internalNoteError.value = ''
+  try {
+    const result = await executeOrderInternalNoteUpdate({
+      previewResult: internalNotePreview.value.result,
+      orderId: selectedOrderSafeId.value,
+      internalNote: internalNoteDraft.value,
+      actor: buildUiActor(),
+    })
+    internalNoteExecute.value = {
+      loading: false,
+      result,
+      view: toSafeOpsPreviewView(result),
+      error: result?.ok ? '' : (result?.message || '内部备注写入失败'),
+    }
+    internalNoteError.value = internalNoteExecute.value.error
+    if (result?.ok) {
+      selectedOrder.value = {
+        ...selectedOrder.value,
+        note: internalNoteDraft.value,
+        raw: {
+          ...(selectedOrder.value?.raw || {}),
+          internal_note: internalNoteDraft.value,
+        },
+      }
+      await refreshSelectedOrderAfterInternalNote()
+    }
+  } catch (error) {
+    internalNoteError.value = error?.message || '内部备注写入失败'
+    internalNoteExecute.value = {
+      loading: false,
+      result: null,
+      view: null,
+      error: internalNoteError.value,
+    }
+  } finally {
+    internalNoteLoading.value = false
   }
 }
 
@@ -510,5 +683,35 @@ onMounted(loadOrders)
   margin: 0;
   color: var(--color-text-secondary);
   line-height: 1.6;
+}
+
+.internal-note-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.internal-note-editor__input {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-8);
+  background: var(--ui-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.internal-note-editor__input:focus {
+  outline: 2px solid rgba(22, 163, 128, 0.18);
+  border-color: var(--color-primary);
+}
+
+.internal-note-editor__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

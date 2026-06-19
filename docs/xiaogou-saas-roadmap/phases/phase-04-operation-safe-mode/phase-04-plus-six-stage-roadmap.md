@@ -7,7 +7,7 @@
 当前 checkpoint：
 
 ```text
-5c32e03 feat: wire safeops persistence to local db
+39ca3a1 chore: add internal note migration for rental orders
 ```
 
 已完成：
@@ -59,13 +59,15 @@
 - 不改变订单状态、金额、客户、地址、租期、设备、档期或物流字段；
 - 不开放 `safeOps.execute`。
 
-阶段 1B：单一低风险写操作
+阶段 1B：单一低风险写操作（已完成）
 
 - 只开放 `order.internal_note.update`；
 - 写入目标仅限 `rental_orders.internal_note`；
 - 必须经过 `preview -> confirm token -> idempotency -> audit -> execute -> after snapshot`；
 - 只允许本地 DB；
 - rollback 暂不执行，只保留 placeholder / before snapshot。
+- 其它 operationType execute 继续返回 `SAFE_OP_EXECUTE_DISABLED`。
+- 顺丰、免押、闲鱼、Python、外部 API 仍禁用。
 
 目标：
 

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   safeOps: {
     getPolicy: (payload) => ipcRenderer.invoke('safeOps:policy', payload || {}),
     preview: (payload) => ipcRenderer.invoke('safeOps:preview', payload || {}),
+    execute: (payload) => ipcRenderer.invoke('safeOps:execute', payload || {}),
   },
 
   // Prompts

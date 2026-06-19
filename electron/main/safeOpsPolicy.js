@@ -1,6 +1,9 @@
-const SAFE_OPS_SAFE_MODE = 'dry-run-only'
-const SAFE_OPS_WRITE_ENABLED = false
-const SAFE_OPS_EXECUTE_ENABLED = false
+const SAFE_OPS_SAFE_MODE = 'single-operation-write'
+const SAFE_OPS_WRITE_ENABLED = true
+const SAFE_OPS_EXECUTE_ENABLED = true
+const SAFE_OPS_ENABLED_EXECUTE_OPERATION_TYPES = Object.freeze([
+  'order.internal_note.update',
+])
 
 const AUDIT_POLICY = Object.freeze({
   mode: 'noop',
@@ -24,12 +27,31 @@ const IDEMPOTENCY_POLICY = Object.freeze({
 
 const EXECUTE_POLICY = Object.freeze({
   enabled: SAFE_OPS_EXECUTE_ENABLED,
-  code: 'SAFE_OP_EXECUTE_DISABLED',
-  writeWillExecute: false,
+  code: 'SAFE_OP_EXECUTE_GATED',
+  enabledOperationTypes: SAFE_OPS_ENABLED_EXECUTE_OPERATION_TYPES,
+  writeWillExecute: true,
   externalCallWillExecute: false,
 })
 
 const OPERATION_POLICIES = Object.freeze([
+  {
+    operationType: 'order.internal_note.update',
+    domain: 'Orders',
+    riskLevel: 'low',
+    scope: 'internal-db-only',
+    allowPreview: true,
+    allowWrite: true,
+    allowExecute: true,
+    allowedFields: ['internal_note'],
+    externalCallAllowed: false,
+    requiresConfirm: true,
+    requiresIdempotency: true,
+    rollbackExecutable: false,
+    requiresDbMigrationForWrite: false,
+    requiresExternalCredential: false,
+    requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
+  },
   {
     operationType: 'order.status.transition.preview',
     domain: 'Orders',
@@ -180,6 +202,7 @@ module.exports = {
   EXECUTE_POLICY,
   IDEMPOTENCY_POLICY,
   OPERATION_POLICIES,
+  SAFE_OPS_ENABLED_EXECUTE_OPERATION_TYPES,
   SAFE_OPS_EXECUTE_ENABLED,
   SAFE_OPS_SAFE_MODE,
   SAFE_OPS_WRITE_ENABLED,

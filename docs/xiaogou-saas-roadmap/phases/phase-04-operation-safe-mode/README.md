@@ -10,15 +10,16 @@
 - UI-V2 已接入 disabled preview entry，页面仍不直接调用底层 bridge；
 - safeOps migration SQL / rollback SQL / protected runner 已准备，本地测试库已 apply；
 - safeOps persistence / crypto / repository 已接入本地 safeOps 表，DB 不可用时安全降级 noop；
-- safeOps execute disabled skeleton 已完成，未新增 execute IPC / preload；
+- safeOps execute gated skeleton 已完成，`safeOps:execute` / preload 仅允许 `order.internal_note.update`；
 - Phase 04+ 后续六阶段快速推进路线图已落档；
 - 阶段 1A 已完成：为首个低风险内部写操作新增 `rental_orders.internal_note` additive schema；
-- Phase 04 尚未进入真实写操作实现。
+- 阶段 1B 已完成：首个真实内部写 `order.internal_note.update` 已通过 safeOps 闭环开放；
+- Phase 04 当前仅开放单一真实内部写 operation，其它 execute 仍 disabled。
 
 当前 checkpoint：
 
 ```text
-5c32e03 feat: wire safeops persistence to local db
+39ca3a1 chore: add internal note migration for rental orders
 ```
 
 核心原则：
@@ -26,7 +27,8 @@
 - UI-V2 页面不得直接调用底层写 IPC；
 - 后续真实写操作必须通过统一 `safeOps`；
 - 所有高风险操作必须先 `dry-run`，再二次确认，再审计执行；
-- 当前 execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
+- 当前 execute 仅允许 `order.internal_note.update`；
+- 其它 operationType execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
 - 顺丰真实下单、免押真实审核、DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：
@@ -42,10 +44,10 @@
 
 当前未开放：
 
-- `safeOps.execute` IPC / preload；
+- 除 `order.internal_note.update` 之外的其它 `safeOps.execute` operation；
 - `safeOps.rollback`；
 - `safeOps.audit:list`；
-- 真实业务表 write；
+- 除 `rental_orders.internal_note` 之外的真实业务表 write；
 - 顺丰 / 免押真实外部写入。
 
 当前 DB persistence 范围：
@@ -57,7 +59,8 @@
 
 当前仍然禁止：
 
-- 新增 `safeOps:execute` / `safeOps:rollback` / `safeOps:audit:list` IPC；
+- 新增 `safeOps:rollback` / `safeOps:audit:list` IPC；
+- 通过 `safeOps:execute` 执行 `order.internal_note.update` 以外的 operationType；
 - 修改订单状态、设备、档期、物流、免押等业务表；
 - 调用顺丰、免押或其他外部写接口；
 - 展示完整 confirm token。
@@ -79,8 +82,30 @@
 - 不调用顺丰、免押、闲鱼或其它外部 API；
 - 不改变订单状态、金额、客户、地址、租期、设备、档期或物流字段；
 - 不写业务数据；
-- 不开放 `safeOps.execute`；
-- 后续阶段 1B 才允许开放单一 operationType：`order.internal_note.update`。
+- 不开放外部 API；
+- 后续阶段 1B 只允许开放单一 operationType：`order.internal_note.update`。
+
+## 阶段 1B：订单内部备注真实写闭环
+
+阶段 1B 已开放首个低风险内部写 operation：
+
+- operationType：`order.internal_note.update`
+- 写入目标：`rental_orders.internal_note`
+- 风险等级：`low`
+- scope：`internal-db-only`
+- 外部调用：禁用
+- rollback：仅保留 `not_executable` placeholder
+
+闭环要求：
+
+- `preview` 读取目标订单 before snapshot；
+- `preview` 写入 audit log、confirm token hash、idempotency key、rollback placeholder；
+- `execute` 校验本地 DB target、actor、confirm token、payload hash、impact hash、idempotency；
+- `execute` 只执行 `UPDATE rental_orders SET internal_note = ? WHERE id = ?`；
+- 成功后 audit status 更新为 `executed`；
+- idempotency 记录保存 same-result response；
+- 重复 execute 返回 duplicate / same-result，不重复 UPDATE；
+- 页面通过 UI-V2 safeOps adapter 触发，不直接访问底层 bridge。
 
 主计划文档：
 

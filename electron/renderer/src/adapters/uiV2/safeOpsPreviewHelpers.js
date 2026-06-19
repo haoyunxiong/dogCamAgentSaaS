@@ -28,10 +28,12 @@ export function toSafeOpsPreviewView(result = {}) {
   const idempotency = result?.idempotency || {}
   const persistence = result?.persistence || {}
   const confirmRequirement = result?.confirmRequirement || {}
+  const isExecuted = result?.mode === 'write' && result?.code === 'SAFE_OP_EXECUTED'
+  const executeReady = Boolean(result?.executeEnabled || execute.enabled)
 
   return {
-    title: isOk ? 'Operation preview / dry-run only' : 'Operation preview unavailable',
-    status: isOk ? 'not-open' : 'safe-error',
+    title: isExecuted ? 'Operation executed' : (isOk ? 'Operation preview' : 'Operation preview unavailable'),
+    status: isExecuted ? 'executed' : (executeReady ? 'confirm-required' : (isOk ? 'not-open' : 'safe-error')),
     mode: result?.mode || 'dry-run',
     riskLevel: result?.riskLevel || 'unknown',
     summary: result?.impact?.summary || result?.message || 'This action is preview-only and will not write data or call external services.',
@@ -39,7 +41,7 @@ export function toSafeOpsPreviewView(result = {}) {
     externalCallWillExecute: asFlag(result?.externalCallWillExecute),
     persistenceLabel: `${persistence.mode || 'noop'} / available=${asFlag(persistence.available)}`,
     auditLabel: `${audit.mode || 'noop'} / persisted=${asFlag(audit.persisted)} / id=${formatMaybe(audit.auditLogId)}`,
-    executeLabel: execute.code || `execute ${disabledLabel(execute.enabled)}`,
+    executeLabel: execute.code || (executeReady ? 'SAFE_OP_EXECUTE_READY' : `execute ${disabledLabel(execute.enabled)}`),
     confirmLabel: confirmRequirement.exists
       ? `exists / expires=${formatMaybe(confirmRequirement.expiresAt)}`
       : (result?.requiresConfirm ? 'required before future write' : 'not required'),

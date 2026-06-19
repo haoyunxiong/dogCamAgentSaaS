@@ -4,7 +4,7 @@
 
 ```text
 当前阶段：Phase 04 - Operation Safe Mode
-当前状态：safeOps dry-run persistence DB wiring 已完成 / execute 仍禁用 / 真实写操作未开始 / 阶段 1A 订单内部备注 additive schema 已完成
+当前状态：首个 safeOps 真实内部写 `order.internal_note.update` 已完成 / 仅允许更新 `rental_orders.internal_note` / 外部 API 与 rollback 仍关闭
 是否允许写代码：是（仅限 Phase 04 safeOps 安全闭环；真实 write 必须逐项 gated enable）
 是否允许操作 Figma：否
 是否允许改数据库：是（仅限用户已确认的本地 additive migration；不得操作生产库）
@@ -43,21 +43,22 @@
 - [x] audit / idempotency / confirm / rollback-plan DB persistence 接入
 - [x] Phase 04+ 后续六阶段快速推进路线图已落档
 - [x] 阶段 1A 已完成：`rental_orders.internal_note` 受控 additive migration 已本地 apply
-- [ ] 内部 DB write 安全模式确认
+- [x] 阶段 1B 已完成：`order.internal_note.update` 首个低风险内部写闭环已打通
+- [x] 内部 DB write 安全模式确认（首个低风险 operation 已通过 safeOps 验证）
 - [ ] 真实外部 write 开关经用户单独确认
 
 ## 当前下一步
 
 ```text
-Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；阶段 1A `rental_orders.internal_note` additive migration 已完成，下一步进入阶段 1B `order.internal_note.update` 首个低风险内部写闭环。
+Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；阶段 1A `rental_orders.internal_note` additive migration 已完成；阶段 1B `order.internal_note.update` 首个低风险内部写闭环已完成。
 ```
 
-Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 execute IPC / rollback IPC / audit:list IPC。
+Phase 04 已进入单 operation 真实内部写模式。当前仅 `order.internal_note.update` 可通过 safeOps execute 写入 `rental_orders.internal_note`；其它 operationType execute 仍返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 rollback IPC / audit:list IPC。
 
 当前 checkpoint：
 
 ```text
-03d9f34 docs: add phase 04 plus six-stage execution roadmap
+39ca3a1 chore: add internal note migration for rental orders
 ```
 
 真实写操作必须先具备：
@@ -86,8 +87,19 @@ Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_O
 - 字段用途：商家内部备注 / 内部标记，仅供本地内部操作使用；
 - 不同步顺丰、免押、闲鱼或其它外部平台；
 - 不改变订单状态、金额、客户、地址、租期、设备、档期或物流字段；
-- 不开放 `safeOps.execute`；
-- 后续阶段 1B 才允许实现 `order.internal_note.update`。
+- 不开放外部 API；
+- 阶段 1B 已在 safeOps 下开放单一 operationType：`order.internal_note.update`。
+
+阶段 1B 边界：
+
+- 唯一真实写 operationType：`order.internal_note.update`；
+- 写入目标仅限：`rental_orders.internal_note`；
+- 必须经过：`preview -> confirm token -> idempotency -> audit -> execute -> after snapshot`；
+- preview 会写入 audit / confirm token hash / idempotency key / rollback placeholder；
+- execute 会校验本地 DB target、actor、confirm token、payload hash、impact hash、idempotency；
+- 重复 execute 返回 idempotent duplicate / same-result，不重复 UPDATE；
+- rollback 仍为 `not_executable` placeholder；
+- 顺丰、免押、闲鱼、Python、外部 API 仍禁用。
 
 Phase 04 文档入口：
 

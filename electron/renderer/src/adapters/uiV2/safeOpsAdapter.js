@@ -12,6 +12,7 @@ const EXECUTE_DISABLED_POLICY = Object.freeze({
 })
 
 const SAFE_OP_POLICIES = Object.freeze([
+  { operationType: 'order.internal_note.update', domain: 'Orders', riskLevel: 'low', requiresExternalCredential: false, allowExecute: true },
   { operationType: 'order.status.transition.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'order.edit.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'device.update.preview', domain: 'Devices', riskLevel: 'high', requiresExternalCredential: false },
@@ -25,6 +26,7 @@ const SAFE_OP_POLICIES = Object.freeze([
 const POLICY_BY_OPERATION = new Map(SAFE_OP_POLICIES.map((policy) => [policy.operationType, policy]))
 
 const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
+  'order.internal_note.update': 'Renderer noop internal note preview. Real local write requires Electron safeOps execute and will not call external services.',
   'order.status.transition.preview': 'Renderer noop order status preview. This is dry-run only and will not change order state, schedule, logistics, or notifications.',
   'order.edit.preview': 'Renderer noop order edit preview. This is dry-run only and will not change order fields, fees, devices, schedule, or logistics.',
   'device.update.preview': 'Renderer noop device update preview. This is dry-run only and will not change device profile, inventory, or availability.',
@@ -65,8 +67,9 @@ function buildLocalPolicy() {
     operations: cloneJson(SAFE_OP_POLICIES).map((policy) => ({
       ...policy,
       allowPreview: true,
-      allowWrite: false,
-      requiresDbMigrationForWrite: true,
+      allowWrite: Boolean(policy.allowExecute),
+      allowExecute: Boolean(policy.allowExecute),
+      requiresDbMigrationForWrite: !policy.allowExecute,
       requiresUserConfirmationForWrite: true,
     })),
     audit: { mode: 'noop', persisted: false },
@@ -153,6 +156,28 @@ function buildLocalPreview(payload = {}) {
   }
 }
 
+function buildLocalExecuteDisabled(operationType) {
+  return {
+    ok: false,
+    supported: true,
+    code: 'SAFE_OP_EXECUTE_DISABLED',
+    message: 'safeOps execute is unavailable in renderer preview mode.',
+    operationType: normalizeOperationType(operationType),
+    mode: 'execute-disabled',
+    writeWillExecute: false,
+    externalCallWillExecute: false,
+    rollback: {
+      mode: 'noop',
+      planned: false,
+      persisted: false,
+      canRollback: false,
+      compensationRequired: false,
+      reason: 'renderer-preview-no-execute',
+    },
+    source: 'renderer-noop',
+  }
+}
+
 function buildSafeError(code, message) {
   return {
     ok: false,
@@ -188,7 +213,72 @@ async function preview(payload = {}) {
   }
 }
 
+async function execute(payload = {}) {
+  try {
+    const operationType = normalizeOperationType(payload.operationType)
+    if (operationType !== 'order.internal_note.update') {
+      return buildLocalExecuteDisabled(operationType)
+    }
+
+    const bridge = getSafeOpsBridge()
+    if (!bridge || typeof bridge.execute !== 'function') {
+      return buildLocalExecuteDisabled(operationType)
+    }
+
+    const result = await bridge.execute(payload || {})
+    return result && typeof result === 'object'
+      ? result
+      : buildSafeError('SAFE_OP_EXECUTE_ERROR', 'safeOps execute returned an invalid response')
+  } catch (error) {
+    return buildSafeError('SAFE_OP_EXECUTE_ERROR', error?.message)
+  }
+}
+
+export async function previewOrderInternalNoteUpdate({
+  orderId,
+  internalNote,
+  actor,
+  clientRequestId,
+} = {}) {
+  return preview({
+    operationType: 'order.internal_note.update',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'order', id: String(orderId || '') },
+    payload: {
+      orderId: String(orderId || ''),
+      internalNote: String(internalNote ?? ''),
+    },
+    clientRequestId: clientRequestId || `ui-v2-order-note-preview-${Date.now()}`,
+  })
+}
+
+export async function executeOrderInternalNoteUpdate({
+  previewResult,
+  orderId,
+  internalNote,
+  actor,
+  clientRequestId,
+} = {}) {
+  return execute({
+    operationType: 'order.internal_note.update',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'order', id: String(orderId || '') },
+    payload: {
+      orderId: String(orderId || ''),
+      internalNote: String(internalNote ?? ''),
+    },
+    clientRequestId: clientRequestId || `ui-v2-order-note-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
+  execute,
+  previewOrderInternalNoteUpdate,
+  executeOrderInternalNoteUpdate,
 }
