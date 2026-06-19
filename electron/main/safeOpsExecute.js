@@ -4,6 +4,8 @@ const {
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
+const { executeExternalOperation } = require('./safeOpsExternalGateway')
+const { isExternalOperationType } = require('./safeOpsExternalPolicy')
 const {
   buildStableIdempotencyKey,
   normalizeActor,
@@ -1697,6 +1699,10 @@ async function executeSafeOperation(request = {}) {
         writeWillExecute: false,
         externalCallWillExecute: false,
       }
+    }
+
+    if (isExternalOperationType(operationType)) {
+      return executeExternalOperation({ ...request, operationType })
     }
 
     if (!ENABLED_OPERATION_TYPES.has(operationType) || !policy.allowExecute) {

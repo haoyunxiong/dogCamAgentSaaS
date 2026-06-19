@@ -1,7 +1,7 @@
 <template>
   <UiV2Page title="物流发货" description="物流只读可视化，展示运单、揽收、运输和异常状态。">
     <template #actions>
-      <BaseButton variant="secondary" @click="previewShipment('page-action')">顺丰/发货预览</BaseButton>
+      <BaseButton variant="secondary" @click="previewShipment('page-action')">顺丰网关预览</BaseButton>
       <BaseButton @click="previewLogisticsLocalRecordCreate">新增本地发货记录</BaseButton>
     </template>
     <div class="adapter-source-row">
@@ -19,9 +19,10 @@
       <div><span>audit</span><strong>{{ shipmentPreview.view.auditLabel }}</strong></div>
       <div><span>confirm</span><strong>{{ shipmentPreview.view.confirmLabel }}</strong></div>
       <div><span>idempotency</span><strong>{{ shipmentPreview.view.idempotencyLabel }}</strong></div>
+      <div><span>external gateway</span><strong>{{ shipmentPreview.view.externalGatewayLabel }}</strong></div>
       <div><span>duplicate</span><strong>{{ shipmentPreview.view.duplicateRecordLabel }}</strong></div>
       <div><span>开放状态</span><strong>{{ logisticsPreviewStatusLabel }}</strong></div>
-      <div><span>说明</span><strong>本地记录 / 不调用外部服务 / 不更新订单状态</strong></div>
+      <div><span>说明</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
     </section>
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" /></section>
     <div v-if="loading" class="adapter-state">物流只读数据读取中...</div>
@@ -61,7 +62,7 @@
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedWaybill?.id || '运单详情'" :subtitle="selectedWaybill?.orderId || ''" width="560" test-id="logistics-waybill-drawer">
       <div v-if="selectedWaybill" class="ui-v2-stack">
-        <DrawerSummary :status="selectedWaybill.shippingStatus" :title="selectedWaybill.customerName" :description="selectedWaybill.receiverAddress" :meta="`${selectedWaybill.carrier} · ${selectedWaybill.trackingNo || '待生成'} · dry-run only`" primary-label="发货预览" secondary-label="暂未开放" @primary="previewShipment('drawer-action')" @secondary="previewShipment('drawer-secondary')" />
+        <DrawerSummary :status="selectedWaybill.shippingStatus" :title="selectedWaybill.customerName" :description="selectedWaybill.receiverAddress" :meta="`${selectedWaybill.carrier} · ${selectedWaybill.trackingNo || '待生成'} · gateway disabled`" primary-label="顺丰网关预览" secondary-label="真实调用未开放" @primary="previewShipment('drawer-action')" @secondary="previewShipment('drawer-secondary')" />
         <section v-if="shipmentPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
           <div><span>模式</span><strong>{{ shipmentPreview.view.mode }}</strong></div>
@@ -73,6 +74,7 @@
           <div><span>风险等级</span><strong>{{ shipmentPreview.view.riskLevel }}</strong></div>
           <div><span>confirm</span><strong>{{ shipmentPreview.view.confirmLabel }}</strong></div>
           <div><span>idempotency</span><strong>{{ shipmentPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>external gateway</span><strong>{{ shipmentPreview.view.externalGatewayLabel }}</strong></div>
           <div><span>duplicate</span><strong>{{ shipmentPreview.view.duplicateRecordLabel }}</strong></div>
           <div><span>开放状态</span><strong>{{ logisticsPreviewStatusLabel }}</strong></div>
         </section>
@@ -116,7 +118,7 @@
           <div><span>下一步</span><strong>{{ selectedWaybill.nextAction }}</strong></div>
         </section>
         <UiV2Section title="物流时间线"><TrackingTimeline :steps="selectedWaybill.timeline" /></UiV2Section>
-        <UiV2Section title="安全说明"><p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p></UiV2Section>
+        <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；gateway disabled；不会调用顺丰；不会产生外部费用。</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
@@ -225,6 +227,7 @@ const canExecuteLogisticsLocalRecord = computed(() => {
 const logisticsPreviewStatusLabel = computed(() => {
   const result = shipmentPreview.value?.result || {}
   if (result.mode === 'write' && result.code === 'SAFE_OP_EXECUTED') return '已执行'
+  if (result.externalGateway) return '外部真实调用未开放 / gateway disabled'
   if (result.operationType === 'logistics.local_record.create' && shipmentPreview.value?.view?.blockers?.length) return '已阻断'
   if (result.operationType === 'logistics.local_record.create' && result.executeEnabled) return '需要确认'
   return '暂未开放'
@@ -271,7 +274,7 @@ function buildLocalRecordPayload() {
 }
 async function previewShipment(reason) {
   shipmentPreview.value = { ...shipmentPreview.value, loading: true, error: '' }
-  shipmentPreview.value = await runSafeOpsPreview('logistics.shipment.preview', {
+  shipmentPreview.value = await runSafeOpsPreview('logistics.sf.create_order', {
     target: {
       type: 'shipment',
       id: selectedWaybill.value?.id || '',
@@ -285,6 +288,7 @@ async function previewShipment(reason) {
       receiverName: selectedWaybill.value?.customerName || '',
       receiverAddress: selectedWaybill.value?.receiverAddress || '',
       senderName: 'merchant',
+      providerName: 'sf_express',
       reason,
       source: 'logistics-page',
     },

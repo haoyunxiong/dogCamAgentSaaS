@@ -1,6 +1,6 @@
 <template>
   <UiV2Page title="免押管理" description="免押本地缓存只读视图，查看风险状态、押金状态和后续处理提示。">
-    <template #actions><BaseButton variant="secondary" @click="previewDepositCreate('page-action')">创建预览</BaseButton></template>
+    <template #actions><BaseButton variant="secondary" @click="previewDepositCreate('page-action')">免押网关预览</BaseButton></template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
@@ -8,7 +8,7 @@
     </div>
     <section v-if="depositPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
-      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
       <div><span>persistence</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
@@ -16,7 +16,8 @@
       <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
       <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
       <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
-      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+      <div><span>external gateway</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
+      <div><span>说明</span><strong>不会写入 / 不会调用免押外部服务</strong></div>
     </section>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
     <div v-if="loading" class="adapter-state">免押本地缓存读取中...</div>
@@ -45,10 +46,10 @@
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
-        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · dry-run only`" primary-label="创建预览" danger-label="完结预览" @primary="previewDepositCreate('drawer-create')" @danger="previewDepositFinish" />
+        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · gateway disabled`" primary-label="创建网关预览" danger-label="完结网关预览" @primary="previewDepositCreate('drawer-create')" @danger="previewDepositFinish" />
         <section v-if="depositPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
-          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
           <div><span>persistence</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
@@ -57,6 +58,7 @@
           <div><span>风险等级</span><strong>{{ depositPreview.view.riskLevel }}</strong></div>
           <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
           <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>external gateway</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
@@ -65,7 +67,7 @@
           <div><span>负责人</span><strong>{{ selectedReview.assignee }}</strong></div>
         </section>
         <UiV2Section title="审核判断"><p>{{ selectedReview.riskReason }}</p></UiV2Section>
-        <UiV2Section title="安全说明"><p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p></UiV2Section>
+        <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；gateway disabled；不会调用免押服务；不会改变外部信用或资金相关状态。</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
@@ -130,7 +132,7 @@ function openReview(review) {
 }
 async function previewDepositCreate(reason) {
   depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
-  depositPreview.value = await runSafeOpsPreview('deposit.create.preview', {
+  depositPreview.value = await runSafeOpsPreview('deposit.create', {
     target: {
       type: 'deposit',
       id: selectedReview.value?.id || selectedReview.value?.orderNo || '',
@@ -143,6 +145,7 @@ async function previewDepositCreate(reason) {
       customerName: selectedReview.value?.customerName || '',
       modelCode: selectedReview.value?.model || '',
       requestedFreeAmount: selectedReview.value?.requestedFreeAmount || '',
+      providerName: 'deposit_service',
       reason,
       source: 'deposit-page',
     },
@@ -151,7 +154,7 @@ async function previewDepositCreate(reason) {
 
 async function previewDepositFinish() {
   depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
-  depositPreview.value = await runSafeOpsPreview('deposit.finish.preview', {
+  depositPreview.value = await runSafeOpsPreview('deposit.finish', {
     target: {
       type: 'deposit',
       id: selectedReview.value?.id || selectedReview.value?.orderNo || '',
@@ -162,6 +165,7 @@ async function previewDepositFinish() {
     payload: {
       orderId: selectedReview.value?.orderNo || '',
       customerName: selectedReview.value?.customerName || '',
+      providerName: 'deposit_service',
       source: 'deposit-drawer',
     },
   })

@@ -10,6 +10,19 @@ const EXECUTE_DISABLED_POLICY = Object.freeze({
   writeWillExecute: false,
   externalCallWillExecute: false,
 })
+const EXTERNAL_EXECUTE_DISABLED_POLICY = Object.freeze({
+  enabled: false,
+  code: 'SAFE_OP_EXTERNAL_DISABLED',
+  writeWillExecute: false,
+  externalCallWillExecute: false,
+})
+const EXTERNAL_OPERATION_TYPES = Object.freeze([
+  'logistics.sf.create_order',
+  'logistics.sf.cancel_order',
+  'deposit.create',
+  'deposit.finish',
+  'xianyu.order.sync',
+])
 
 const SAFE_OP_POLICIES = Object.freeze([
   { operationType: 'order.internal_note.update', domain: 'Orders', riskLevel: 'low', requiresExternalCredential: false, allowExecute: true },
@@ -25,6 +38,11 @@ const SAFE_OP_POLICIES = Object.freeze([
   { operationType: 'logistics.shipment.preview', domain: 'Logistics', riskLevel: 'critical', requiresExternalCredential: true },
   { operationType: 'deposit.create.preview', domain: 'Deposit', riskLevel: 'critical', requiresExternalCredential: true },
   { operationType: 'deposit.finish.preview', domain: 'Deposit', riskLevel: 'critical', requiresExternalCredential: true },
+  { operationType: 'logistics.sf.create_order', domain: 'Logistics', riskLevel: 'critical', requiresExternalCredential: true, providerName: 'sf_express', gatewayStatus: 'disabled' },
+  { operationType: 'logistics.sf.cancel_order', domain: 'Logistics', riskLevel: 'critical', requiresExternalCredential: true, providerName: 'sf_express', gatewayStatus: 'disabled' },
+  { operationType: 'deposit.create', domain: 'Deposit', riskLevel: 'critical', requiresExternalCredential: true, providerName: 'deposit_service', gatewayStatus: 'disabled' },
+  { operationType: 'deposit.finish', domain: 'Deposit', riskLevel: 'critical', requiresExternalCredential: true, providerName: 'deposit_service', gatewayStatus: 'disabled' },
+  { operationType: 'xianyu.order.sync', domain: 'Orders', riskLevel: 'critical', requiresExternalCredential: true, providerName: 'xianyu_platform', gatewayStatus: 'disabled' },
 ])
 
 const POLICY_BY_OPERATION = new Map(SAFE_OP_POLICIES.map((policy) => [policy.operationType, policy]))
@@ -43,6 +61,11 @@ const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
   'logistics.shipment.preview': 'Renderer noop shipment preview. This is dry-run only and will not save shipment drafts, create waybills, charge fees, or call carrier services.',
   'deposit.create.preview': 'Renderer noop deposit create preview. This is dry-run only and will not create deposit orders or change local cache.',
   'deposit.finish.preview': 'Renderer noop deposit finish preview. This is dry-run only and will not finish deposit orders or change local cache.',
+  'logistics.sf.create_order': 'External gateway disabled. SF Express real order creation is not open and no external call will run.',
+  'logistics.sf.cancel_order': 'External gateway disabled. SF Express real cancellation is not open and no external call will run.',
+  'deposit.create': 'External gateway disabled. Deposit real creation is not open and no external call will run.',
+  'deposit.finish': 'External gateway disabled. Deposit real finish is not open and no external call will run.',
+  'xianyu.order.sync': 'External gateway disabled. Xianyu real order sync is not open and no external call will run.',
 })
 
 function cloneJson(value) {
@@ -84,6 +107,19 @@ function buildLocalPolicy() {
     confirmToken: { enabled: false, requiredForWrite: true, persisted: false },
     idempotency: { mode: 'noop', requiredForWrite: true, persisted: false },
     execute: cloneJson(EXECUTE_DISABLED_POLICY),
+    external: {
+      ok: true,
+      mode: 'external-policy',
+      defaultMode: 'disabled',
+      modes: ['disabled', 'mock', 'sandbox', 'real'],
+      realEnabled: false,
+      externalWritesEnabled: false,
+      providers: [
+        { providerName: 'sf_express', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
+        { providerName: 'deposit_service', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
+        { providerName: 'xianyu_platform', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
+      ],
+    },
     persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
     source: 'renderer-noop',
   }
@@ -106,6 +142,7 @@ function buildLocalPreview(payload = {}) {
   const policy = POLICY_BY_OPERATION.get(operationType)
 
   if (!policy) return buildUnsupportedPreview(operationType)
+  const isExternalOperation = EXTERNAL_OPERATION_TYPES.includes(operationType)
 
   return {
     ok: true,
@@ -115,8 +152,8 @@ function buildLocalPreview(payload = {}) {
     writeWillExecute: false,
     externalCallWillExecute: false,
     riskLevel: policy.riskLevel,
-    warnings: [],
-    blockers: [],
+    warnings: isExternalOperation ? ['External gateway is disabled by default.'] : [],
+    blockers: isExternalOperation ? ['External real call is disabled.', 'External execute is not implemented for this operationType.'] : [],
     impact: {
       summary: LOCAL_PREVIEW_SUMMARIES[operationType] || 'Renderer noop safeOps preview. This action is dry-run only and will not write data or call external services.',
       affectedRecords: [],
@@ -133,7 +170,40 @@ function buildLocalPreview(payload = {}) {
     persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
     requiresConfirm: true,
     requiresIdempotencyKey: true,
-    execute: cloneJson(EXECUTE_DISABLED_POLICY),
+    execute: cloneJson(isExternalOperation ? EXTERNAL_EXECUTE_DISABLED_POLICY : EXECUTE_DISABLED_POLICY),
+    externalGateway: isExternalOperation
+      ? {
+          providerName: policy.providerName,
+          currentMode: 'disabled',
+          realEnabled: false,
+          sandboxEnabled: false,
+          mockEnabled: false,
+          externalWritesEnabled: false,
+          externalCallWillExecute: false,
+          providerStatus: 'disabled',
+          compensationRequired: true,
+        }
+      : null,
+    externalAudit: isExternalOperation
+      ? {
+          mode: 'external-audit-shape',
+          required: true,
+          persisted: false,
+          providerName: policy.providerName,
+          operationType,
+          status: 'blocked',
+        }
+      : null,
+    externalIdempotency: isExternalOperation
+      ? {
+          mode: 'external-idempotency-shape',
+          required: true,
+          persisted: false,
+          providerName: policy.providerName,
+          operationType,
+          status: 'blocked',
+        }
+      : null,
     confirmToken: null,
     confirmRequirement: {
       enabled: false,
@@ -165,15 +235,27 @@ function buildLocalPreview(payload = {}) {
 }
 
 function buildLocalExecuteDisabled(operationType) {
+  const normalizedOperationType = normalizeOperationType(operationType)
+  const isExternalOperation = EXTERNAL_OPERATION_TYPES.includes(normalizedOperationType)
   return {
     ok: false,
     supported: true,
-    code: 'SAFE_OP_EXECUTE_DISABLED',
-    message: 'safeOps execute is unavailable in renderer preview mode.',
-    operationType: normalizeOperationType(operationType),
-    mode: 'execute-disabled',
+    code: isExternalOperation ? 'SAFE_OP_EXTERNAL_DISABLED' : 'SAFE_OP_EXECUTE_DISABLED',
+    message: isExternalOperation
+      ? 'External gateway real execution is disabled. No external call will run.'
+      : 'safeOps execute is unavailable in renderer preview mode.',
+    operationType: normalizedOperationType,
+    mode: isExternalOperation ? 'external-execute-disabled' : 'execute-disabled',
     writeWillExecute: false,
     externalCallWillExecute: false,
+    externalGateway: isExternalOperation
+      ? {
+          currentMode: 'disabled',
+          realEnabled: false,
+          externalWritesEnabled: false,
+          externalCallWillExecute: false,
+        }
+      : null,
     rollback: {
       mode: 'noop',
       planned: false,

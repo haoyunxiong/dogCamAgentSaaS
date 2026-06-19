@@ -6,6 +6,12 @@ const {
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
+const {
+  previewExternalOperation,
+} = require('./safeOpsExternalGateway')
+const {
+  isExternalOperationType,
+} = require('./safeOpsExternalPolicy')
 const { persistSafeOperationContext } = require('./safeOpsPersistence')
 const { createSafeOpsRepository } = require('./safeOpsRepository')
 const {
@@ -33,6 +39,11 @@ const IMPACT_SUMMARIES = Object.freeze({
   'logistics.shipment.preview': 'Shipment dry-run only. No shipment draft will be saved, no carrier API will be called, and no cost will be incurred.',
   'deposit.create.preview': 'Deposit create dry-run only. No deposit platform API will be called and no local deposit order will be written.',
   'deposit.finish.preview': 'Deposit finish dry-run only. No deposit platform API will be called and no local deposit state will be changed.',
+  'logistics.sf.create_order': 'External gateway preview only. SF Express real order creation is disabled and no external call will run.',
+  'logistics.sf.cancel_order': 'External gateway preview only. SF Express real cancellation is disabled and no external call will run.',
+  'deposit.create': 'External gateway preview only. Deposit real creation is disabled and no external call will run.',
+  'deposit.finish': 'External gateway preview only. Deposit real finish is disabled and no external call will run.',
+  'xianyu.order.sync': 'External gateway preview only. Xianyu real order sync is disabled and no external call will run.',
 })
 
 function buildPreviewImpact(operationType) {
@@ -798,6 +809,10 @@ async function buildLogisticsLocalRecordCreatePreview(request = {}) {
 }
 
 async function buildDomainPreview(operationType, request) {
+  if (isExternalOperationType(operationType)) {
+    return previewExternalOperation({ ...request, operationType })
+  }
+
   switch (operationType) {
     case 'order.internal_note.update':
       return buildOrderInternalNoteUpdatePreview(request)
@@ -858,6 +873,9 @@ async function previewSafeOperation(request = {}) {
       impact: domainPreview.impact,
       conflictCheck: domainPreview.conflictCheck || null,
       duplicateRecordCheck: domainPreview.duplicateRecordCheck || null,
+      externalGateway: domainPreview.externalGateway || null,
+      externalAudit: domainPreview.externalAudit || null,
+      externalIdempotency: domainPreview.externalIdempotency || null,
     }
     const persistence = await persistSafeOperationContext({
       request: { ...request, operationType },

@@ -90,7 +90,7 @@
           :title="selectedOrder.customerName"
           :description="`${selectedOrder.channel} · ${selectedOrder.model}`"
           :meta="`${selectedOrder.rentStart || '-'} 至 ${selectedOrder.rentEnd || '-'}`"
-          primary-label="顺丰预览"
+          primary-label="顺丰网关预览"
           secondary-label="状态预览"
           danger-label="编辑预览"
           @primary="openShippingPreview"
@@ -175,19 +175,19 @@
       </template>
     </BaseDrawer>
 
-    <BaseDrawer v-model="shippingOpen" title="顺丰寄件预览" :subtitle="selectedOrder?.orderNo || ''" width="520" test-id="shipping-drawer">
+    <BaseDrawer v-model="shippingOpen" title="顺丰网关预览" :subtitle="selectedOrder?.orderNo || ''" width="520" test-id="shipping-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
         <DrawerSummary
           status="dry-run only"
           :title="selectedOrder.customerName"
           :description="selectedOrder.address"
-          :meta="`${selectedOrder.model} · 暂未开放 · 不会写入`"
+          :meta="`${selectedOrder.model} · gateway disabled · 不会写入`"
           primary-label="重新预览"
           @primary="openShippingPreview"
         />
         <section v-if="shippingPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-safeops-preview">
           <div><span>操作预览</span><strong>{{ shippingPreview.view.title }}</strong></div>
-          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
           <div><span>persistence</span><strong>{{ shippingPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ shippingPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ shippingPreview.view.writeWillExecute }}</strong></div>
@@ -196,6 +196,7 @@
           <div><span>风险等级</span><strong>{{ shippingPreview.view.riskLevel }}</strong></div>
           <div><span>confirm</span><strong>{{ shippingPreview.view.confirmLabel }}</strong></div>
           <div><span>idempotency</span><strong>{{ shippingPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>external gateway</span><strong>{{ shippingPreview.view.externalGatewayLabel }}</strong></div>
         </section>
         <p v-if="shippingPreview.error" class="adapter-source__error">{{ shippingPreview.error }}</p>
         <UiV2Section title="寄件信息">
@@ -207,7 +208,7 @@
           </div>
         </UiV2Section>
         <UiV2Section title="安全说明">
-          <p class="drawer-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p>
+          <p class="drawer-note">外部真实调用未开放；gateway disabled；不会调用顺丰；不会生成真实运单或费用。</p>
           <p v-if="shippingPreview.view" class="drawer-note">{{ shippingPreview.view.summary }}</p>
         </UiV2Section>
       </div>
@@ -552,7 +553,7 @@ async function openBulkEditPreview() {
 async function openShippingPreview() {
   shippingOpen.value = true
   shippingPreview.value = { ...shippingPreview.value, loading: true, error: '' }
-  shippingPreview.value = await runSafeOpsPreview('logistics.shipment.preview', {
+  shippingPreview.value = await runSafeOpsPreview('logistics.sf.create_order', {
     target: {
       type: 'shipment',
       id: selectedOrder.value?.orderNo || '',
@@ -565,6 +566,7 @@ async function openShippingPreview() {
       receiverName: selectedOrder.value?.customerName || '',
       receiverAddress: selectedOrder.value?.address || '',
       senderName: 'merchant',
+      providerName: 'sf_express',
       source: 'orders-drawer',
     },
   })

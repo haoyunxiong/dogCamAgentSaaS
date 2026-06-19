@@ -1,3 +1,8 @@
+const {
+  EXTERNAL_OPERATION_POLICIES,
+  getExternalPolicy,
+} = require('./safeOpsExternalPolicy')
+
 const SAFE_OPS_SAFE_MODE = 'gated-internal-write'
 const SAFE_OPS_WRITE_ENABLED = true
 const SAFE_OPS_EXECUTE_ENABLED = true
@@ -36,6 +41,33 @@ const EXECUTE_POLICY = Object.freeze({
   writeWillExecute: true,
   externalCallWillExecute: false,
 })
+
+const EXTERNAL_SAFE_OPERATION_POLICIES = Object.freeze(
+  EXTERNAL_OPERATION_POLICIES.map((operation) => Object.freeze({
+    operationType: operation.operationType,
+    domain: operation.domain,
+    riskLevel: operation.riskLevel,
+    scope: 'external-gateway-disabled',
+    providerName: operation.providerName,
+    externalAction: operation.externalAction,
+    allowPreview: true,
+    allowWrite: false,
+    allowExecute: false,
+    externalCallAllowed: false,
+    externalCallWillExecute: false,
+    externalWritesEnabled: false,
+    requiresConfirm: true,
+    requiresIdempotency: true,
+    requiresAudit: true,
+    rollbackExecutable: false,
+    compensationRequired: true,
+    requiresDbMigrationForWrite: false,
+    requiresExternalCredential: true,
+    requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
+    gatewayStatus: 'disabled',
+  }))
+)
 
 const OPERATION_POLICIES = Object.freeze([
   {
@@ -255,6 +287,7 @@ const OPERATION_POLICIES = Object.freeze([
     requiresUserConfirmationForWrite: true,
     requiresIdempotencyKeyForWrite: true,
   },
+  ...EXTERNAL_SAFE_OPERATION_POLICIES,
 ])
 
 const OPERATION_POLICY_BY_TYPE = new Map(
@@ -288,6 +321,7 @@ function getSafeOpsPolicy() {
     confirmToken: cloneJson(CONFIRM_TOKEN_POLICY),
     idempotency: cloneJson(IDEMPOTENCY_POLICY),
     execute: cloneJson(EXECUTE_POLICY),
+    external: getExternalPolicy(),
   }
 }
 

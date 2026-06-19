@@ -34,6 +34,7 @@ export function toSafeOpsPreviewView(result = {}) {
   const warnings = Array.isArray(result?.warnings) ? result.warnings.filter(Boolean) : []
   const conflictCheck = result?.conflictCheck || {}
   const duplicateRecordCheck = result?.duplicateRecordCheck || {}
+  const externalGateway = result?.externalGateway || {}
 
   return {
     title: isExecuted ? 'Operation executed' : (isOk ? 'Operation preview' : 'Operation preview unavailable'),
@@ -55,6 +56,9 @@ export function toSafeOpsPreviewView(result = {}) {
     rollbackLabel: result?.rollback?.planned
       ? `${result.rollback.status || 'planned'} / id=${formatMaybe(result.rollback.rollbackPlanId)}`
       : 'not planned',
+    externalGatewayLabel: externalGateway.providerName || externalGateway.currentMode
+      ? `${externalGateway.providerName || 'external'} / mode=${externalGateway.currentMode || 'disabled'} / real=${asFlag(externalGateway.realEnabled)} / writes=${asFlag(externalGateway.externalWritesEnabled)}`
+      : 'not configured',
     conflictLabel: conflictCheck.checked
       ? `${conflictCheck.passed ? 'passed' : 'blocked'} / conflicts=${formatMaybe(conflictCheck.conflictCount, 0)}`
       : (conflictCheck.reason || 'not checked'),

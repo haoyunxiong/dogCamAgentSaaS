@@ -23,6 +23,7 @@
 - 阶段 2B `schedule.block.create` / `schedule.block.cancel` 已开放为档期 block 创建 / 取消内部写 operation。
 - 阶段 2C `logistics.local_record.create` 已开放为物流本地发货记录创建内部写 operation。
 - 阶段 2 内部写操作统一收口已完成，当前共有 5 个 gated internal write operationTypes。
+- 阶段 3A external gateway skeleton 已完成，真实外部调用仍默认 disabled。
 
 当前 safeOps 能力：
 
@@ -32,7 +33,8 @@
 - `preview` 可生成并写入 rollback placeholder；
 - `execute` 仅对 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create` gated enabled；
 - `rollback` 仍 unavailable；
-- 外部 API 禁用；
+- 外部 API real mode 禁用；
+- external gateway 当前只提供 disabled policy / preview / blocked execute；
 - 业务表真实写仅限 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消、单条本地 `shipping_records` 创建。
 
 阶段 2 收口结论：
@@ -161,6 +163,18 @@
 - 免押；
 - 闲鱼；
 - 其他未来外部写接口。
+
+阶段 3A 已完成边界：
+
+- 新增 external gateway skeleton；
+- provider：`sf_express`、`deposit_service`、`xianyu_platform`；
+- mode：`disabled`、`mock`、`sandbox`、`real`；
+- 默认 mode：`disabled`；
+- external operationType：`logistics.sf.create_order`、`logistics.sf.cancel_order`、`deposit.create`、`deposit.finish`、`xianyu.order.sync`；
+- `realEnabled=false`；
+- `externalWritesEnabled=false`；
+- external execute 返回 disabled / blocked；
+- UI 只显示“外部真实调用未开放 / gateway disabled”。
 
 规则：
 

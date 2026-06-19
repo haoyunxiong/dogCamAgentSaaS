@@ -15,6 +15,7 @@
 - 阶段 1A 已完成：为首个低风险内部写操作新增 `rental_orders.internal_note` additive schema；
 - 阶段 1B 已完成：首个真实内部写 `order.internal_note.update` 已通过 safeOps 闭环开放；
 - 阶段 2 已完成：设备基础字段、档期 block 创建 / 取消、物流本地发货记录创建已统一收口；
+- 阶段 3A 已完成：外部 API 安全网关骨架已落地，real mode 默认 disabled；
 - Phase 04 当前仅开放五个真实内部写 operation，其它 execute 仍 disabled。
 
 阶段 2 收口 checkpoint：
@@ -128,6 +129,52 @@
 - 页面服务验证后保持运行，便于继续从页面查看效果。
 
 阶段 3 下一步是外部 API 安全网关，不是直接开放真实外部调用。顺丰、免押、闲鱼等外部写能力必须默认 disabled，并先经过 mock / sandbox、二次确认、external idempotency、external audit 和失败补偿设计。
+
+## 阶段 3A：外部 API 安全网关骨架
+
+阶段 3A 已完成 external gateway skeleton。该阶段只建立外部写安全边界，不接入任何真实外部 API。
+
+Provider：
+
+- `sf_express`；
+- `deposit_service`；
+- `xianyu_platform`。
+
+Mode：
+
+- `disabled`；
+- `mock`；
+- `sandbox`；
+- `real`。
+
+当前默认：
+
+- `currentMode=disabled`；
+- `realEnabled=false`；
+- `sandboxEnabled=false`；
+- `mockEnabled=false`；
+- `externalWritesEnabled=false`；
+- `executeExternalOperation` 始终返回 disabled / blocked；
+- 不读取或输出真实 token、cookie、key；
+- 不调用 Python；
+- 不发送外部请求；
+- 不修改业务表；
+- 不新增 DB migration。
+
+当前 external operationType：
+
+- `logistics.sf.create_order`；
+- `logistics.sf.cancel_order`；
+- `deposit.create`；
+- `deposit.finish`；
+- `xianyu.order.sync`。
+
+阶段 3A UI 边界：
+
+- Orders / Logistics 的顺丰入口只显示“外部真实调用未开放 / gateway disabled”；
+- Deposit 的免押创建 / 完结入口只显示“外部真实调用未开放 / gateway disabled”；
+- 不启用真实外部按钮；
+- 页面服务验证后保持运行。
 
 ## 阶段 2B：档期 block 创建 / 取消真实写闭环
 
