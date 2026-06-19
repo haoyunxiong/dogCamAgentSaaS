@@ -11,7 +11,14 @@
 - safeOps migration SQL / rollback SQL / protected runner 已准备，本地测试库已 apply；
 - safeOps persistence / crypto / repository 已接入本地 safeOps 表，DB 不可用时安全降级 noop；
 - safeOps execute disabled skeleton 已完成，未新增 execute IPC / preload；
+- Phase 04+ 后续六阶段快速推进路线图已落档；
 - Phase 04 尚未进入真实写操作实现。
+
+当前 checkpoint：
+
+```text
+5c32e03 feat: wire safeops persistence to local db
+```
 
 核心原则：
 
@@ -57,3 +64,13 @@
 主计划文档：
 
 - `operation-safe-mode-plan.md`
+- `phase-04-plus-six-stage-roadmap.md`
+
+后续六阶段：
+
+1. 首个低风险内部写操作闭环；
+2. 扩展内部写操作；
+3. 外部 API 安全网关；
+4. 权限、账号、商户隔离；
+5. 生产环境迁移与上线准备；
+6. 产品闭环与商业化完善。

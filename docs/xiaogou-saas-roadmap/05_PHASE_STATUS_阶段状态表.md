@@ -5,7 +5,7 @@
 ```text
 当前阶段：Phase 04 - Operation Safe Mode
 当前状态：safeOps dry-run persistence DB wiring 已完成 / execute 仍禁用 / 真实写操作未开始
-是否允许写代码：是（仅限 Phase 04 safeOps 安全骨架；真实 write 仍禁止）
+是否允许写代码：是（仅限 Phase 04 safeOps 安全闭环；真实 write 必须逐项 gated enable）
 是否允许操作 Figma：否
 是否允许改数据库：否
 是否允许跨阶段开发：否
@@ -41,16 +41,23 @@
 - [x] Deposit / Approval safe mode 方案确认
 - [x] DB migration 本地执行经用户确认并已 apply
 - [x] audit / idempotency / confirm / rollback-plan DB persistence 接入
+- [x] Phase 04+ 后续六阶段快速推进路线图已落档
 - [ ] 内部 DB write 安全模式确认
 - [ ] 真实外部 write 开关经用户单独确认
 
 ## 当前下一步
 
 ```text
-Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；下一步是验收 DB-backed audit / confirm / idempotency / rollback-plan，并在单独确认后规划内部 DB write gated enablement。
+Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；下一步按 Phase 04+ 六阶段路线图推进首个低风险内部写操作闭环。
 ```
 
 Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 execute IPC / rollback IPC / audit:list IPC。
+
+当前 checkpoint：
+
+```text
+5c32e03 feat: wire safeops persistence to local db
+```
 
 真实写操作必须先具备：
 
@@ -76,6 +83,16 @@ Phase 04 文档入口：
 
 - `docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/README.md`
 - `docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/operation-safe-mode-plan.md`
+- `docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/phase-04-plus-six-stage-roadmap.md`
+
+Phase 04+ 后续六阶段：
+
+1. 首个低风险内部写操作闭环；
+2. 扩展内部写操作；
+3. 外部 API 安全网关；
+4. 权限、账号、商户隔离；
+5. 生产环境迁移与上线准备；
+6. 产品闭环与商业化完善。
 
 ## Phase 02 / UI-V2 历史待办记录
 
