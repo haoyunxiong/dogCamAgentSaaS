@@ -17,9 +17,13 @@ const { loadMysqlConfig } = require('./mysqlConfig')
 
 const ORDER_INTERNAL_NOTE_OPERATION_TYPE = 'order.internal_note.update'
 const DEVICE_BASIC_UPDATE_OPERATION_TYPE = 'device.basic.update'
+const SCHEDULE_BLOCK_CREATE_OPERATION_TYPE = 'schedule.block.create'
+const SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE = 'schedule.block.cancel'
 const ENABLED_OPERATION_TYPES = new Set([
   ORDER_INTERNAL_NOTE_OPERATION_TYPE,
   DEVICE_BASIC_UPDATE_OPERATION_TYPE,
+  SCHEDULE_BLOCK_CREATE_OPERATION_TYPE,
+  SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE,
 ])
 
 function assertLocalSafeOpsWriteTarget() {
@@ -98,6 +102,10 @@ const DEVICE_BASIC_STATUS_ALIASES = Object.freeze({
   '停用': 'offline',
 })
 
+const SCHEDULE_CREATE_ALLOWED_BLOCK_TYPES = new Set(['manual_hold', 'internal_hold', 'maintenance', 'block', 'buffer'])
+const SCHEDULE_CREATE_ALLOWED_STATUSES = new Set(['active'])
+const SCHEDULE_CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'deleted', 'inactive'])
+
 function getDeviceBasicPayload(request = {}) {
   const payload = request.payload || {}
   const patch = payload.patch && typeof payload.patch === 'object' && !Array.isArray(payload.patch)
@@ -168,6 +176,139 @@ function buildDeviceBasicAfterSnapshot(beforeSnapshot, patch = {}) {
     }
   }
   return afterSnapshot
+}
+
+function normalizeDateOnly(value) {
+  const text = normalizeText(value)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return ''
+  const date = new Date(`${text}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10) === text ? text : ''
+}
+
+function getScheduleBlockCreatePayload(request = {}) {
+  const payload = request.payload || {}
+  return {
+    unitId: normalizeText(payload.unitId || payload.deviceId || request.target?.id),
+    orderId: normalizeText(payload.orderId),
+    modelCode: normalizeText(payload.modelCode),
+    blockType: normalizeText(payload.blockType || payload.block_type || 'manual_hold') || 'manual_hold',
+    startDate: normalizeDateOnly(payload.startDate || payload.start_date),
+    endDate: normalizeDateOnly(payload.endDate || payload.end_date),
+    plannedShipAt: normalizeText(payload.plannedShipAt || payload.planned_ship_at),
+    expectedArriveAt: normalizeText(payload.expectedArriveAt || payload.expected_arrive_at),
+    status: normalizeText(payload.status || 'active') || 'active',
+    note: String(payload.note ?? '').trim().slice(0, 2000),
+    rawPayload: payload,
+  }
+}
+
+function getScheduleBlockCancelPayload(request = {}) {
+  const payload = request.payload || {}
+  return {
+    blockId: normalizeText(payload.blockId || payload.block_id || payload.scheduleBlockId || request.target?.id),
+    rawPayload: payload,
+  }
+}
+
+function findUnsupportedScheduleCreatePayloadFields(payload = {}) {
+  return Object.keys(payload).filter((key) => ![
+    'unitId',
+    'deviceId',
+    'orderId',
+    'modelCode',
+    'blockType',
+    'block_type',
+    'startDate',
+    'start_date',
+    'endDate',
+    'end_date',
+    'plannedShipAt',
+    'planned_ship_at',
+    'expectedArriveAt',
+    'expected_arrive_at',
+    'status',
+    'note',
+    'source',
+    'reason',
+  ].includes(key))
+}
+
+function findUnsupportedScheduleCancelPayloadFields(payload = {}) {
+  return Object.keys(payload).filter((key) => ![
+    'blockId',
+    'block_id',
+    'scheduleBlockId',
+    'source',
+    'reason',
+  ].includes(key))
+}
+
+function summarizeScheduleNote(value) {
+  const text = String(value || '')
+  return {
+    hasValue: Boolean(text.trim()),
+    length: text.length,
+    preview: text ? `${text.slice(0, 2)}***${text.slice(-2)}` : '',
+  }
+}
+
+function buildScheduleCreateAfterSnapshot(payload, blockId = null, unitRecord = null) {
+  return {
+    blockId: blockId === null || blockId === undefined ? null : String(blockId),
+    unitId: String(unitRecord?.unitId || payload.unitId),
+    orderId: payload.orderId || null,
+    unitCodeMasked: unitRecord?.unitCodeMasked || null,
+    modelCode: unitRecord?.modelCode || payload.modelCode,
+    blockType: payload.blockType,
+    startDate: payload.startDate,
+    endDate: payload.endDate,
+    plannedShipAt: payload.plannedShipAt || null,
+    expectedArriveAt: payload.expectedArriveAt || null,
+    status: payload.status,
+    note: summarizeScheduleNote(payload.note),
+  }
+}
+
+function buildScheduleCancelAfterSnapshot(beforeSnapshot = {}) {
+  return {
+    ...(beforeSnapshot || {}),
+    status: 'cancelled',
+  }
+}
+
+function buildScheduleCreateBlockers(payload = {}) {
+  const blockers = []
+  const unsupportedFields = findUnsupportedScheduleCreatePayloadFields(payload.rawPayload)
+  if (unsupportedFields.length) {
+    blockers.push(`Unsupported payload fields for schedule.block.create: ${unsupportedFields.join(', ')}.`)
+  }
+  if (Array.isArray(payload.rawPayload.blocks) || Array.isArray(payload.rawPayload.unitId) || Array.isArray(payload.rawPayload.deviceId)) {
+    blockers.push('Batch schedule block creation is disabled; schedule.block.create only accepts one unit_id.')
+  }
+  if (!payload.unitId) blockers.push('unitId or deviceId is required for schedule.block.create.')
+  if (!payload.startDate) blockers.push('Valid startDate is required for schedule.block.create.')
+  if (!payload.endDate) blockers.push('Valid endDate is required for schedule.block.create.')
+  if (payload.startDate && payload.endDate && payload.startDate > payload.endDate) {
+    blockers.push('startDate must be before or equal to endDate.')
+  }
+  if (!SCHEDULE_CREATE_ALLOWED_BLOCK_TYPES.has(payload.blockType)) {
+    blockers.push(`Unsupported blockType for schedule.block.create: ${payload.blockType}.`)
+  }
+  if (!SCHEDULE_CREATE_ALLOWED_STATUSES.has(payload.status)) {
+    blockers.push(`Unsupported initial status for schedule.block.create: ${payload.status}.`)
+  }
+  return blockers
+}
+
+function buildScheduleConflictCheck(conflicts, blockers = []) {
+  const conflictRecords = Array.isArray(conflicts?.records) ? conflicts.records : []
+  return {
+    checked: true,
+    passed: !blockers.length && conflictRecords.length === 0,
+    conflictCount: conflictRecords.length,
+    conflicts: conflictRecords,
+  }
 }
 
 function buildDisabledImpact() {
@@ -735,6 +876,465 @@ async function executeDeviceBasicUpdate(request = {}, policy = {}) {
   return response
 }
 
+async function executeScheduleBlockCreate(request = {}, policy = {}) {
+  assertLocalSafeOpsWriteTarget()
+
+  const operationType = SCHEDULE_BLOCK_CREATE_OPERATION_TYPE
+  const actor = normalizeActor(request.actor || {})
+  const payload = getScheduleBlockCreatePayload(request)
+  const blockers = buildScheduleCreateBlockers(payload)
+
+  if (!actor.id || actor.id === 'unknown') blockers.push('actor.id is required for safeOps execute.')
+  if (!request.confirmTokenId) blockers.push('confirmTokenId is required for safeOps execute.')
+  if (!request.auditLogId) blockers.push('auditLogId is required for safeOps execute.')
+  if (!request.impactHash) blockers.push('impactHash from preview is required for safeOps execute.')
+
+  if (blockers.length) {
+    return buildRejectedResponse({ operationType, policy, blockers })
+  }
+
+  const repository = await createSafeOpsRepository({ enabled: true })
+  const health = typeof repository.healthCheckSafeOpsTables === 'function'
+    ? await repository.healthCheckSafeOpsTables()
+    : { available: false, reason: repository.reason || 'safeOps repository unavailable' }
+  if (!health.available) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: [health.reason || 'safeOps DB persistence is unavailable.'],
+    })
+  }
+
+  const payloadHash = hashPayload(payload.rawPayload)
+  const stableIdempotencyKey = buildStableIdempotencyKey({
+    actor,
+    operationType,
+    payloadHash,
+  })
+  const keyHash = hashIdempotencyKey(stableIdempotencyKey)
+  const idempotencyResult = await repository.getIdempotencyKey({
+    actorId: actor.id,
+    operationType,
+    keyHash,
+  })
+  const idempotencyRecord = idempotencyResult.record
+
+  if (!idempotencyRecord) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['idempotency key is missing; execute must start from preview.'],
+    })
+  }
+  if (idempotencyRecord.payloadHash !== payloadHash) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['payload hash does not match idempotency record.'],
+    })
+  }
+  if (idempotencyRecord.status === 'executed' && idempotencyRecord.response) {
+    return duplicateResponseFromIdempotency(idempotencyRecord)
+  }
+
+  const confirmResult = await repository.getConfirmToken({ id: request.confirmTokenId })
+  const confirmRecord = confirmResult.record
+  if (!confirmRecord) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token record is missing.'] })
+  }
+  if (confirmRecord.operationType !== operationType) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token operationType mismatch.'] })
+  }
+  if (confirmRecord.actorId !== actor.id) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token actor mismatch.'] })
+  }
+  if (confirmRecord.payloadHash !== payloadHash) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token payloadHash mismatch.'] })
+  }
+  if (confirmRecord.impactHash !== request.impactHash) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token impactHash mismatch.'] })
+  }
+  if (String(confirmRecord.previewAuditLogId || '') !== String(request.auditLogId || '')) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token preview audit mismatch.'] })
+  }
+
+  const unitResult = await repository.getScheduleUnitForBlock({ unitId: payload.unitId })
+  if (!unitResult.record || !unitResult.raw) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['target unit does not exist in local schedule_units.'] })
+  }
+  if (payload.modelCode && payload.modelCode !== unitResult.raw.model_code) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['modelCode does not match the target schedule unit.'] })
+  }
+  let normalizedOrderId = payload.orderId || null
+  if (payload.orderId) {
+    const orderResult = await repository.getRentalOrderExists({ orderId: payload.orderId })
+    if (!orderResult.exists) {
+      return buildRejectedResponse({ operationType, policy, blockers: ['linked order_id does not exist in local rental_orders.'] })
+    }
+    if (orderResult.raw?.id) normalizedOrderId = String(orderResult.raw.id)
+  }
+  const conflicts = await repository.listScheduleBlockConflicts({
+    unitId: unitResult.raw.id,
+    startDate: payload.startDate,
+    endDate: payload.endDate,
+  })
+  if (!conflicts.available) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: [conflicts.reason || 'safeOps DB persistence is unavailable for conflict check.'],
+    })
+  }
+  if (conflicts.count > 0) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: [`Schedule conflict detected: ${conflicts.count} overlapping active/current block(s).`],
+    })
+  }
+
+  const normalizedPayload = {
+    unitId: String(unitResult.raw.id),
+    orderId: normalizedOrderId,
+    modelCode: unitResult.raw.model_code,
+    blockType: payload.blockType,
+    startDate: payload.startDate,
+    endDate: payload.endDate,
+    plannedShipAt: payload.plannedShipAt || null,
+    expectedArriveAt: payload.expectedArriveAt || null,
+    status: payload.status,
+    note: payload.note,
+  }
+  const beforeSnapshot = {
+    unit: unitResult.record,
+    conflictCheck: buildScheduleConflictCheck(conflicts, []),
+  }
+  const previewAfterSnapshot = buildScheduleCreateAfterSnapshot(normalizedPayload, null, unitResult.record)
+
+  const consumeResult = await repository.consumeConfirmToken({
+    id: request.confirmTokenId,
+    actorId: actor.id,
+    operationType,
+    payloadHash,
+    impactHash: request.impactHash,
+    previewAuditLogId: request.auditLogId,
+  })
+  if (!consumeResult.consumed) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['confirm token is expired, consumed, or no longer valid.'],
+    })
+  }
+
+  const insertResult = await repository.insertScheduleBlock(normalizedPayload)
+  if (insertResult.affectedRows !== 1 || !insertResult.insertId) {
+    await repository.updateAuditLogStatus({
+      id: request.auditLogId,
+      status: 'failed',
+      errorCode: 'SAFE_OP_INSERT_FAILED',
+      errorMessage: 'schedule.block.create affected no rows',
+      beforeSnapshot,
+      afterSnapshot: previewAfterSnapshot,
+    })
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['schedule.block.create affected no rows.'],
+      message: 'safeOps execute failed safely',
+    })
+  }
+
+  const createdResult = await repository.getScheduleBlockSnapshot({ blockId: insertResult.insertId })
+  const response = {
+    ok: true,
+    supported: true,
+    operationType,
+    mode: 'write',
+    code: 'SAFE_OP_EXECUTED',
+    message: 'schedule.block.create executed through safeOps.',
+    writeWillExecute: true,
+    externalCallWillExecute: false,
+    riskLevel: policy.riskLevel,
+    warnings: [],
+    blockers: [],
+    conflictCheck: buildScheduleConflictCheck(conflicts, []),
+    impact: {
+      summary: 'Inserted one local schedule_blocks row only. No order, device, logistics, Python, or external service was changed.',
+      affectedRecords: [
+        { type: 'schedule_block', id: String(insertResult.insertId), action: 'create' },
+        { type: 'unit', id: String(unitResult.raw.id) },
+      ],
+      externalEffects: [],
+    },
+    audit: {
+      mode: 'db',
+      persisted: true,
+      auditLogId: request.auditLogId,
+      status: 'executed',
+      payloadHash,
+      impactHash: request.impactHash,
+    },
+    confirmRequirement: {
+      enabled: true,
+      required: true,
+      persisted: true,
+      exists: true,
+      tokenId: request.confirmTokenId,
+      token: null,
+      tokenHash: null,
+      status: 'consumed',
+    },
+    idempotency: {
+      mode: 'db',
+      required: true,
+      persisted: true,
+      id: idempotencyRecord.id,
+      keyHash,
+      status: 'executed',
+      duplicate: false,
+      reason: 'idempotency-result-recorded',
+    },
+    rollback: {
+      mode: 'db',
+      planned: true,
+      persisted: true,
+      status: 'not_executable',
+      canRollback: false,
+      compensationRequired: false,
+      reason: 'rollback-placeholder-not-executable',
+    },
+    beforeSnapshot,
+    afterSnapshot: createdResult.record || buildScheduleCreateAfterSnapshot(normalizedPayload, insertResult.insertId, unitResult.record),
+  }
+
+  await repository.updateAuditLogStatus({
+    id: request.auditLogId,
+    status: 'executed',
+    beforeSnapshot,
+    afterSnapshot: response.afterSnapshot,
+  })
+  await repository.markIdempotencyResult({
+    id: idempotencyRecord.id,
+    status: 'executed',
+    response,
+    auditLogId: request.auditLogId,
+  })
+
+  return response
+}
+
+async function executeScheduleBlockCancel(request = {}, policy = {}) {
+  assertLocalSafeOpsWriteTarget()
+
+  const operationType = SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE
+  const actor = normalizeActor(request.actor || {})
+  const payload = getScheduleBlockCancelPayload(request)
+  const blockers = []
+  const unsupportedFields = findUnsupportedScheduleCancelPayloadFields(payload.rawPayload)
+
+  if (unsupportedFields.length) {
+    blockers.push(`Unsupported payload fields for schedule.block.cancel: ${unsupportedFields.join(', ')}.`)
+  }
+  if (!actor.id || actor.id === 'unknown') blockers.push('actor.id is required for safeOps execute.')
+  if (!payload.blockId) blockers.push('blockId is required for schedule.block.cancel.')
+  if (!request.confirmTokenId) blockers.push('confirmTokenId is required for safeOps execute.')
+  if (!request.auditLogId) blockers.push('auditLogId is required for safeOps execute.')
+  if (!request.impactHash) blockers.push('impactHash from preview is required for safeOps execute.')
+
+  if (blockers.length) {
+    return buildRejectedResponse({ operationType, policy, blockers })
+  }
+
+  const repository = await createSafeOpsRepository({ enabled: true })
+  const health = typeof repository.healthCheckSafeOpsTables === 'function'
+    ? await repository.healthCheckSafeOpsTables()
+    : { available: false, reason: repository.reason || 'safeOps repository unavailable' }
+  if (!health.available) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: [health.reason || 'safeOps DB persistence is unavailable.'],
+    })
+  }
+
+  const payloadHash = hashPayload(payload.rawPayload)
+  const stableIdempotencyKey = buildStableIdempotencyKey({
+    actor,
+    operationType,
+    payloadHash,
+  })
+  const keyHash = hashIdempotencyKey(stableIdempotencyKey)
+  const idempotencyResult = await repository.getIdempotencyKey({
+    actorId: actor.id,
+    operationType,
+    keyHash,
+  })
+  const idempotencyRecord = idempotencyResult.record
+
+  if (!idempotencyRecord) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['idempotency key is missing; execute must start from preview.'],
+    })
+  }
+  if (idempotencyRecord.payloadHash !== payloadHash) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['payload hash does not match idempotency record.'],
+    })
+  }
+  if (idempotencyRecord.status === 'executed' && idempotencyRecord.response) {
+    return duplicateResponseFromIdempotency(idempotencyRecord)
+  }
+
+  const confirmResult = await repository.getConfirmToken({ id: request.confirmTokenId })
+  const confirmRecord = confirmResult.record
+  if (!confirmRecord) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token record is missing.'] })
+  }
+  if (confirmRecord.operationType !== operationType) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token operationType mismatch.'] })
+  }
+  if (confirmRecord.actorId !== actor.id) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token actor mismatch.'] })
+  }
+  if (confirmRecord.payloadHash !== payloadHash) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token payloadHash mismatch.'] })
+  }
+  if (confirmRecord.impactHash !== request.impactHash) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token impactHash mismatch.'] })
+  }
+  if (String(confirmRecord.previewAuditLogId || '') !== String(request.auditLogId || '')) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['confirm token preview audit mismatch.'] })
+  }
+
+  const beforeResult = await repository.getScheduleBlockSnapshot({ blockId: payload.blockId })
+  if (!beforeResult.record || !beforeResult.raw) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['target schedule block does not exist.'] })
+  }
+  if (SCHEDULE_CANCELLED_STATUSES.has(normalizeText(beforeResult.raw.status).toLowerCase())) {
+    return buildRejectedResponse({ operationType, policy, blockers: ['target schedule block is already cancelled or inactive.'] })
+  }
+
+  const beforeSnapshot = beforeResult.record
+  const afterSnapshot = buildScheduleCancelAfterSnapshot(beforeSnapshot)
+  const consumeResult = await repository.consumeConfirmToken({
+    id: request.confirmTokenId,
+    actorId: actor.id,
+    operationType,
+    payloadHash,
+    impactHash: request.impactHash,
+    previewAuditLogId: request.auditLogId,
+  })
+  if (!consumeResult.consumed) {
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['confirm token is expired, consumed, or no longer valid.'],
+    })
+  }
+
+  const cancelResult = await repository.cancelScheduleBlock({ blockId: beforeResult.raw.id })
+  if (cancelResult.affectedRows !== 1) {
+    await repository.updateAuditLogStatus({
+      id: request.auditLogId,
+      status: 'failed',
+      errorCode: 'SAFE_OP_UPDATE_FAILED',
+      errorMessage: 'schedule.block.cancel affected no rows',
+      beforeSnapshot,
+      afterSnapshot,
+    })
+    return buildRejectedResponse({
+      operationType,
+      policy,
+      blockers: ['schedule.block.cancel affected no rows.'],
+      message: 'safeOps execute failed safely',
+    })
+  }
+
+  const refreshedResult = await repository.getScheduleBlockSnapshot({ blockId: beforeResult.raw.id })
+  const response = {
+    ok: true,
+    supported: true,
+    operationType,
+    mode: 'write',
+    code: 'SAFE_OP_EXECUTED',
+    message: 'schedule.block.cancel executed through safeOps.',
+    writeWillExecute: true,
+    externalCallWillExecute: false,
+    riskLevel: policy.riskLevel,
+    warnings: [],
+    blockers: [],
+    conflictCheck: {
+      checked: false,
+      passed: true,
+      reason: 'cancel operation validates current block status instead of date conflicts',
+    },
+    impact: {
+      summary: 'Soft-cancelled one local schedule_blocks row only. No order, device, logistics, Python, or external service was changed.',
+      affectedRecords: [{ type: 'schedule_block', id: String(beforeResult.raw.id), action: 'cancel' }],
+      externalEffects: [],
+    },
+    audit: {
+      mode: 'db',
+      persisted: true,
+      auditLogId: request.auditLogId,
+      status: 'executed',
+      payloadHash,
+      impactHash: request.impactHash,
+    },
+    confirmRequirement: {
+      enabled: true,
+      required: true,
+      persisted: true,
+      exists: true,
+      tokenId: request.confirmTokenId,
+      token: null,
+      tokenHash: null,
+      status: 'consumed',
+    },
+    idempotency: {
+      mode: 'db',
+      required: true,
+      persisted: true,
+      id: idempotencyRecord.id,
+      keyHash,
+      status: 'executed',
+      duplicate: false,
+      reason: 'idempotency-result-recorded',
+    },
+    rollback: {
+      mode: 'db',
+      planned: true,
+      persisted: true,
+      status: 'not_executable',
+      canRollback: false,
+      compensationRequired: false,
+      reason: 'rollback-placeholder-not-executable',
+    },
+    beforeSnapshot,
+    afterSnapshot: refreshedResult.record || afterSnapshot,
+  }
+
+  await repository.updateAuditLogStatus({
+    id: request.auditLogId,
+    status: 'executed',
+    beforeSnapshot,
+    afterSnapshot: response.afterSnapshot,
+  })
+  await repository.markIdempotencyResult({
+    id: idempotencyRecord.id,
+    status: 'executed',
+    response,
+    auditLogId: request.auditLogId,
+  })
+
+  return response
+}
+
 async function executeSafeOperation(request = {}) {
   try {
     const operationType = normalizeOperationType(request?.operationType)
@@ -762,6 +1362,12 @@ async function executeSafeOperation(request = {}) {
     }
     if (operationType === DEVICE_BASIC_UPDATE_OPERATION_TYPE) {
       return executeDeviceBasicUpdate({ ...request, operationType }, policy)
+    }
+    if (operationType === SCHEDULE_BLOCK_CREATE_OPERATION_TYPE) {
+      return executeScheduleBlockCreate({ ...request, operationType }, policy)
+    }
+    if (operationType === SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE) {
+      return executeScheduleBlockCancel({ ...request, operationType }, policy)
     }
 
     return persistDisabledExecuteAudit(

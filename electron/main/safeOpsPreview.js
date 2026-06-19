@@ -77,6 +77,10 @@ const DEVICE_BASIC_STATUS_ALIASES = Object.freeze({
   '停用': 'offline',
 })
 
+const SCHEDULE_CREATE_ALLOWED_BLOCK_TYPES = new Set(['manual_hold', 'internal_hold', 'maintenance', 'block', 'buffer'])
+const SCHEDULE_CREATE_ALLOWED_STATUSES = new Set(['active'])
+const SCHEDULE_CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'deleted', 'inactive'])
+
 function getOrderInternalNotePayload(request = {}) {
   const payload = request.payload || {}
   return {
@@ -176,6 +180,124 @@ function buildDeviceBasicChangeRecords(unitId, patch = {}) {
     id: String(unitId),
     field,
   }))
+}
+
+function normalizeDateOnly(value) {
+  const text = normalizeText(value)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return ''
+  const date = new Date(`${text}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10) === text ? text : ''
+}
+
+function normalizeScheduleBlockCreatePayload(request = {}) {
+  const payload = request.payload || {}
+  return {
+    unitId: normalizeText(payload.unitId || payload.deviceId || request.target?.id),
+    orderId: normalizeText(payload.orderId),
+    modelCode: normalizeText(payload.modelCode),
+    blockType: normalizeText(payload.blockType || payload.block_type || 'manual_hold') || 'manual_hold',
+    startDate: normalizeDateOnly(payload.startDate || payload.start_date),
+    endDate: normalizeDateOnly(payload.endDate || payload.end_date),
+    plannedShipAt: normalizeText(payload.plannedShipAt || payload.planned_ship_at),
+    expectedArriveAt: normalizeText(payload.expectedArriveAt || payload.expected_arrive_at),
+    status: normalizeText(payload.status || 'active') || 'active',
+    note: String(payload.note ?? '').trim().slice(0, 2000),
+    rawPayload: payload,
+  }
+}
+
+function normalizeScheduleBlockCancelPayload(request = {}) {
+  const payload = request.payload || {}
+  return {
+    blockId: normalizeText(payload.blockId || payload.block_id || payload.scheduleBlockId || request.target?.id),
+    rawPayload: payload,
+  }
+}
+
+function findUnsupportedScheduleCreatePayloadFields(payload = {}) {
+  return Object.keys(payload).filter((key) => ![
+    'unitId',
+    'deviceId',
+    'orderId',
+    'modelCode',
+    'blockType',
+    'block_type',
+    'startDate',
+    'start_date',
+    'endDate',
+    'end_date',
+    'plannedShipAt',
+    'planned_ship_at',
+    'expectedArriveAt',
+    'expected_arrive_at',
+    'status',
+    'note',
+    'source',
+    'reason',
+  ].includes(key))
+}
+
+function findUnsupportedScheduleCancelPayloadFields(payload = {}) {
+  return Object.keys(payload).filter((key) => ![
+    'blockId',
+    'block_id',
+    'scheduleBlockId',
+    'source',
+    'reason',
+  ].includes(key))
+}
+
+function summarizeScheduleNote(value) {
+  const text = String(value || '')
+  return {
+    hasValue: Boolean(text.trim()),
+    length: text.length,
+    preview: text ? `${text.slice(0, 2)}***${text.slice(-2)}` : '',
+  }
+}
+
+function buildScheduleCreateAfterSnapshot(payload, unitRecord = null) {
+  return {
+    blockId: null,
+    unitId: String(unitRecord?.unitId || payload.unitId),
+    orderId: payload.orderId || null,
+    unitCodeMasked: unitRecord?.unitCodeMasked || null,
+    modelCode: unitRecord?.modelCode || payload.modelCode,
+    blockType: payload.blockType,
+    startDate: payload.startDate,
+    endDate: payload.endDate,
+    plannedShipAt: payload.plannedShipAt || null,
+    expectedArriveAt: payload.expectedArriveAt || null,
+    status: payload.status,
+    note: summarizeScheduleNote(payload.note),
+  }
+}
+
+function buildScheduleCancelAfterSnapshot(beforeSnapshot = {}) {
+  return {
+    ...(beforeSnapshot || {}),
+    status: 'cancelled',
+  }
+}
+
+function buildScheduleConflictCheck(conflicts, blockers = []) {
+  const conflictRecords = Array.isArray(conflicts?.records) ? conflicts.records : []
+  return {
+    checked: true,
+    passed: !blockers.length && conflictRecords.length === 0,
+    conflictCount: conflictRecords.length,
+    conflicts: conflictRecords,
+  }
+}
+
+function buildScheduleCreateAffectedRecords(payload, unitId, orderId = null) {
+  const records = [
+    { type: 'schedule_block', id: 'new', action: 'create' },
+  ]
+  if (unitId || payload.unitId) records.push({ type: 'unit', id: String(unitId || payload.unitId) })
+  if (orderId || payload.orderId) records.push({ type: 'order', id: String(orderId || payload.orderId) })
+  return records
 }
 
 function findUnsupportedInternalNoteFields(payload = {}) {
@@ -321,12 +443,181 @@ async function buildDeviceBasicUpdatePreview(request = {}) {
   }
 }
 
+async function buildScheduleBlockCreatePreview(request = {}) {
+  const warnings = []
+  const blockers = []
+  const payload = normalizeScheduleBlockCreatePayload(request)
+  const unsupportedFields = findUnsupportedScheduleCreatePayloadFields(payload.rawPayload)
+
+  if (unsupportedFields.length) {
+    blockers.push(`Unsupported payload fields for schedule.block.create: ${unsupportedFields.join(', ')}.`)
+  }
+  if (Array.isArray(payload.rawPayload.blocks) || Array.isArray(payload.rawPayload.unitId) || Array.isArray(payload.rawPayload.deviceId)) {
+    blockers.push('Batch schedule block creation is disabled; schedule.block.create only accepts one unit_id.')
+  }
+  if (!payload.unitId) blockers.push('unitId or deviceId is required for schedule.block.create.')
+  if (!payload.startDate) blockers.push('Valid startDate is required for schedule.block.create.')
+  if (!payload.endDate) blockers.push('Valid endDate is required for schedule.block.create.')
+  if (payload.startDate && payload.endDate && payload.startDate > payload.endDate) {
+    blockers.push('startDate must be before or equal to endDate.')
+  }
+  if (!SCHEDULE_CREATE_ALLOWED_BLOCK_TYPES.has(payload.blockType)) {
+    blockers.push(`Unsupported blockType for schedule.block.create: ${payload.blockType}.`)
+  }
+  if (!SCHEDULE_CREATE_ALLOWED_STATUSES.has(payload.status)) {
+    blockers.push(`Unsupported initial status for schedule.block.create: ${payload.status}.`)
+  }
+
+  let unitResult = null
+  let orderResult = null
+  let conflicts = { records: [], count: 0 }
+  let afterSnapshot = null
+  let normalizedOrderId = payload.orderId || null
+  if (!blockers.length) {
+    const repository = await createSafeOpsRepository({ enabled: true })
+    unitResult = await repository.getScheduleUnitForBlock({ unitId: payload.unitId })
+    if (!unitResult.available) {
+      blockers.push(unitResult.reason || 'safeOps DB repository is unavailable; cannot preview schedule unit.')
+    } else if (!unitResult.record || !unitResult.raw) {
+      blockers.push('Target unit does not exist in local schedule_units.')
+    } else if (payload.modelCode && payload.modelCode !== unitResult.raw.model_code) {
+      blockers.push('modelCode does not match the target schedule unit.')
+    }
+
+    if (!blockers.length && payload.orderId) {
+      orderResult = await repository.getRentalOrderExists({ orderId: payload.orderId })
+      if (!orderResult.available) {
+        blockers.push(orderResult.reason || 'safeOps DB repository is unavailable; cannot verify linked order.')
+      } else if (!orderResult.exists) {
+        blockers.push('Linked order_id does not exist in local rental_orders.')
+      } else if (orderResult.raw?.id) {
+        normalizedOrderId = String(orderResult.raw.id)
+      }
+    }
+
+    if (!blockers.length) {
+      conflicts = await repository.listScheduleBlockConflicts({
+        unitId: unitResult.raw.id,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+      })
+      if (!conflicts.available) {
+        blockers.push(conflicts.reason || 'safeOps DB repository is unavailable; cannot check schedule conflicts.')
+      } else if (conflicts.count > 0) {
+        blockers.push(`Schedule conflict detected: ${conflicts.count} overlapping active/current block(s).`)
+      }
+    }
+
+    if (!blockers.length) {
+      afterSnapshot = buildScheduleCreateAfterSnapshot({
+        ...payload,
+        unitId: String(unitResult.raw.id),
+        orderId: normalizedOrderId,
+        modelCode: unitResult.raw.model_code,
+      }, unitResult.record)
+    }
+  }
+
+  if (!payload.orderId) {
+    warnings.push('No orderId supplied; this will be treated as internal/manual schedule occupation only.')
+  }
+  warnings.push('This preview only prepares one local schedule_blocks insert. It will not update orders, devices, logistics, Python, or external services.')
+
+  const conflictCheck = buildScheduleConflictCheck(conflicts, blockers)
+  const normalizedUnitId = unitResult?.raw?.id ? String(unitResult.raw.id) : payload.unitId
+  return {
+    warnings,
+    blockers,
+    beforeSnapshot: unitResult?.record ? { unit: unitResult.record, conflictCheck } : null,
+    afterSnapshot,
+    conflictCheck,
+    normalizedPayload: {
+      unitId: normalizedUnitId,
+      orderId: normalizedOrderId,
+      modelCode: unitResult?.raw?.model_code || payload.modelCode,
+      blockType: payload.blockType,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      plannedShipAt: payload.plannedShipAt || null,
+      expectedArriveAt: payload.expectedArriveAt || null,
+      status: payload.status,
+      note: payload.note,
+    },
+    impact: {
+      summary: blockers.length
+        ? 'Cannot preview schedule.block.create until blockers are resolved. No schedule write will run.'
+        : `Preview one local schedule block from ${payload.startDate} to ${payload.endDate}. This preview will not write schedule_blocks.`,
+      affectedRecords: buildScheduleCreateAffectedRecords(payload, normalizedUnitId, normalizedOrderId),
+      externalEffects: [],
+    },
+  }
+}
+
+async function buildScheduleBlockCancelPreview(request = {}) {
+  const warnings = []
+  const blockers = []
+  const payload = normalizeScheduleBlockCancelPayload(request)
+  const unsupportedFields = findUnsupportedScheduleCancelPayloadFields(payload.rawPayload)
+
+  if (unsupportedFields.length) {
+    blockers.push(`Unsupported payload fields for schedule.block.cancel: ${unsupportedFields.join(', ')}.`)
+  }
+  if (!payload.blockId) blockers.push('blockId is required for schedule.block.cancel.')
+
+  let beforeSnapshot = null
+  let afterSnapshot = null
+  if (!blockers.length) {
+    const repository = await createSafeOpsRepository({ enabled: true })
+    const blockResult = await repository.getScheduleBlockSnapshot({ blockId: payload.blockId })
+    if (!blockResult.available) {
+      blockers.push(blockResult.reason || 'safeOps DB repository is unavailable; cannot preview schedule block.')
+    } else if (!blockResult.record || !blockResult.raw) {
+      blockers.push('Target schedule block does not exist.')
+    } else if (SCHEDULE_CANCELLED_STATUSES.has(normalizeText(blockResult.raw.status).toLowerCase())) {
+      blockers.push('Target schedule block is already cancelled or inactive.')
+    } else {
+      beforeSnapshot = blockResult.record
+      afterSnapshot = buildScheduleCancelAfterSnapshot(beforeSnapshot)
+    }
+  }
+
+  warnings.push('This preview only prepares a local schedule_blocks soft cancel. It will not delete rows, update orders, update devices, call Python, or call external services.')
+
+  return {
+    warnings,
+    blockers,
+    beforeSnapshot,
+    afterSnapshot,
+    conflictCheck: {
+      checked: false,
+      passed: !blockers.length,
+      reason: 'cancel operation validates current block status instead of date conflicts',
+    },
+    normalizedPayload: {
+      blockId: payload.blockId,
+    },
+    impact: {
+      summary: blockers.length
+        ? 'Cannot preview schedule.block.cancel until blockers are resolved. No schedule write will run.'
+        : `Preview soft-cancel of schedule block ${beforeSnapshot?.blockId || payload.blockId}. This preview will not write schedule_blocks.`,
+      affectedRecords: payload.blockId
+        ? [{ type: 'schedule_block', id: String(payload.blockId), action: 'cancel' }]
+        : [],
+      externalEffects: [],
+    },
+  }
+}
+
 async function buildDomainPreview(operationType, request) {
   switch (operationType) {
     case 'order.internal_note.update':
       return buildOrderInternalNoteUpdatePreview(request)
     case 'device.basic.update':
       return buildDeviceBasicUpdatePreview(request)
+    case 'schedule.block.create':
+      return buildScheduleBlockCreatePreview(request)
+    case 'schedule.block.cancel':
+      return buildScheduleBlockCancelPreview(request)
     case 'order.status.transition.preview':
       return buildOrderStatusTransitionPreview(request)
     case 'order.edit.preview':
@@ -374,6 +665,7 @@ async function previewSafeOperation(request = {}) {
       warnings: domainPreview.warnings,
       blockers: domainPreview.blockers,
       impact: domainPreview.impact,
+      conflictCheck: domainPreview.conflictCheck || null,
     }
     const persistence = await persistSafeOperationContext({
       request: { ...request, operationType },

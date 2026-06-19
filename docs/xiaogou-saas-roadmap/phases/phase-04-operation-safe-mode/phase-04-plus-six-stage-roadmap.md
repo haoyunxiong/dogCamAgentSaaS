@@ -4,10 +4,10 @@
 
 ## 一、当前完成状态
 
-阶段 2A 执行前 checkpoint：
+阶段 2B 执行前 checkpoint：
 
 ```text
-7a638db feat: enable safeops order internal note update
+b9ce2c3 feat: enable safeops device basic update
 ```
 
 已完成：
@@ -20,6 +20,7 @@
 - safeOps preview / confirm token / idempotency / audit / rollback placeholder 已可真实入库。
 - 阶段 1B `order.internal_note.update` 已开放为首个真实内部写 operation；
 - 阶段 2A `device.basic.update` 已开放为第二个真实内部写 operation。
+- 阶段 2B `schedule.block.create` / `schedule.block.cancel` 已开放为档期 block 创建 / 取消内部写 operation。
 
 当前 safeOps 能力：
 
@@ -27,10 +28,10 @@
 - `preview` 可生成并写入 confirm token hash；
 - `preview` 可生成并写入 idempotency key；
 - `preview` 可生成并写入 rollback placeholder；
-- `execute` 仅对 `order.internal_note.update` 与 `device.basic.update` gated enabled；
+- `execute` 仅对 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel` gated enabled；
 - `rollback` 仍 unavailable；
 - 外部 API 禁用；
-- 业务表真实写仅限 `rental_orders.internal_note` 与 `schedule_units` 低风险基础字段。
+- 业务表真实写仅限 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消。
 
 当前禁止：
 
@@ -92,7 +93,7 @@
 候选范围：
 
 - 设备基础字段更新；（阶段 2A 已完成：`device.basic.update`）
-- 档期 block 创建 / 取消；
+- 档期 block 创建 / 取消；（阶段 2B 已完成：`schedule.block.create` / `schedule.block.cancel`）
 - 物流发货记录本地创建；
 - 订单低风险状态流转。
 
@@ -112,6 +113,17 @@
 - 禁止 `model_code`、`unit_code`、`serial_no`、`purchase_cost`、`residual_value`；
 - status 变更必须检查 active/current-future schedule block 与未完成订单；
 - 删除设备、批量更新、库存重算仍禁用；
+- rollback 仍只写 placeholder，不开放 executor。
+
+阶段 2B 已完成边界：
+
+- `schedule.block.create` 只允许插入一条本地 `schedule_blocks` 记录；
+- `schedule.block.cancel` 只允许将一条本地 `schedule_blocks` 软取消为 `cancelled`；
+- create 必须校验 `unit_id`、`model_code`、日期区间、block type、初始 status；
+- create 必须重新检查同 `unit_id` 日期区间 active/current block 冲突；
+- cancel 必须校验目标 block 存在且未取消 / 未停用；
+- 禁止批量锁库、物理删除、订单 / 设备 / 物流 / 免押联动；
+- Python、顺丰、免押、闲鱼、外部 API 仍禁用；
 - rollback 仍只写 placeholder，不开放 executor。
 
 阶段 2 不做：

@@ -14,6 +14,8 @@ const EXECUTE_DISABLED_POLICY = Object.freeze({
 const SAFE_OP_POLICIES = Object.freeze([
   { operationType: 'order.internal_note.update', domain: 'Orders', riskLevel: 'low', requiresExternalCredential: false, allowExecute: true },
   { operationType: 'device.basic.update', domain: 'Devices', riskLevel: 'medium-low', requiresExternalCredential: false, allowExecute: true, allowedFields: ['city', 'note', 'status'] },
+  { operationType: 'schedule.block.create', domain: 'Schedule', riskLevel: 'medium-high', requiresExternalCredential: false, allowExecute: true },
+  { operationType: 'schedule.block.cancel', domain: 'Schedule', riskLevel: 'medium', requiresExternalCredential: false, allowExecute: true },
   { operationType: 'order.status.transition.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'order.edit.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'device.update.preview', domain: 'Devices', riskLevel: 'high', requiresExternalCredential: false },
@@ -29,6 +31,8 @@ const POLICY_BY_OPERATION = new Map(SAFE_OP_POLICIES.map((policy) => [policy.ope
 const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
   'order.internal_note.update': 'Renderer noop internal note preview. Real local write requires Electron safeOps execute and will not call external services.',
   'device.basic.update': 'Renderer noop device basic update preview. Real local write requires Electron safeOps execute and will only update city, note, status.',
+  'schedule.block.create': 'Renderer noop schedule block create preview. Real local write requires Electron safeOps execute and will only insert one local schedule block.',
+  'schedule.block.cancel': 'Renderer noop schedule block cancel preview. Real local write requires Electron safeOps execute and will only soft-cancel one local schedule block.',
   'order.status.transition.preview': 'Renderer noop order status preview. This is dry-run only and will not change order state, schedule, logistics, or notifications.',
   'order.edit.preview': 'Renderer noop order edit preview. This is dry-run only and will not change order fields, fees, devices, schedule, or logistics.',
   'device.update.preview': 'Renderer noop device update preview. This is dry-run only and will not change device profile, inventory, or availability.',
@@ -218,7 +222,7 @@ async function preview(payload = {}) {
 async function execute(payload = {}) {
   try {
     const operationType = normalizeOperationType(payload.operationType)
-    if (!['order.internal_note.update', 'device.basic.update'].includes(operationType)) {
+    if (!['order.internal_note.update', 'device.basic.update', 'schedule.block.create', 'schedule.block.cancel'].includes(operationType)) {
       return buildLocalExecuteDisabled(operationType)
     }
 
@@ -322,6 +326,116 @@ export async function executeDeviceBasicUpdate({
   })
 }
 
+export async function previewScheduleBlockCreate({
+  unitId,
+  deviceId,
+  modelCode,
+  blockType,
+  startDate,
+  endDate,
+  plannedShipAt,
+  expectedArriveAt,
+  note,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(unitId || deviceId || '')
+  return preview({
+    operationType: 'schedule.block.create',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'schedule_block', id: `new-${id}-${startDate || ''}` },
+    payload: {
+      unitId: id,
+      modelCode: String(modelCode || ''),
+      blockType: blockType || 'manual_hold',
+      startDate: String(startDate || ''),
+      endDate: String(endDate || ''),
+      plannedShipAt: plannedShipAt || '',
+      expectedArriveAt: expectedArriveAt || '',
+      status: 'active',
+      note: String(note || ''),
+    },
+    clientRequestId: clientRequestId || `ui-v2-schedule-block-create-preview-${Date.now()}`,
+  })
+}
+
+export async function executeScheduleBlockCreate({
+  previewResult,
+  unitId,
+  deviceId,
+  modelCode,
+  blockType,
+  startDate,
+  endDate,
+  plannedShipAt,
+  expectedArriveAt,
+  note,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(unitId || deviceId || '')
+  return execute({
+    operationType: 'schedule.block.create',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'schedule_block', id: `new-${id}-${startDate || ''}` },
+    payload: {
+      unitId: id,
+      modelCode: String(modelCode || ''),
+      blockType: blockType || 'manual_hold',
+      startDate: String(startDate || ''),
+      endDate: String(endDate || ''),
+      plannedShipAt: plannedShipAt || '',
+      expectedArriveAt: expectedArriveAt || '',
+      status: 'active',
+      note: String(note || ''),
+    },
+    clientRequestId: clientRequestId || `ui-v2-schedule-block-create-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
+export async function previewScheduleBlockCancel({
+  blockId,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(blockId || '')
+  return preview({
+    operationType: 'schedule.block.cancel',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'schedule_block', id },
+    payload: {
+      blockId: id,
+    },
+    clientRequestId: clientRequestId || `ui-v2-schedule-block-cancel-preview-${Date.now()}`,
+  })
+}
+
+export async function executeScheduleBlockCancel({
+  previewResult,
+  blockId,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(blockId || '')
+  return execute({
+    operationType: 'schedule.block.cancel',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'schedule_block', id },
+    payload: {
+      blockId: id,
+    },
+    clientRequestId: clientRequestId || `ui-v2-schedule-block-cancel-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
@@ -330,4 +444,8 @@ export const safeOpsAdapter = {
   executeOrderInternalNoteUpdate,
   previewDeviceBasicUpdate,
   executeDeviceBasicUpdate,
+  previewScheduleBlockCreate,
+  executeScheduleBlockCreate,
+  previewScheduleBlockCancel,
+  executeScheduleBlockCancel,
 }

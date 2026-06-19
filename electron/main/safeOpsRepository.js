@@ -173,6 +173,24 @@ function createNoopSafeOpsRepository(reason = 'safeOps DB persistence unavailabl
     async updateScheduleUnitBasicFields(payload) {
       return createNoopResult('updateScheduleUnitBasicFields', payload, reason)
     },
+    async getScheduleUnitForBlock(payload) {
+      return createNoopResult('getScheduleUnitForBlock', payload, reason)
+    },
+    async getRentalOrderExists(payload) {
+      return createNoopResult('getRentalOrderExists', payload, reason)
+    },
+    async listScheduleBlockConflicts(payload) {
+      return createNoopResult('listScheduleBlockConflicts', payload, reason)
+    },
+    async getScheduleBlockSnapshot(payload) {
+      return createNoopResult('getScheduleBlockSnapshot', payload, reason)
+    },
+    async insertScheduleBlock(payload) {
+      return createNoopResult('insertScheduleBlock', payload, reason)
+    },
+    async cancelScheduleBlock(payload) {
+      return createNoopResult('cancelScheduleBlock', payload, reason)
+    },
     async persistAuditLog(payload) {
       return createNoopResult('persistAuditLog', payload, reason)
     },
@@ -724,6 +742,47 @@ function mapScheduleUnitBasicSnapshot(row, overridePatch = {}) {
   }
 }
 
+function summarizeScheduleNote(value) {
+  const text = String(value || '')
+  return {
+    hasValue: Boolean(text.trim()),
+    length: text.length,
+    preview: text ? maskIdentifier(text) : '',
+  }
+}
+
+function mapScheduleBlockSnapshot(row, overrideStatus) {
+  if (!row) return null
+  return {
+    blockId: String(row.id),
+    unitId: row.unit_id === null || row.unit_id === undefined ? null : String(row.unit_id),
+    orderId: row.order_id === null || row.order_id === undefined ? null : String(row.order_id),
+    unitCodeMasked: maskIdentifier(row.unit_code),
+    modelCode: row.model_code || null,
+    blockType: row.block_type || null,
+    startDate: row.start_date || null,
+    endDate: row.end_date || null,
+    plannedShipAt: row.planned_ship_at || null,
+    expectedArriveAt: row.expected_arrive_at || null,
+    status: overrideStatus || row.status || null,
+    note: summarizeScheduleNote(row.note),
+    updatedAt: row.updated_at || null,
+  }
+}
+
+function mapScheduleBlockConflict(row) {
+  if (!row) return null
+  return {
+    blockId: String(row.id),
+    unitId: row.unit_id === null || row.unit_id === undefined ? null : String(row.unit_id),
+    orderId: row.order_id === null || row.order_id === undefined ? null : String(row.order_id),
+    blockType: row.block_type || null,
+    startDate: row.start_date || null,
+    endDate: row.end_date || null,
+    status: row.status || null,
+  }
+}
+
 async function getRentalOrderInternalNoteSnapshot({ orderId } = {}) {
   return withConnection(async (conn) => {
     const normalizedOrderId = String(orderId || '').trim()
@@ -906,6 +965,190 @@ async function updateScheduleUnitBasicFields({ id, patch = {} } = {}) {
   })
 }
 
+async function getScheduleUnitForBlock({ unitId, deviceId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedUnitId = String(unitId || deviceId || '').trim()
+    if (!normalizedUnitId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        record: null,
+      }
+    }
+
+    const numericId = /^\d+$/.test(normalizedUnitId) ? Number(normalizedUnitId) : null
+    const [rows] = await conn.execute(`
+      SELECT id, model_code, unit_code, status
+      FROM schedule_units
+      WHERE ${numericId !== null ? 'id = ? OR unit_code = ?' : 'unit_code = ?'}
+      ORDER BY id ASC
+      LIMIT 1
+    `, numericId !== null ? [numericId, normalizedUnitId] : [normalizedUnitId])
+    const row = rows[0]
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      record: row ? {
+        unitId: String(row.id),
+        unitCodeMasked: maskIdentifier(row.unit_code),
+        modelCode: row.model_code || null,
+        status: row.status || null,
+      } : null,
+      raw: row || null,
+    }
+  })
+}
+
+async function getRentalOrderExists({ orderId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedOrderId = String(orderId || '').trim()
+    if (!normalizedOrderId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        exists: false,
+        record: null,
+      }
+    }
+
+    const numericId = /^\d+$/.test(normalizedOrderId) ? Number(normalizedOrderId) : null
+    const [rows] = await conn.execute(`
+      SELECT id, order_no, order_status
+      FROM rental_orders
+      WHERE ${numericId !== null ? 'id = ? OR order_no = ?' : 'order_no = ?'}
+      ORDER BY id ASC
+      LIMIT 1
+    `, numericId !== null ? [numericId, normalizedOrderId] : [normalizedOrderId])
+    const row = rows[0]
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      exists: Boolean(row),
+      record: row ? {
+        orderId: String(row.id),
+        orderNoMasked: maskIdentifier(row.order_no),
+        orderStatus: row.order_status || null,
+      } : null,
+      raw: row || null,
+    }
+  })
+}
+
+async function listScheduleBlockConflicts({ unitId, startDate, endDate, excludeBlockId = null } = {}) {
+  return withConnection(async (conn) => {
+    const params = [unitId, endDate, startDate]
+    const excludeClause = excludeBlockId ? 'AND id != ?' : ''
+    if (excludeBlockId) params.push(excludeBlockId)
+    const [rows] = await conn.execute(`
+      SELECT id, unit_id, order_id, model_code, block_type, start_date, end_date, status
+      FROM schedule_blocks
+      WHERE unit_id = ?
+        AND status NOT IN ('cancelled', 'canceled', 'deleted', 'inactive')
+        AND start_date <= ?
+        AND end_date >= ?
+        ${excludeClause}
+      ORDER BY start_date ASC, end_date ASC, id ASC
+      LIMIT 20
+    `, params)
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      count: rows.length,
+      records: rows.map(mapScheduleBlockConflict).filter(Boolean),
+      raw: rows,
+    }
+  })
+}
+
+async function getScheduleBlockSnapshot({ blockId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedBlockId = String(blockId || '').trim()
+    if (!normalizedBlockId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        record: null,
+      }
+    }
+    const [rows] = await conn.execute(`
+      SELECT b.*, u.unit_code
+      FROM schedule_blocks b
+      LEFT JOIN schedule_units u ON u.id = b.unit_id
+      WHERE b.id = ?
+      LIMIT 1
+    `, [normalizedBlockId])
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      record: mapScheduleBlockSnapshot(rows[0]),
+      raw: rows[0] || null,
+    }
+  })
+}
+
+async function insertScheduleBlock(payload = {}) {
+  return withConnection(async (conn) => {
+    const [result] = await conn.execute(`
+      INSERT INTO schedule_blocks (
+        unit_id, order_id, model_code, block_type, start_date, end_date,
+        planned_ship_at, expected_arrive_at, status, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      payload.unitId,
+      payload.orderId || null,
+      payload.modelCode,
+      payload.blockType,
+      payload.startDate,
+      payload.endDate,
+      payload.plannedShipAt || null,
+      payload.expectedArriveAt || null,
+      payload.status || 'active',
+      payload.note || null,
+    ])
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: true,
+      insertId: result.insertId,
+      affectedRows: result.affectedRows,
+    }
+  })
+}
+
+async function cancelScheduleBlock({ blockId } = {}) {
+  return withConnection(async (conn) => {
+    const [result] = await conn.execute(`
+      UPDATE schedule_blocks
+      SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+        AND status NOT IN ('cancelled', 'canceled', 'deleted', 'inactive')
+      LIMIT 1
+    `, [blockId])
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: true,
+      affectedRows: result.affectedRows,
+    }
+  })
+}
+
 function createDbSafeOpsRepository() {
   return {
     mode: 'db',
@@ -927,6 +1170,12 @@ function createDbSafeOpsRepository() {
     getScheduleUnitBasicSnapshot,
     getScheduleUnitOccupationRisk,
     updateScheduleUnitBasicFields,
+    getScheduleUnitForBlock,
+    getRentalOrderExists,
+    listScheduleBlockConflicts,
+    getScheduleBlockSnapshot,
+    insertScheduleBlock,
+    cancelScheduleBlock,
     persistAuditLog: createAuditLog,
     claimIdempotencyKey: createIdempotencyKey,
     saveRollbackPlan: createRollbackPlan,

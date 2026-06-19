@@ -2,7 +2,7 @@
   <UiV2Page title="档期中心" description="未来 7 天设备 × 日期压缩档期视图，展示可租、占用、冲突和维修状态。">
     <template #actions>
       <BaseButton variant="secondary">导出档期</BaseButton>
-      <BaseButton @click="previewScheduleBlock('new-block')">新建占用预览</BaseButton>
+      <BaseButton @click="previewScheduleBlockCreate">新建占用预览</BaseButton>
     </template>
 
     <div class="adapter-source-row">
@@ -13,7 +13,7 @@
 
     <section v-if="schedulePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="schedule-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
-      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>模式</span><strong>{{ schedulePreview.view.mode }}</strong></div>
       <div><span>persistence</span><strong>{{ schedulePreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ schedulePreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ schedulePreview.view.writeWillExecute }}</strong></div>
@@ -21,7 +21,9 @@
       <div><span>audit</span><strong>{{ schedulePreview.view.auditLabel }}</strong></div>
       <div><span>confirm</span><strong>{{ schedulePreview.view.confirmLabel }}</strong></div>
       <div><span>idempotency</span><strong>{{ schedulePreview.view.idempotencyLabel }}</strong></div>
-      <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
+      <div><span>conflictCheck</span><strong>{{ schedulePreview.view.conflictLabel }}</strong></div>
+      <div><span>开放状态</span><strong>{{ schedulePreviewStatusLabel }}</strong></div>
+      <div><span>说明</span><strong>本地安全操作 / 不调用外部服务</strong></div>
     </section>
 
     <section class="summary-grid">
@@ -107,6 +109,49 @@
             <div class="final-info-row"><span>关联订单</span><strong>{{ selectedSlot?.orderId || '无' }}</strong></div>
             <div class="final-info-row"><span>建议动作</span><strong>{{ actionHint }}</strong></div>
           </div>
+          <div class="final-drawer-card schedule-safe-update" data-testid="schedule-block-safeops">
+            <div class="schedule-safe-update__head">
+              <div>
+                <span>单条档期安全操作</span>
+                <strong>本地 safeOps</strong>
+              </div>
+              <span>需要确认 · 已审计 · rollback 暂不可自动执行</span>
+            </div>
+            <div class="schedule-safe-update__grid">
+              <BaseInput v-model="scheduleCreateForm.startDate" label="开始日期" type="date" />
+              <BaseInput v-model="scheduleCreateForm.endDate" label="结束日期" type="date" />
+              <BaseSelect v-model="scheduleCreateForm.blockType" label="占用类型" :options="scheduleBlockTypeOptions" />
+              <BaseInput v-model="scheduleCancelBlockId" label="取消 blockId" placeholder="输入要软取消的 block ID" />
+              <label class="schedule-safe-update__note">
+                <span>内部备注</span>
+                <textarea v-model="scheduleCreateForm.note" rows="3" placeholder="填写手工锁定或维护原因"></textarea>
+              </label>
+            </div>
+            <div class="schedule-safe-update__actions">
+              <BaseButton size="sm" :loading="schedulePreview.loading" @click="previewScheduleBlockCreate">创建预览</BaseButton>
+              <BaseButton
+                size="sm"
+                variant="primary"
+                :loading="scheduleWriteExecuting"
+                :disabled="!canExecuteScheduleWrite || schedulePreview.result?.operationType !== 'schedule.block.create'"
+                @click="executeScheduleBlockCreate"
+              >
+                确认创建
+              </BaseButton>
+              <BaseButton size="sm" variant="secondary" :loading="schedulePreview.loading" @click="previewScheduleBlockCancel">取消预览</BaseButton>
+              <BaseButton
+                size="sm"
+                variant="danger"
+                :loading="scheduleWriteExecuting"
+                :disabled="!canExecuteScheduleWrite || schedulePreview.result?.operationType !== 'schedule.block.cancel'"
+                @click="executeScheduleBlockCancel"
+              >
+                确认取消
+              </BaseButton>
+            </div>
+            <p class="safeops-note">单条操作；不批量锁库；不更新订单/设备/物流；不调用外部接口。</p>
+            <p v-if="schedulePreview.view?.blockedReason" class="adapter-source__error">{{ schedulePreview.view.blockedReason }}</p>
+          </div>
           <div class="final-action-row">
             <BaseButton variant="secondary" size="sm" @click="previewScheduleBlock('batch-lock')">批量锁库预览</BaseButton>
             <BaseButton size="sm">查看设备详情</BaseButton>
@@ -127,7 +172,8 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
-import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
+import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
@@ -142,8 +188,25 @@ const selectedSlot = ref(null)
 const loading = ref(false)
 const loadError = ref('')
 const schedulePreview = ref(createSafeOpsPreviewState())
+const schedulePreviewPayload = ref(null)
+const scheduleWriteExecuting = ref(false)
+const scheduleCreateForm = ref({
+  blockType: 'manual_hold',
+  startDate: '',
+  endDate: '',
+  note: '',
+})
+const scheduleCancelBlockId = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const scheduleTabs = ['全部型号', '可安排', '满租', '余量不足', '即将归还']
+const scheduleBlockTypeOptions = [
+  { label: '手工锁定', value: 'manual_hold' },
+  { label: '内部占用', value: 'internal_hold' },
+  { label: '维护占用', value: 'maintenance' },
+  { label: '通用占用', value: 'block' },
+  { label: '缓冲', value: 'buffer' },
+]
+const safeOpsActor = Object.freeze({ id: 'ui-v2-schedule-operator', source: 'ui-v2', role: 'operator' })
 
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '真实只读'
@@ -184,6 +247,24 @@ const actionHint = computed(() => {
   return '查看关联订单，确认归还和发货时间。'
 })
 
+const canExecuteScheduleWrite = computed(() => {
+  const result = schedulePreview.value?.result || {}
+  const operationType = result.operationType || ''
+  return ['schedule.block.create', 'schedule.block.cancel'].includes(operationType)
+    && Boolean(result.executeEnabled)
+    && Boolean(result.confirmRequirement?.tokenId)
+    && !schedulePreview.value?.view?.blockers?.length
+    && !scheduleWriteExecuting.value
+})
+
+const schedulePreviewStatusLabel = computed(() => {
+  const result = schedulePreview.value?.result || {}
+  if (result.mode === 'write' && result.code === 'SAFE_OP_EXECUTED') return '已执行'
+  if (['schedule.block.create', 'schedule.block.cancel'].includes(result.operationType) && schedulePreview.value?.view?.blockers?.length) return '已阻断'
+  if (['schedule.block.create', 'schedule.block.cancel'].includes(result.operationType) && result.executeEnabled) return '需要确认'
+  return '暂未开放'
+})
+
 function slotFor(deviceId, date) {
   return schedule.value.find((item) => item.deviceId === deviceId && item.date === date)
 }
@@ -191,6 +272,7 @@ function slotFor(deviceId, date) {
 function openSlot(slot) {
   if (!slot) return
   selectedSlot.value = slot
+  syncScheduleSafeForm(slot)
 }
 
 async function previewScheduleBlock(reason) {
@@ -214,6 +296,97 @@ async function previewScheduleBlock(reason) {
       source: 'schedule-page',
     },
   })
+}
+
+function syncScheduleSafeForm(slot = {}) {
+  const date = slot?.date || sevenDates.value[0] || ''
+  scheduleCreateForm.value = {
+    ...scheduleCreateForm.value,
+    startDate: date,
+    endDate: date,
+  }
+}
+
+function toSchedulePreviewState(result = {}) {
+  const view = toSafeOpsPreviewView(result)
+  return {
+    loading: false,
+    result,
+    view,
+    error: result?.ok ? '' : view.summary,
+  }
+}
+
+function buildScheduleCreatePayload() {
+  const startDate = scheduleCreateForm.value.startDate || selectedSlot.value?.date || sevenDates.value[0] || ''
+  return {
+    unitId: selectedSlot.value?.deviceId || '',
+    modelCode: selectedSlot.value?.model || '',
+    blockType: scheduleCreateForm.value.blockType || 'manual_hold',
+    startDate,
+    endDate: scheduleCreateForm.value.endDate || startDate,
+    note: String(scheduleCreateForm.value.note || '').trim(),
+  }
+}
+
+async function previewScheduleBlockCreate() {
+  schedulePreview.value = { ...schedulePreview.value, loading: true, error: '' }
+  const payload = buildScheduleCreatePayload()
+  schedulePreviewPayload.value = payload
+  const result = await safeOpsAdapter.previewScheduleBlockCreate({
+    ...payload,
+    actor: safeOpsActor,
+    clientRequestId: `ui-v2-schedule-block-create-preview-${Date.now()}`,
+  })
+  schedulePreview.value = toSchedulePreviewState(result)
+}
+
+async function executeScheduleBlockCreate() {
+  if (!canExecuteScheduleWrite.value) return
+  scheduleWriteExecuting.value = true
+  try {
+    const payload = schedulePreviewPayload.value || buildScheduleCreatePayload()
+    const result = await safeOpsAdapter.executeScheduleBlockCreate({
+      ...payload,
+      previewResult: schedulePreview.value.result,
+      actor: safeOpsActor,
+      clientRequestId: `ui-v2-schedule-block-create-execute-${Date.now()}`,
+    })
+    schedulePreview.value = toSchedulePreviewState(result)
+    if (result?.ok && result?.mode === 'write') await loadSchedule()
+  } finally {
+    scheduleWriteExecuting.value = false
+  }
+}
+
+async function previewScheduleBlockCancel() {
+  schedulePreview.value = { ...schedulePreview.value, loading: true, error: '' }
+  const payload = { blockId: String(scheduleCancelBlockId.value || '').trim() }
+  schedulePreviewPayload.value = payload
+  const result = await safeOpsAdapter.previewScheduleBlockCancel({
+    ...payload,
+    actor: safeOpsActor,
+    clientRequestId: `ui-v2-schedule-block-cancel-preview-${Date.now()}`,
+  })
+  schedulePreview.value = toSchedulePreviewState(result)
+}
+
+async function executeScheduleBlockCancel() {
+  if (!canExecuteScheduleWrite.value) return
+  scheduleWriteExecuting.value = true
+  try {
+    const payload = schedulePreviewPayload.value || { blockId: String(scheduleCancelBlockId.value || '').trim() }
+    const result = await safeOpsAdapter.executeScheduleBlockCancel({
+      ...payload,
+      previewResult: schedulePreview.value.result,
+      actor: safeOpsActor,
+      clientRequestId: `ui-v2-schedule-block-cancel-execute-${Date.now()}`,
+    })
+    schedulePreview.value = toSchedulePreviewState(result)
+    if (result?.ok && result?.mode === 'write') await loadSchedule()
+  } finally {
+    scheduleWriteExecuting.value = false
+  }
 }
 
 function availabilityNumber(deviceId, date) {
@@ -256,6 +429,7 @@ async function loadSchedule() {
     const models = Array.from(new Set(devices.value.map((device) => device.model).filter(Boolean)))
     options.value = { deviceModels: [], ...nextOptions, deviceModels: models.length ? models : nextOptions?.deviceModels || [] }
     selectedSlot.value = schedule.value[0] || null
+    if (selectedSlot.value) syncScheduleSafeForm(selectedSlot.value)
     sourceMeta.value = uiV2Adapter.getLastMeta('getSchedule')
   } catch (error) {
     schedule.value = []
@@ -462,6 +636,61 @@ onMounted(loadSchedule)
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 680;
+}
+
+.schedule-safe-update {
+  gap: 12px;
+}
+
+.schedule-safe-update__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.schedule-safe-update__head div {
+  display: grid;
+  gap: 2px;
+}
+
+.schedule-safe-update__head strong {
+  color: var(--ui-text);
+  font-size: 13px;
+}
+
+.schedule-safe-update__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.schedule-safe-update__note {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 6px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.schedule-safe-update__note textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  color: var(--ui-text);
+  font: inherit;
+}
+
+.schedule-safe-update__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 @media (max-width: 1280px) {

@@ -14,12 +14,12 @@
 - Phase 04+ 后续六阶段快速推进路线图已落档；
 - 阶段 1A 已完成：为首个低风险内部写操作新增 `rental_orders.internal_note` additive schema；
 - 阶段 1B 已完成：首个真实内部写 `order.internal_note.update` 已通过 safeOps 闭环开放；
-- Phase 04 当前仅开放两个真实内部写 operation，其它 execute 仍 disabled。
+- Phase 04 当前仅开放四个真实内部写 operation，其它 execute 仍 disabled。
 
-阶段 2A 执行前 checkpoint：
+阶段 2B 执行前 checkpoint：
 
 ```text
-7a638db feat: enable safeops order internal note update
+b9ce2c3 feat: enable safeops device basic update
 ```
 
 核心原则：
@@ -27,7 +27,7 @@
 - UI-V2 页面不得直接调用底层写 IPC；
 - 后续真实写操作必须通过统一 `safeOps`；
 - 所有高风险操作必须先 `dry-run`，再二次确认，再审计执行；
-- 当前 execute 仅允许 `order.internal_note.update` 与 `device.basic.update`；
+- 当前 execute 仅允许 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`；
 - 其它 operationType execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
 - 顺丰真实下单、免押真实审核、DB migration 都需要用户单独确认。
 
@@ -44,10 +44,10 @@
 
 当前未开放：
 
-- 除 `order.internal_note.update` / `device.basic.update` 之外的其它 `safeOps.execute` operation；
+- 除 `order.internal_note.update` / `device.basic.update` / `schedule.block.create` / `schedule.block.cancel` 之外的其它 `safeOps.execute` operation；
 - `safeOps.rollback`；
 - `safeOps.audit:list`；
-- 除 `rental_orders.internal_note` 与 `schedule_units` 低风险基础字段之外的真实业务表 write；
+- 除 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消之外的真实业务表 write；
 - 顺丰 / 免押真实外部写入。
 
 当前 DB persistence 范围：
@@ -106,6 +106,47 @@
 - idempotency 记录保存 same-result response；
 - 重复 execute 返回 duplicate / same-result，不重复 UPDATE；
 - 页面通过 UI-V2 safeOps adapter 触发，不直接访问底层 bridge。
+
+## 阶段 2B：档期 block 创建 / 取消真实写闭环
+
+阶段 2B 已开放两个受控内部写 operation：
+
+- operationType：`schedule.block.create`
+- 写入目标：单条 `schedule_blocks` insert
+- 风险等级：`medium-high`
+- scope：`internal-db-only`
+- 外部调用：禁用
+- rollback：仅保留 `not_executable` placeholder
+
+- operationType：`schedule.block.cancel`
+- 写入目标：单条 `schedule_blocks.status = cancelled` soft cancel
+- 风险等级：`medium`
+- scope：`internal-db-only`
+- 外部调用：禁用
+- rollback：仅保留 `not_executable` placeholder
+
+闭环要求：
+
+- `preview` 读取目标 `schedule_units` / `schedule_blocks` before snapshot；
+- `schedule.block.create` 必须校验 `unit_id`、`model_code`、日期区间、block type、初始 status；
+- `schedule.block.create` 必须只读检查同 `unit_id` 日期区间 active/current block 冲突；
+- `schedule.block.cancel` 必须校验目标 block 存在且未取消 / 未停用；
+- `preview` 写入 audit log、confirm token hash、idempotency key、rollback placeholder；
+- `execute` 重新校验本地 DB target、actor、confirm token、payload hash、impact hash、idempotency；
+- `execute` 重新做 create 冲突检查或 cancel 当前状态检查；
+- `execute` 仅允许单条 insert 或单条 soft cancel；
+- 成功后 audit status 更新为 `executed`；
+- idempotency 记录保存 same-result response；
+- 重复 execute 返回 duplicate / same-result，不重复 insert / UPDATE；
+- 页面通过 UI-V2 safeOps adapter 触发，不直接访问底层 bridge。
+
+阶段 2B 禁止：
+
+- 批量锁库；
+- 物理删除 `schedule_blocks`；
+- 修改订单、设备、物流、免押表；
+- 调用 Python、顺丰、免押、闲鱼或任何外部 API；
+- 开放 rollback executor。
 
 ## 阶段 2A：设备基础字段真实写闭环
 

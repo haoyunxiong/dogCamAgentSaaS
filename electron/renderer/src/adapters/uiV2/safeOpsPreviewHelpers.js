@@ -32,6 +32,7 @@ export function toSafeOpsPreviewView(result = {}) {
   const executeReady = Boolean(result?.executeEnabled || execute.enabled)
   const blockers = Array.isArray(result?.blockers) ? result.blockers.filter(Boolean) : []
   const warnings = Array.isArray(result?.warnings) ? result.warnings.filter(Boolean) : []
+  const conflictCheck = result?.conflictCheck || {}
 
   return {
     title: isExecuted ? 'Operation executed' : (isOk ? 'Operation preview' : 'Operation preview unavailable'),
@@ -53,6 +54,9 @@ export function toSafeOpsPreviewView(result = {}) {
     rollbackLabel: result?.rollback?.planned
       ? `${result.rollback.status || 'planned'} / id=${formatMaybe(result.rollback.rollbackPlanId)}`
       : 'not planned',
+    conflictLabel: conflictCheck.checked
+      ? `${conflictCheck.passed ? 'passed' : 'blocked'} / conflicts=${formatMaybe(conflictCheck.conflictCount, 0)}`
+      : (conflictCheck.reason || 'not checked'),
     blockers,
     warnings,
     blockedReason: blockers.join('；'),
