@@ -4,7 +4,7 @@
 
 ```text
 当前阶段：Phase 04 - Operation Safe Mode
-当前状态：首个 safeOps 真实内部写 `order.internal_note.update` 已完成 / 仅允许更新 `rental_orders.internal_note` / 外部 API 与 rollback 仍关闭
+当前状态：safeOps 真实内部写已进入逐项 gated enable / 已开放 `order.internal_note.update` 与 `device.basic.update` / 外部 API 与 rollback 仍关闭
 是否允许写代码：是（仅限 Phase 04 safeOps 安全闭环；真实 write 必须逐项 gated enable）
 是否允许操作 Figma：否
 是否允许改数据库：是（仅限用户已确认的本地 additive migration；不得操作生产库）
@@ -45,20 +45,26 @@
 - [x] 阶段 1A 已完成：`rental_orders.internal_note` 受控 additive migration 已本地 apply
 - [x] 阶段 1B 已完成：`order.internal_note.update` 首个低风险内部写闭环已打通
 - [x] 内部 DB write 安全模式确认（首个低风险 operation 已通过 safeOps 验证）
+- [x] 阶段 2A 已完成：`device.basic.update` 设备基础字段更新闭环已打通
 - [ ] 真实外部 write 开关经用户单独确认
 
 ## 当前下一步
 
 ```text
-Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；阶段 1A `rental_orders.internal_note` additive migration 已完成；阶段 1B `order.internal_note.update` 首个低风险内部写闭环已完成。
+Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；阶段 1A `rental_orders.internal_note` additive migration 已完成；阶段 1B `order.internal_note.update` 首个低风险内部写闭环已完成；阶段 2A `device.basic.update` 已开放为第二个受控内部写 operation。
 ```
 
-Phase 04 已进入单 operation 真实内部写模式。当前仅 `order.internal_note.update` 可通过 safeOps execute 写入 `rental_orders.internal_note`；其它 operationType execute 仍返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 rollback IPC / audit:list IPC。
+Phase 04 已进入逐项 gated 内部写模式。当前仅以下 operationType 可通过 safeOps execute 写入本地 DB：
+
+- `order.internal_note.update`：仅写入 `rental_orders.internal_note`；
+- `device.basic.update`：仅写入 `schedule_units.city` / `schedule_units.note` / 受限 `schedule_units.status`，并更新 `updated_at`。
+
+其它 operationType execute 仍返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 rollback IPC / audit:list IPC。
 
 当前 checkpoint：
 
 ```text
-39ca3a1 chore: add internal note migration for rental orders
+7a638db feat: enable safeops order internal note update
 ```
 
 真实写操作必须先具备：
@@ -100,6 +106,16 @@ Phase 04 已进入单 operation 真实内部写模式。当前仅 `order.interna
 - 重复 execute 返回 idempotent duplicate / same-result，不重复 UPDATE；
 - rollback 仍为 `not_executable` placeholder；
 - 顺丰、免押、闲鱼、Python、外部 API 仍禁用。
+
+阶段 2A 边界：
+
+- 真实写 operationType：`device.basic.update`；
+- 写入目标仅限：`schedule_units.city`、`schedule_units.note`、受限 `schedule_units.status`、`updated_at`；
+- 禁止更新：`model_code`、`unit_code`、`serial_no`、`purchase_cost`、`residual_value`；
+- 必须经过：`preview -> confirm token -> idempotency -> audit -> execute -> after snapshot`；
+- status 只允许受限低风险值，且状态变更前必须重新检查 active/current-future schedule block 与未完成订单；
+- rollback 仍为 `not_executable` placeholder；
+- 删除设备、批量更新、库存重算、档期/订单/物流联动、外部 API 仍禁用。
 
 Phase 04 文档入口：
 

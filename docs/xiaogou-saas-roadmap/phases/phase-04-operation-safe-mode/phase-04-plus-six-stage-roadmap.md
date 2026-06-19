@@ -4,10 +4,10 @@
 
 ## 一、当前完成状态
 
-当前 checkpoint：
+阶段 2A 执行前 checkpoint：
 
 ```text
-39ca3a1 chore: add internal note migration for rental orders
+7a638db feat: enable safeops order internal note update
 ```
 
 已完成：
@@ -18,6 +18,8 @@
 - 本地 MySQL `xianyu_agent` 已恢复；
 - safeOps migration 已本地 apply；
 - safeOps preview / confirm token / idempotency / audit / rollback placeholder 已可真实入库。
+- 阶段 1B `order.internal_note.update` 已开放为首个真实内部写 operation；
+- 阶段 2A `device.basic.update` 已开放为第二个真实内部写 operation。
 
 当前 safeOps 能力：
 
@@ -25,10 +27,10 @@
 - `preview` 可生成并写入 confirm token hash；
 - `preview` 可生成并写入 idempotency key；
 - `preview` 可生成并写入 rollback placeholder；
-- `execute` 仍 disabled；
+- `execute` 仅对 `order.internal_note.update` 与 `device.basic.update` gated enabled；
 - `rollback` 仍 unavailable；
 - 外部 API 禁用；
-- 业务表未开放真实写。
+- 业务表真实写仅限 `rental_orders.internal_note` 与 `schedule_units` 低风险基础字段。
 
 当前禁止：
 
@@ -89,7 +91,7 @@
 
 候选范围：
 
-- 设备基础字段更新；
+- 设备基础字段更新；（阶段 2A 已完成：`device.basic.update`）
 - 档期 block 创建 / 取消；
 - 物流发货记录本地创建；
 - 订单低风险状态流转。
@@ -103,6 +105,14 @@
 - 每个操作必须有 idempotency；
 - 每个操作必须有 rollback placeholder；
 - 仍不开放外部 API。
+
+阶段 2A 已完成边界：
+
+- `device.basic.update` 只允许更新 `schedule_units.city`、`schedule_units.note`、受限 `schedule_units.status`；
+- 禁止 `model_code`、`unit_code`、`serial_no`、`purchase_cost`、`residual_value`；
+- status 变更必须检查 active/current-future schedule block 与未完成订单；
+- 删除设备、批量更新、库存重算仍禁用；
+- rollback 仍只写 placeholder，不开放 executor。
 
 阶段 2 不做：
 

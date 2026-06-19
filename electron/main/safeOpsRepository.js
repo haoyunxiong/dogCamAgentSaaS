@@ -164,6 +164,15 @@ function createNoopSafeOpsRepository(reason = 'safeOps DB persistence unavailabl
     async updateRentalOrderInternalNote(payload) {
       return createNoopResult('updateRentalOrderInternalNote', payload, reason)
     },
+    async getScheduleUnitBasicSnapshot(payload) {
+      return createNoopResult('getScheduleUnitBasicSnapshot', payload, reason)
+    },
+    async getScheduleUnitOccupationRisk(payload) {
+      return createNoopResult('getScheduleUnitOccupationRisk', payload, reason)
+    },
+    async updateScheduleUnitBasicFields(payload) {
+      return createNoopResult('updateScheduleUnitBasicFields', payload, reason)
+    },
     async persistAuditLog(payload) {
       return createNoopResult('persistAuditLog', payload, reason)
     },
@@ -676,6 +685,15 @@ function summarizeInternalNote(value) {
   }
 }
 
+function summarizeDeviceNote(value) {
+  const text = String(value || '')
+  return {
+    hasValue: Boolean(text.trim()),
+    length: text.length,
+    preview: text ? maskIdentifier(text) : '',
+  }
+}
+
 function mapRentalOrderInternalNoteSnapshot(row, overrideNote) {
   if (!row) return null
   const note = overrideNote === undefined ? row.internal_note : overrideNote
@@ -685,6 +703,24 @@ function mapRentalOrderInternalNoteSnapshot(row, overrideNote) {
     orderStatus: row.order_status || null,
     modelCode: row.model_code || null,
     internalNote: summarizeInternalNote(note),
+  }
+}
+
+function mapScheduleUnitBasicSnapshot(row, overridePatch = {}) {
+  if (!row) return null
+  const city = overridePatch.city === undefined ? row.city : overridePatch.city
+  const note = overridePatch.note === undefined ? row.note : overridePatch.note
+  const status = overridePatch.status === undefined ? row.status : overridePatch.status
+
+  return {
+    unitId: String(row.id),
+    deviceId: String(row.id),
+    unitCodeMasked: maskIdentifier(row.unit_code),
+    modelCode: row.model_code || null,
+    city: city ?? '',
+    status: status || null,
+    note: summarizeDeviceNote(note),
+    updatedAt: row.updated_at || null,
   }
 }
 
@@ -739,6 +775,137 @@ async function updateRentalOrderInternalNote({ id, internalNote } = {}) {
   })
 }
 
+async function getScheduleUnitBasicSnapshot({ unitId, deviceId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedUnitId = String(unitId || deviceId || '').trim()
+    if (!normalizedUnitId) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        record: null,
+      }
+    }
+
+    const numericId = /^\d+$/.test(normalizedUnitId) ? Number(normalizedUnitId) : null
+    const [rows] = await conn.execute(`
+      SELECT id, model_code, unit_code, city, status, note, updated_at
+      FROM schedule_units
+      WHERE ${numericId !== null ? 'id = ? OR unit_code = ?' : 'unit_code = ?'}
+      ORDER BY id ASC
+      LIMIT 1
+    `, numericId !== null ? [numericId, normalizedUnitId] : [normalizedUnitId])
+
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      record: mapScheduleUnitBasicSnapshot(rows[0]),
+      raw: rows[0] || null,
+    }
+  })
+}
+
+async function getScheduleUnitOccupationRisk({ unitId } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedUnitId = Number(unitId)
+    if (!Number.isFinite(normalizedUnitId) || normalizedUnitId <= 0) {
+      return {
+        ok: true,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        hasRisk: true,
+        blockCount: 0,
+        orderCount: 0,
+        reason: 'schedule unit id is not numeric',
+      }
+    }
+
+    const [blockRows] = await conn.execute(`
+      SELECT COUNT(*) AS count
+      FROM schedule_blocks
+      WHERE unit_id = ?
+        AND status IN ('active', 'occupied', 'locked', 'rented', 'busy')
+        AND (end_date IS NULL OR end_date >= CURDATE())
+    `, [normalizedUnitId])
+    const [orderRows] = await conn.execute(`
+      SELECT COUNT(*) AS count
+      FROM rental_orders
+      WHERE unit_id = ?
+        AND (order_status IS NULL OR order_status NOT IN ('completed', 'cancelled'))
+    `, [normalizedUnitId])
+
+    const blockCount = Number(blockRows[0]?.count || 0)
+    const orderCount = Number(orderRows[0]?.count || 0)
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: false,
+      hasRisk: blockCount > 0 || orderCount > 0,
+      blockCount,
+      orderCount,
+      reason: blockCount > 0 || orderCount > 0
+        ? 'schedule unit has active/current-future schedule block or unfinished order'
+        : null,
+    }
+  })
+}
+
+async function updateScheduleUnitBasicFields({ id, patch = {} } = {}) {
+  return withConnection(async (conn) => {
+    const normalizedId = Number(id)
+    if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+      return {
+        ok: false,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        affectedRows: 0,
+        reason: 'schedule unit id is required',
+      }
+    }
+
+    const assignments = []
+    const params = []
+    for (const field of ['city', 'note', 'status']) {
+      if (Object.prototype.hasOwnProperty.call(patch, field)) {
+        assignments.push(`${field} = ?`)
+        params.push(patch[field] ?? null)
+      }
+    }
+
+    if (!assignments.length) {
+      return {
+        ok: false,
+        mode: 'db',
+        available: true,
+        persisted: false,
+        affectedRows: 0,
+        reason: 'no allowed schedule unit fields supplied',
+      }
+    }
+
+    const [result] = await conn.execute(`
+      UPDATE schedule_units
+      SET ${assignments.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      LIMIT 1
+    `, [...params, normalizedId])
+
+    return {
+      ok: true,
+      mode: 'db',
+      available: true,
+      persisted: true,
+      affectedRows: result.affectedRows,
+    }
+  })
+}
+
 function createDbSafeOpsRepository() {
   return {
     mode: 'db',
@@ -757,6 +924,9 @@ function createDbSafeOpsRepository() {
     getRollbackPlan,
     getRentalOrderInternalNoteSnapshot,
     updateRentalOrderInternalNote,
+    getScheduleUnitBasicSnapshot,
+    getScheduleUnitOccupationRisk,
+    updateScheduleUnitBasicFields,
     persistAuditLog: createAuditLog,
     claimIdempotencyKey: createIdempotencyKey,
     saveRollbackPlan: createRollbackPlan,

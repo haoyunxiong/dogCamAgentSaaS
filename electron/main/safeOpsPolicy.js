@@ -1,8 +1,9 @@
-const SAFE_OPS_SAFE_MODE = 'single-operation-write'
+const SAFE_OPS_SAFE_MODE = 'gated-internal-write'
 const SAFE_OPS_WRITE_ENABLED = true
 const SAFE_OPS_EXECUTE_ENABLED = true
 const SAFE_OPS_ENABLED_EXECUTE_OPERATION_TYPES = Object.freeze([
   'order.internal_note.update',
+  'device.basic.update',
 ])
 
 const AUDIT_POLICY = Object.freeze({
@@ -43,6 +44,24 @@ const OPERATION_POLICIES = Object.freeze([
     allowWrite: true,
     allowExecute: true,
     allowedFields: ['internal_note'],
+    externalCallAllowed: false,
+    requiresConfirm: true,
+    requiresIdempotency: true,
+    rollbackExecutable: false,
+    requiresDbMigrationForWrite: false,
+    requiresExternalCredential: false,
+    requiresUserConfirmationForWrite: true,
+    requiresIdempotencyKeyForWrite: true,
+  },
+  {
+    operationType: 'device.basic.update',
+    domain: 'Devices',
+    riskLevel: 'medium-low',
+    scope: 'internal-db-only',
+    allowPreview: true,
+    allowWrite: true,
+    allowExecute: true,
+    allowedFields: ['city', 'note', 'status'],
     externalCallAllowed: false,
     requiresConfirm: true,
     requiresIdempotency: true,

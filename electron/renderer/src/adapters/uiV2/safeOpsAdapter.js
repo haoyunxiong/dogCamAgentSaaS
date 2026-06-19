@@ -13,6 +13,7 @@ const EXECUTE_DISABLED_POLICY = Object.freeze({
 
 const SAFE_OP_POLICIES = Object.freeze([
   { operationType: 'order.internal_note.update', domain: 'Orders', riskLevel: 'low', requiresExternalCredential: false, allowExecute: true },
+  { operationType: 'device.basic.update', domain: 'Devices', riskLevel: 'medium-low', requiresExternalCredential: false, allowExecute: true, allowedFields: ['city', 'note', 'status'] },
   { operationType: 'order.status.transition.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'order.edit.preview', domain: 'Orders', riskLevel: 'high', requiresExternalCredential: false },
   { operationType: 'device.update.preview', domain: 'Devices', riskLevel: 'high', requiresExternalCredential: false },
@@ -27,6 +28,7 @@ const POLICY_BY_OPERATION = new Map(SAFE_OP_POLICIES.map((policy) => [policy.ope
 
 const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
   'order.internal_note.update': 'Renderer noop internal note preview. Real local write requires Electron safeOps execute and will not call external services.',
+  'device.basic.update': 'Renderer noop device basic update preview. Real local write requires Electron safeOps execute and will only update city, note, status.',
   'order.status.transition.preview': 'Renderer noop order status preview. This is dry-run only and will not change order state, schedule, logistics, or notifications.',
   'order.edit.preview': 'Renderer noop order edit preview. This is dry-run only and will not change order fields, fees, devices, schedule, or logistics.',
   'device.update.preview': 'Renderer noop device update preview. This is dry-run only and will not change device profile, inventory, or availability.',
@@ -216,7 +218,7 @@ async function preview(payload = {}) {
 async function execute(payload = {}) {
   try {
     const operationType = normalizeOperationType(payload.operationType)
-    if (operationType !== 'order.internal_note.update') {
+    if (!['order.internal_note.update', 'device.basic.update'].includes(operationType)) {
       return buildLocalExecuteDisabled(operationType)
     }
 
@@ -275,10 +277,57 @@ export async function executeOrderInternalNoteUpdate({
   })
 }
 
+export async function previewDeviceBasicUpdate({
+  unitId,
+  deviceId,
+  patch,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(unitId || deviceId || '')
+  return preview({
+    operationType: 'device.basic.update',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'device', id },
+    payload: {
+      unitId: id,
+      patch: patch || {},
+    },
+    clientRequestId: clientRequestId || `ui-v2-device-basic-preview-${Date.now()}`,
+  })
+}
+
+export async function executeDeviceBasicUpdate({
+  previewResult,
+  unitId,
+  deviceId,
+  patch,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(unitId || deviceId || '')
+  return execute({
+    operationType: 'device.basic.update',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'device', id },
+    payload: {
+      unitId: id,
+      patch: patch || {},
+    },
+    clientRequestId: clientRequestId || `ui-v2-device-basic-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
   execute,
   previewOrderInternalNoteUpdate,
   executeOrderInternalNoteUpdate,
+  previewDeviceBasicUpdate,
+  executeDeviceBasicUpdate,
 }

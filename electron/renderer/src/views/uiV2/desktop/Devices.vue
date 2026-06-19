@@ -13,7 +13,7 @@
 
     <section v-if="devicePreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-page-safeops-preview">
       <div><span>操作预览</span><strong>dry-run only</strong></div>
-      <div><span>开放状态</span><strong>暂未开放</strong></div>
+      <div><span>开放状态</span><strong>{{ devicePreviewStatusLabel }}</strong></div>
       <div><span>persistence</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
@@ -80,9 +80,39 @@
           @secondary="previewDeviceUpdate('disable')"
           @danger="previewDeviceDelete"
         />
+        <section class="final-drawer-card device-safe-update" data-testid="device-basic-update-safeops">
+          <div class="device-safe-update__header">
+            <div>
+              <span>设备基础信息安全更新</span>
+              <strong>本地 safeOps</strong>
+            </div>
+            <span>需要确认 · 可审计 · rollback 暂不可自动执行</span>
+          </div>
+          <div class="device-safe-update__grid">
+            <BaseInput v-model="deviceBasicForm.city" label="所在城市" placeholder="填写城市" />
+            <BaseSelect v-model="deviceBasicForm.status" label="受限状态" :options="deviceStatusOptions" />
+            <label class="device-safe-update__note">
+              <span>内部备注</span>
+              <textarea v-model="deviceBasicForm.note" rows="3" placeholder="填写内部维护备注"></textarea>
+            </label>
+          </div>
+          <div class="device-safe-update__actions">
+            <BaseButton :loading="devicePreview.loading" @click="previewDeviceBasicUpdate">操作预览</BaseButton>
+            <BaseButton
+              variant="primary"
+              :loading="deviceBasicExecuting"
+              :disabled="!canExecuteDeviceBasicUpdate"
+              @click="executeDeviceBasicUpdate"
+            >
+              确认执行
+            </BaseButton>
+          </div>
+          <p class="safeops-note">dry-run first；不调用外部接口；只允许 city / note / status。</p>
+          <p v-if="devicePreview.view?.blockedReason" class="adapter-source__error">{{ devicePreview.view.blockedReason }}</p>
+        </section>
         <section v-if="devicePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-safeops-preview">
           <div><span>操作预览</span><strong>dry-run only</strong></div>
-          <div><span>开放状态</span><strong>暂未开放</strong></div>
+          <div><span>开放状态</span><strong>{{ devicePreviewStatusLabel }}</strong></div>
           <div><span>persistence</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
@@ -124,7 +154,8 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard, Pagination, StatusTabs, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
-import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
+import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -144,7 +175,15 @@ const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
 const devicePreview = ref(createSafeOpsPreviewState())
+const deviceBasicExecuting = ref(false)
+const deviceBasicForm = ref({ city: '', note: '', status: 'idle' })
+const deviceBasicPreviewPatch = ref(null)
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const deviceStatusOptions = [
+  { label: '可租', value: 'idle' },
+  { label: '维护中', value: 'repair' },
+  { label: '停用', value: 'offline' },
+]
 const locations = computed(() => [...new Set(devices.value.map((device) => device.location).filter(Boolean))])
 const columns = [
   { key: 'assetNo', label: '设备编号' },
@@ -194,8 +233,74 @@ const deviceTimeline = computed(() => {
   ]
 })
 
+const canExecuteDeviceBasicUpdate = computed(() => Boolean(
+  devicePreview.value?.result?.operationType === 'device.basic.update'
+  && devicePreview.value?.result?.executeEnabled
+  && devicePreview.value?.result?.confirmRequirement?.tokenId
+  && !devicePreview.value?.view?.blockers?.length
+  && !deviceBasicExecuting.value
+))
+
+const devicePreviewStatusLabel = computed(() => {
+  const result = devicePreview.value?.result || {}
+  if (result.mode === 'write' && result.code === 'SAFE_OP_EXECUTED') return '已执行'
+  if (result.operationType === 'device.basic.update' && result.executeEnabled) return '需要确认'
+  if (result.operationType === 'device.basic.update' && result.blockers?.length) return '已阻断'
+  return '暂未开放'
+})
+
 function countStatus(nextStatus) {
   return devices.value.filter((device) => device.status === nextStatus).length
+}
+
+function getRawDeviceStatus(device = {}) {
+  const rawStatus = String(device.rawStatus || '').trim()
+  if (['idle', 'repair', 'offline'].includes(rawStatus)) return rawStatus
+  if (device.status === '可租') return 'idle'
+  if (device.status === '维修中') return 'repair'
+  if (device.status === '停用') return 'offline'
+  return 'idle'
+}
+
+function getDeviceEditableCity(device = {}) {
+  if (device.raw?.city !== undefined && device.raw?.city !== null) return String(device.raw.city || '')
+  return device.location === '未分配门店' ? '' : String(device.location || '')
+}
+
+function getDeviceEditableNote(device = {}) {
+  if (device.raw?.note !== undefined && device.raw?.note !== null) return String(device.raw.note || '')
+  return String(device.conditionNote || '')
+}
+
+function syncDeviceBasicForm(device = {}) {
+  deviceBasicForm.value = {
+    city: getDeviceEditableCity(device),
+    note: getDeviceEditableNote(device),
+    status: getRawDeviceStatus(device),
+  }
+  deviceBasicPreviewPatch.value = null
+}
+
+function getSelectedDeviceUnitId() {
+  return String(selectedDevice.value?.rawId || selectedDevice.value?.id || '')
+}
+
+function buildDeviceBasicPatch() {
+  return {
+    city: String(deviceBasicForm.value.city || '').trim(),
+    note: String(deviceBasicForm.value.note || '').trim(),
+    status: String(deviceBasicForm.value.status || '').trim(),
+  }
+}
+
+function toPreviewState(result = {}) {
+  const view = toSafeOpsPreviewView(result)
+  return {
+    loading: false,
+    result,
+    view,
+    error: result?.ok ? '' : (result?.message || view.summary),
+  }
 }
 
 async function loadDevices() {
@@ -220,16 +325,83 @@ async function loadDevices() {
 
 async function openDevice(device) {
   selectedDevice.value = device
+  syncDeviceBasicForm(device)
   drawerOpen.value = true
   detailLoading.value = true
   try {
     const detail = await uiV2Adapter.getDevice(device.id)
-    if (detail) selectedDevice.value = { ...device, ...detail }
+    if (detail) {
+      selectedDevice.value = { ...device, ...detail }
+      syncDeviceBasicForm(selectedDevice.value)
+    }
     sourceMeta.value = uiV2Adapter.getLastMeta('getDevice') || sourceMeta.value
   } catch (error) {
     loadError.value = error?.message || '设备详情读取失败'
   } finally {
     detailLoading.value = false
+  }
+}
+
+async function refreshSelectedDeviceAfterWrite() {
+  const selectedId = selectedDevice.value?.id
+  await loadDevices()
+  const refreshed = devices.value.find((device) => device.id === selectedId)
+  if (refreshed) {
+    selectedDevice.value = refreshed
+    try {
+      const detail = await uiV2Adapter.getDevice(refreshed.id)
+      if (detail) selectedDevice.value = { ...refreshed, ...detail }
+    } catch {
+      selectedDevice.value = refreshed
+    }
+    syncDeviceBasicForm(selectedDevice.value)
+  }
+}
+
+async function previewDeviceBasicUpdate() {
+  devicePreview.value = { ...devicePreview.value, loading: true, error: '' }
+  const patch = buildDeviceBasicPatch()
+  deviceBasicPreviewPatch.value = patch
+  const result = await safeOpsAdapter.previewDeviceBasicUpdate({
+    unitId: getSelectedDeviceUnitId(),
+    patch,
+    actor: { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    clientRequestId: `ui-v2-device-basic-preview-${Date.now()}`,
+  })
+  devicePreview.value = toPreviewState(result)
+}
+
+async function executeDeviceBasicUpdate() {
+  if (!canExecuteDeviceBasicUpdate.value) return
+  deviceBasicExecuting.value = true
+  try {
+    const result = await safeOpsAdapter.executeDeviceBasicUpdate({
+      previewResult: devicePreview.value.result,
+      unitId: getSelectedDeviceUnitId(),
+      patch: deviceBasicPreviewPatch.value || buildDeviceBasicPatch(),
+      actor: { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+      clientRequestId: `ui-v2-device-basic-execute-${Date.now()}`,
+    })
+    devicePreview.value = toPreviewState(result)
+    if (result?.ok && result?.mode === 'write') {
+      await refreshSelectedDeviceAfterWrite()
+    }
+  } catch (error) {
+    devicePreview.value = toPreviewState({
+      ok: false,
+      supported: true,
+      operationType: 'device.basic.update',
+      mode: 'execute-rejected',
+      code: 'SAFE_OP_EXECUTE_ERROR',
+      message: error?.message || '设备基础信息更新失败',
+      writeWillExecute: false,
+      externalCallWillExecute: false,
+      blockers: [error?.message || 'safeOps execute failed safely'],
+      audit: { mode: 'noop', persisted: false },
+      execute: { enabled: false, code: 'SAFE_OP_EXECUTE_ERROR' },
+    })
+  } finally {
+    deviceBasicExecuting.value = false
   }
 }
 
@@ -357,5 +529,76 @@ onMounted(loadDevices)
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 680;
+}
+
+.device-safe-update {
+  display: grid;
+  gap: 12px;
+}
+
+.device-safe-update__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.device-safe-update__header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.device-safe-update__header strong {
+  color: var(--ui-text);
+  font-size: 15px;
+}
+
+.device-safe-update__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.55fr);
+  gap: 10px;
+}
+
+.device-safe-update__note {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 4px;
+  color: var(--color-text-secondary, #4b5563);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.device-safe-update__note textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: var(--radius-8, 8px);
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #111827);
+  font: inherit;
+  font-weight: 500;
+  outline: none;
+}
+
+.device-safe-update__note textarea:focus {
+  border-color: var(--color-primary, #007f6d);
+  box-shadow: 0 0 0 3px rgba(0, 127, 109, 0.12);
+}
+
+.device-safe-update__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .device-safe-update__grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
