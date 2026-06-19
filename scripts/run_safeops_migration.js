@@ -8,12 +8,35 @@ const { spawnSync } = require('child_process')
 const { loadMysqlConfig } = require('../electron/main/mysqlConfig')
 
 const ROOT_DIR = path.resolve(__dirname, '..')
-const MIGRATION_VERSION = '20260618_0001_create_safe_ops_tables'
-const MIGRATION_NAME = 'create_safe_ops_tables'
-const MIGRATION_SQL_PATH = path.join(ROOT_DIR, 'scripts/migrations/20260618_0001_create_safe_ops_tables.sql')
-const ROLLBACK_SQL_PATH = path.join(ROOT_DIR, 'scripts/migrations/20260618_0001_create_safe_ops_tables.rollback.sql')
 const BACKUP_DIR = path.join(ROOT_DIR, 'data/db-backups')
 const BACKUP_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+const MIGRATIONS = Object.freeze([
+  {
+    version: '20260618_0001_create_safe_ops_tables',
+    name: 'create_safe_ops_tables',
+    sqlPath: path.join(ROOT_DIR, 'scripts/migrations/20260618_0001_create_safe_ops_tables.sql'),
+    rollbackPath: path.join(ROOT_DIR, 'scripts/migrations/20260618_0001_create_safe_ops_tables.rollback.sql'),
+    shape: 'safe_ops_tables',
+  },
+  {
+    version: '20260619_0002_add_rental_orders_internal_note',
+    name: 'add_rental_orders_internal_note',
+    sqlPath: path.join(ROOT_DIR, 'scripts/migrations/20260619_0002_add_rental_orders_internal_note.sql'),
+    rollbackPath: path.join(ROOT_DIR, 'scripts/migrations/20260619_0002_add_rental_orders_internal_note.rollback.sql'),
+    shape: 'rental_orders_internal_note',
+  },
+])
+
+const MIGRATION_WORKTREE_ALLOWLIST = Object.freeze(new Set([
+  'scripts/migrations/20260619_0002_add_rental_orders_internal_note.sql',
+  'scripts/migrations/20260619_0002_add_rental_orders_internal_note.rollback.sql',
+  'scripts/run_safeops_migration.js',
+  'scripts/mysql_schema.sql',
+  'docs/xiaogou-saas-roadmap/05_PHASE_STATUS_阶段状态表.md',
+  'docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/README.md',
+  'docs/xiaogou-saas-roadmap/phases/phase-04-operation-safe-mode/phase-04-plus-six-stage-roadmap.md',
+]))
 
 const SAFE_OPS_TABLES = Object.freeze([
   'operation_audit_logs',
@@ -33,6 +56,7 @@ const LEGACY_TABLES = Object.freeze([
 
 const REQUIRED_COLUMNS = Object.freeze({
   schema_migrations: ['version', 'name', 'checksum', 'applied_at', 'applied_by', 'status'],
+  rental_orders: ['internal_note'],
   operation_audit_logs: ['operation_id', 'operation_type', 'payload_hash', 'impact_hash', 'before_snapshot_json', 'after_snapshot_json'],
   operation_confirm_tokens: ['token_hash', 'operation_type', 'payload_hash', 'impact_hash'],
   operation_idempotency_keys: ['key_hash', 'operation_type', 'payload_hash'],
@@ -141,13 +165,25 @@ function parseArgs(argv) {
 }
 
 function assertGitClean() {
-  const result = spawnSync('git', ['status', '--porcelain'], {
+  const result = spawnSync('git', ['status', '--porcelain=v1', '-z'], {
     cwd: ROOT_DIR,
     encoding: 'utf8',
   })
   if (result.error) fail('Unable to check git status.', [result.error.message])
   if (result.status !== 0) fail('git status failed.', [result.stderr || result.stdout])
-  if (result.stdout.trim()) fail('Git worktree is not clean. Commit or stash changes before migration.', [result.stdout.trim()])
+  const dirtyFiles = result.stdout
+    .split('\0')
+    .filter(Boolean)
+    .map((line) => line.slice(3))
+    .map((filePath) => filePath.includes(' -> ') ? filePath.split(' -> ').pop() : filePath)
+  const unexpected = dirtyFiles.filter((filePath) => !MIGRATION_WORKTREE_ALLOWLIST.has(filePath))
+  if (unexpected.length) {
+    fail('Git worktree has files outside the safeOps migration allowlist.', unexpected)
+  }
+  if (dirtyFiles.length) {
+    console.log('[safeOps migration] Git worktree contains only expected migration files:')
+    for (const filePath of dirtyFiles) console.log(`  ${filePath}`)
+  }
 }
 
 function assertLocalGuard(config) {
@@ -178,14 +214,37 @@ function assertLocalGuard(config) {
   if (errors.length) fail('Local/test database guard failed.', errors)
 }
 
-function assertMigrationSqlShape(sqlText) {
-  const prohibited = sqlText
+function stripSqlComments(statement) {
+  return statement
     .split(/\r?\n/)
-    .map((line, index) => ({ line: line.trim(), number: index + 1 }))
-    .filter(({ line }) => /^(ALTER|DROP|INSERT|UPDATE|DELETE|RENAME|TRUNCATE)\b/i.test(line))
-  if (prohibited.length) {
-    fail('Migration SQL contains non-additive statements.', prohibited.map((item) => `${item.number}: ${item.line}`))
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+    .trim()
+}
+
+function assertMigrationSqlShape(migration, sqlText) {
+  const statements = splitSqlStatements(sqlText).map(stripSqlComments).filter(Boolean)
+  if (migration.shape === 'safe_ops_tables') {
+    const prohibited = sqlText
+      .split(/\r?\n/)
+      .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+      .filter(({ line }) => /^(ALTER|DROP|INSERT|UPDATE|DELETE|RENAME|TRUNCATE)\b/i.test(line))
+    if (prohibited.length) {
+      fail('Migration SQL contains non-additive statements.', prohibited.map((item) => `${item.number}: ${item.line}`))
+    }
+    return
   }
+
+  if (migration.shape === 'rental_orders_internal_note') {
+    const [statement] = statements
+    const allowed = /^ALTER\s+TABLE\s+`?rental_orders`?\s+ADD\s+COLUMN\s+`?internal_note`?\s+TEXT\s+NULL(?:\s+COMMENT\s+'[^']*')?$/i
+    if (statements.length !== 1 || !allowed.test(statement.replace(/\s+/g, ' '))) {
+      fail('Internal note migration must only add rental_orders.internal_note.', statements)
+    }
+    return
+  }
+
+  fail('Unknown migration SQL shape.', [migration.version])
 }
 
 function checksumFile(filePath) {
@@ -266,19 +325,54 @@ async function listExistingTables(conn, tableNames) {
   return new Set(rows.map((row) => row.tableName))
 }
 
-async function getLedgerRow(conn) {
+async function getLedgerRows(conn) {
   const existingTables = await listExistingTables(conn, [LEDGER_TABLE])
-  if (!existingTables.has(LEDGER_TABLE)) return null
+  if (!existingTables.has(LEDGER_TABLE)) return new Map()
+  const versions = MIGRATIONS.map((migration) => migration.version)
+  const placeholders = versions.map(() => '?').join(',')
   const rows = await readRows(conn, `
     SELECT version, name, checksum, status, applied_at AS appliedAt
     FROM schema_migrations
-    WHERE version = ?
-    LIMIT 1
-  `, [MIGRATION_VERSION])
-  return rows[0] || null
+    WHERE version IN (${placeholders})
+  `, versions)
+  return new Map(rows.map((row) => [row.version, row]))
 }
 
-async function precheck(conn, mode) {
+function validateLedgerRows(ledgerRows, checksumsByVersion) {
+  for (const migration of MIGRATIONS) {
+    const row = ledgerRows.get(migration.version)
+    if (!row) continue
+    if (row.status !== 'applied') {
+      fail('schema_migrations has an abnormal status for this migration.', [
+        `${migration.version}: status=${row.status}`,
+      ])
+    }
+    const expectedChecksum = checksumsByVersion.get(migration.version)
+    if (expectedChecksum && row.checksum && row.checksum !== expectedChecksum) {
+      fail('schema_migrations checksum does not match migration SQL.', [
+        `${migration.version}: expected=${expectedChecksum} actual=${row.checksum}`,
+      ])
+    }
+  }
+}
+
+function getPendingMigrations(ledgerRows) {
+  return MIGRATIONS.filter((migration) => !ledgerRows.has(migration.version))
+}
+
+async function columnExists(conn, tableName, columnName) {
+  const rows = await readRows(conn, `
+    SELECT COLUMN_NAME AS columnName
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ?
+      AND COLUMN_NAME = ?
+    LIMIT 1
+  `, [tableName, columnName])
+  return rows.length > 0
+}
+
+async function precheck(conn, mode, checksumsByVersion) {
   const contextRows = await readRows(conn, 'SELECT DATABASE() AS dbName, CURRENT_USER() AS currentUser, @@hostname AS hostName')
   const context = contextRows[0] || {}
   console.log('[safeOps migration] DB context:')
@@ -289,19 +383,24 @@ async function precheck(conn, mode) {
   const allMigrationTables = [LEDGER_TABLE, ...SAFE_OPS_TABLES]
   const existingTables = await listExistingTables(conn, allMigrationTables)
   const existingOperationTables = SAFE_OPS_TABLES.filter((table) => existingTables.has(table))
-  const ledgerRow = await getLedgerRow(conn)
+  const ledgerRows = await getLedgerRows(conn)
+  validateLedgerRows(ledgerRows, checksumsByVersion)
+  const pendingMigrations = getPendingMigrations(ledgerRows)
+  const safeOpsLedgerRow = ledgerRows.get('20260618_0001_create_safe_ops_tables')
+  const internalNoteLedgerRow = ledgerRows.get('20260619_0002_add_rental_orders_internal_note')
+  const hasInternalNoteColumn = await columnExists(conn, 'rental_orders', 'internal_note')
 
   if (existingOperationTables.length > 0 && existingOperationTables.length < SAFE_OPS_TABLES.length) {
     fail('Partial safeOps operation tables found. Stop and inspect manually.', existingOperationTables)
   }
-  if (ledgerRow && ledgerRow.status !== 'applied') {
-    fail('schema_migrations has an abnormal status for this migration.', [`status=${ledgerRow.status}`])
-  }
-  if (mode === 'apply' && ledgerRow?.status === 'applied') {
-    fail('Migration already recorded as applied. Use --verify instead.', [`version=${MIGRATION_VERSION}`])
-  }
-  if (mode === 'apply' && existingOperationTables.length === SAFE_OPS_TABLES.length && !ledgerRow) {
+  if (existingOperationTables.length === SAFE_OPS_TABLES.length && !safeOpsLedgerRow) {
     fail('safeOps tables already exist but ledger row is missing. Stop and inspect manually.')
+  }
+  if (hasInternalNoteColumn && !internalNoteLedgerRow) {
+    fail('rental_orders.internal_note already exists but ledger row is missing. Stop and inspect manually.')
+  }
+  if (internalNoteLedgerRow && !hasInternalNoteColumn) {
+    fail('schema_migrations says internal_note migration is applied, but rental_orders.internal_note is missing.')
   }
 
   console.log('[safeOps migration] Precheck tables:')
@@ -309,8 +408,14 @@ async function precheck(conn, mode) {
   for (const table of SAFE_OPS_TABLES) {
     console.log(`  ${table}: ${existingTables.has(table) ? 'exists' : 'missing'}`)
   }
+  console.log(`  rental_orders.internal_note: ${hasInternalNoteColumn ? 'exists' : 'missing'}`)
+  console.log('[safeOps migration] Migration ledger:')
+  for (const migration of MIGRATIONS) {
+    console.log(`  ${migration.version}: ${ledgerRows.has(migration.version) ? 'applied' : 'pending'}`)
+  }
+  console.log(`[safeOps migration] Pending migrations: ${pendingMigrations.length ? pendingMigrations.map((migration) => migration.version).join(', ') : 'none'}`)
 
-  return { context, existingTables, existingOperationTables, ledgerRow }
+  return { context, existingTables, existingOperationTables, ledgerRows, pendingMigrations, hasInternalNoteColumn }
 }
 
 async function executeSqlFile(conn, filePath) {
@@ -320,7 +425,7 @@ async function executeSqlFile(conn, filePath) {
   }
 }
 
-async function recordLedger(conn, checksum) {
+async function recordLedger(conn, migration, checksum) {
   const appliedBy = os.userInfo().username || 'local-script'
   await conn.execute(`
     INSERT INTO schema_migrations (version, name, checksum, applied_by, status)
@@ -331,7 +436,7 @@ async function recordLedger(conn, checksum) {
       applied_by = VALUES(applied_by),
       applied_at = CURRENT_TIMESTAMP,
       status = 'applied'
-  `, [MIGRATION_VERSION, MIGRATION_NAME, checksum, appliedBy])
+  `, [migration.version, migration.name, checksum, appliedBy])
 }
 
 async function readColumns(conn, tableName) {
@@ -364,9 +469,12 @@ async function verifyApplied(conn, { requireLedger = true } = {}) {
   if (missingLegacyTables.length) fail('Legacy business tables are missing after migration.', missingLegacyTables)
 
   if (requireLedger) {
-    const ledgerRow = await getLedgerRow(conn)
-    if (!ledgerRow || ledgerRow.status !== 'applied') {
-      fail('schema_migrations ledger row is missing or not applied.', [MIGRATION_VERSION])
+    const ledgerRows = await getLedgerRows(conn)
+    const missingLedgerRows = MIGRATIONS
+      .filter((migration) => ledgerRows.get(migration.version)?.status !== 'applied')
+      .map((migration) => migration.version)
+    if (missingLedgerRows.length) {
+      fail('schema_migrations ledger rows are missing or not applied.', missingLedgerRows)
     }
   }
 
@@ -428,10 +536,14 @@ async function main() {
   assertGitClean()
   assertLocalGuard(config)
 
-  const checksum = checksumFile(MIGRATION_SQL_PATH)
-  const migrationSql = fs.readFileSync(MIGRATION_SQL_PATH, 'utf8')
-  assertMigrationSqlShape(migrationSql)
-  console.log(`[safeOps migration] Migration checksum sha256=${checksum}`)
+  const checksumsByVersion = new Map()
+  for (const migration of MIGRATIONS) {
+    const checksum = checksumFile(migration.sqlPath)
+    const migrationSql = fs.readFileSync(migration.sqlPath, 'utf8')
+    assertMigrationSqlShape(migration, migrationSql)
+    checksumsByVersion.set(migration.version, checksum)
+    console.log(`[safeOps migration] ${migration.version} checksum sha256=${checksum}`)
+  }
 
   if (mode === 'apply') {
     assertRecentBackup()
@@ -442,31 +554,40 @@ async function main() {
 
   await withConnection(config, async (conn) => {
     if (mode === 'dry-run') {
-      await precheck(conn, mode)
+      await precheck(conn, mode, checksumsByVersion)
       console.log('[safeOps migration] Dry-run completed. No migration SQL or DDL was executed.')
       return
     }
 
     if (mode === 'verify') {
-      await precheck(conn, mode)
+      await precheck(conn, mode, checksumsByVersion)
       await verifyApplied(conn)
       return
     }
 
     if (mode === 'apply') {
-      await precheck(conn, mode)
-      await executeSqlFile(conn, MIGRATION_SQL_PATH)
-      await recordLedger(conn, checksum)
+      const result = await precheck(conn, mode, checksumsByVersion)
+      if (!result.pendingMigrations.length) {
+        console.log('[safeOps migration] No pending migrations. No SQL was executed.')
+        await verifyApplied(conn)
+        return
+      }
+      for (const migration of result.pendingMigrations) {
+        console.log(`[safeOps migration] Applying ${migration.version}...`)
+        await executeSqlFile(conn, migration.sqlPath)
+        await recordLedger(conn, migration, checksumsByVersion.get(migration.version))
+      }
       await verifyApplied(conn)
-      console.log(`[safeOps migration] Applied ${MIGRATION_VERSION}.`)
+      console.log(`[safeOps migration] Applied ${result.pendingMigrations.map((migration) => migration.version).join(', ')}.`)
       return
     }
 
     if (mode === 'rollback') {
       console.error('[safeOps migration] ROLLBACK WARNING: only allowed before safeOps tables carry business audit data.')
-      await precheck(conn, mode)
+      await precheck(conn, mode, checksumsByVersion)
       await assertRollbackTablesEmpty(conn)
-      await executeSqlFile(conn, ROLLBACK_SQL_PATH)
+      const safeOpsMigration = MIGRATIONS.find((migration) => migration.version === '20260618_0001_create_safe_ops_tables')
+      await executeSqlFile(conn, safeOpsMigration.rollbackPath)
       await verifyRolledBack(conn)
       return
     }

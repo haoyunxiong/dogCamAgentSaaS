@@ -4,10 +4,10 @@
 
 ```text
 当前阶段：Phase 04 - Operation Safe Mode
-当前状态：safeOps dry-run persistence DB wiring 已完成 / execute 仍禁用 / 真实写操作未开始
+当前状态：safeOps dry-run persistence DB wiring 已完成 / execute 仍禁用 / 真实写操作未开始 / 阶段 1A 订单内部备注 additive schema 已完成
 是否允许写代码：是（仅限 Phase 04 safeOps 安全闭环；真实 write 必须逐项 gated enable）
 是否允许操作 Figma：否
-是否允许改数据库：否
+是否允许改数据库：是（仅限用户已确认的本地 additive migration；不得操作生产库）
 是否允许跨阶段开发：否
 ```
 
@@ -42,13 +42,14 @@
 - [x] DB migration 本地执行经用户确认并已 apply
 - [x] audit / idempotency / confirm / rollback-plan DB persistence 接入
 - [x] Phase 04+ 后续六阶段快速推进路线图已落档
+- [x] 阶段 1A 已完成：`rental_orders.internal_note` 受控 additive migration 已本地 apply
 - [ ] 内部 DB write 安全模式确认
 - [ ] 真实外部 write 开关经用户单独确认
 
 ## 当前下一步
 
 ```text
-Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；下一步按 Phase 04+ 六阶段路线图推进首个低风险内部写操作闭环。
+Phase 04 Operation Safe Mode：safeOps preview 已接入本地 DB persistence；阶段 1A `rental_orders.internal_note` additive migration 已完成，下一步进入阶段 1B `order.internal_note.update` 首个低风险内部写闭环。
 ```
 
 Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_OP_EXECUTE_DISABLED`，不开放 execute IPC / rollback IPC / audit:list IPC。
@@ -56,7 +57,7 @@ Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_O
 当前 checkpoint：
 
 ```text
-5c32e03 feat: wire safeops persistence to local db
+03d9f34 docs: add phase 04 plus six-stage execution roadmap
 ```
 
 真实写操作必须先具备：
@@ -78,6 +79,15 @@ Phase 04 尚未进入真实写操作实现；当前 execute 仍仅返回 `SAFE_O
 - 真实外部账号 / 密钥 / 授权接入；
 - 无 `confirmToken` / `idempotencyKey` 的真实执行；
 - UI-V2 页面直接调用底层写 IPC。
+
+阶段 1A 边界：
+
+- 新增字段：`rental_orders.internal_note`；
+- 字段用途：商家内部备注 / 内部标记，仅供本地内部操作使用；
+- 不同步顺丰、免押、闲鱼或其它外部平台；
+- 不改变订单状态、金额、客户、地址、租期、设备、档期或物流字段；
+- 不开放 `safeOps.execute`；
+- 后续阶段 1B 才允许实现 `order.internal_note.update`。
 
 Phase 04 文档入口：
 

@@ -50,6 +50,23 @@
 - 订单内部备注；
 - 订单内部标记更新。
 
+阶段 1A：受控 additive schema
+
+- 为 `rental_orders` 新增 `internal_note TEXT NULL`；
+- 字段仅用于商家内部备注 / 内部标记；
+- 不同步外部平台；
+- 不触发顺丰、免押、闲鱼或其它外部 API；
+- 不改变订单状态、金额、客户、地址、租期、设备、档期或物流字段；
+- 不开放 `safeOps.execute`。
+
+阶段 1B：单一低风险写操作
+
+- 只开放 `order.internal_note.update`；
+- 写入目标仅限 `rental_orders.internal_note`；
+- 必须经过 `preview -> confirm token -> idempotency -> audit -> execute -> after snapshot`；
+- 只允许本地 DB；
+- rollback 暂不执行，只保留 placeholder / before snapshot。
+
 目标：
 
 - 打通 `preview -> confirm token -> idempotency -> audit -> execute -> after snapshot`；

@@ -240,6 +240,7 @@ CREATE TABLE IF NOT EXISTS rental_orders (
   source_channel VARCHAR(50),
   source_name VARCHAR(255),
   remark TEXT,
+  internal_note TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_orders_status (order_status, rent_start_date, rent_end_date)
