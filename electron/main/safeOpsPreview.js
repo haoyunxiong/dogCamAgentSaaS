@@ -883,6 +883,7 @@ async function previewSafeOperation(request = {}) {
       realExecutionBlocked: Boolean(domainPreview.realExecutionBlocked),
       requestPayloadPreview: domainPreview.requestPayloadPreview || null,
       mockWaybillPreview: domainPreview.mockWaybillPreview || null,
+      mockDepositPreview: domainPreview.mockDepositPreview || null,
       sandboxPayloadPreview: domainPreview.sandboxPayloadPreview || null,
     }
     const persistence = await persistSafeOperationContext({

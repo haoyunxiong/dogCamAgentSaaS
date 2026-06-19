@@ -189,6 +189,109 @@ function buildLocalSfSandboxPayloadPreview(payloadPreview = {}) {
   }
 }
 
+function maskIdentity(value) {
+  const text = String(value || '').trim()
+  return {
+    hasValue: Boolean(text),
+    length: text.length,
+    preview: text ? '<redacted-identity>' : null,
+  }
+}
+
+function maskAccount(value) {
+  const text = String(value || '').trim()
+  if (!text) return null
+  if (text.length <= 4) return '<redacted-account>'
+  return `${text.slice(0, 2)}***${text.slice(-2)}`
+}
+
+function buildLocalDepositRequestPayloadPreview(payload = {}, mode = 'mock', operationType = 'deposit.create') {
+  const servicePayload = payload.service && typeof payload.service === 'object' ? payload.service : {}
+  const finishPayload = payload.finish && typeof payload.finish === 'object' ? payload.finish : {}
+  const externalAction = operationType === 'deposit.finish' ? 'finish' : 'create'
+  return {
+    providerName: 'deposit_service',
+    operationType,
+    externalAction,
+    mode,
+    realRequestWillBeSent: false,
+    order: {
+      orderId: String(payload.orderId || payload.order_id || '').trim() || null,
+      orderNo: String(payload.orderNo || payload.order_no || '').trim() || null,
+      reviewId: String(payload.reviewId || payload.review_id || '').trim() || null,
+      modelCode: String(payload.modelCode || payload.model_code || '').trim() || null,
+    },
+    deposit: {
+      depositOrderId: String(payload.depositOrderId || payload.deposit_order_id || '').trim() || null,
+      requestedFreeAmount: numberOrNull(payload.requestedFreeAmount || payload.requested_free_amount),
+      depositAmount: numberOrNull(payload.depositAmount || payload.deposit_amount),
+      currency: String(payload.currency || 'CNY').trim() || 'CNY',
+      riskLevel: String(payload.riskLevel || payload.risk_level || '').trim() || null,
+      reviewStatus: String(payload.reviewStatus || payload.review_status || '').trim() || null,
+      depositStatus: String(payload.depositStatus || payload.deposit_status || '').trim() || null,
+    },
+    customer: {
+      realName: maskName(payload.realName || payload.real_name || payload.customerName || payload.customer_name),
+      contactName: maskName(payload.contactName || payload.contact_name || payload.customerName || payload.customer_name),
+      phoneMasked: maskPhone(payload.phone || payload.customerPhone || payload.customer_phone),
+      address: maskAddress(payload.address || payload.customerAddress || payload.customer_address),
+      userEidMasked: maskAccount(payload.userEid || payload.user_eid),
+      idCard: maskIdentity(payload.idCard || payload.id_card || payload.idCardNo || payload.id_card_no),
+      paymentAccountMasked: maskAccount(payload.paymentAccount || payload.payment_account),
+    },
+    finish: {
+      reason: String(finishPayload.reason || payload.finishReason || payload.finish_reason || payload.reason || '').trim() || null,
+      requestedStatus: String(finishPayload.status || payload.finishStatus || payload.finish_status || 'finish_preview').trim() || 'finish_preview',
+      shouldReleaseDeposit: false,
+      shouldNotifyExternalService: false,
+    },
+    service: {
+      appIdMasked: maskAccount(servicePayload.appId || payload.appId || payload.app_id),
+      productCode: String(servicePayload.productCode || servicePayload.product_code || payload.productCode || 'deposit_free_preview').trim(),
+      scenario: String(servicePayload.scenario || payload.scenario || 'rental_deposit_free_preview').trim(),
+      remark: payload.remark ? '<redacted-remark>' : null,
+    },
+  }
+}
+
+function buildLocalDepositMockPreview(payloadPreview = {}) {
+  const seedSource = `${payloadPreview.operationType}:${payloadPreview.order?.orderId || payloadPreview.order?.orderNo || 'preview'}:${payloadPreview.deposit?.requestedFreeAmount || ''}`
+  const seed = Array.from(seedSource).reduce((total, char) => total + char.charCodeAt(0), 0)
+  const action = payloadPreview.externalAction || 'create'
+  return {
+    mockDepositNo: `DEPMOCK${String(seed).padStart(8, '0')}`,
+    providerName: 'deposit_service',
+    operation: action,
+    status: action === 'finish' ? 'mock_finish_preview_only' : 'mock_create_preview_only',
+    willCreateDepositOrder: false,
+    willFinishDepositOrder: false,
+    willChangeCreditState: false,
+    willChargeOrReleaseFunds: false,
+    willNotifyCustomer: false,
+    amountPreview: {
+      requestedFreeAmount: payloadPreview.deposit?.requestedFreeAmount || null,
+      depositAmount: payloadPreview.deposit?.depositAmount || null,
+      currency: payloadPreview.deposit?.currency || 'CNY',
+    },
+  }
+}
+
+function buildLocalDepositSandboxPayloadPreview(payloadPreview = {}) {
+  return {
+    endpointMode: 'sandbox-preview-only',
+    providerName: 'deposit_service',
+    operation: payloadPreview.externalAction || 'create',
+    willSendHttpRequest: false,
+    payloadShape: {
+      order: payloadPreview.order,
+      deposit: payloadPreview.deposit,
+      customer: payloadPreview.customer,
+      finish: payloadPreview.finish,
+      service: payloadPreview.service,
+    },
+  }
+}
+
 function getSafeOpsBridge() {
   if (isUiV2PreviewMode()) return null
   if (!hasUiV2RuntimeBridge()) return null
@@ -228,8 +331,8 @@ function buildLocalPolicy() {
       realEnabled: false,
       externalWritesEnabled: false,
       providers: [
-        { providerName: 'sf_express', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
-        { providerName: 'deposit_service', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
+        { providerName: 'sf_express', currentMode: 'disabled', realEnabled: false, sandboxEnabled: true, mockEnabled: true, externalWritesEnabled: false, status: 'disabled', previewModes: ['disabled', 'mock', 'sandbox'] },
+        { providerName: 'deposit_service', currentMode: 'disabled', realEnabled: false, sandboxEnabled: true, mockEnabled: true, externalWritesEnabled: false, status: 'disabled', previewModes: ['disabled', 'mock', 'sandbox'] },
         { providerName: 'xianyu_platform', currentMode: 'disabled', realEnabled: false, externalWritesEnabled: false, status: 'disabled' },
       ],
     },
@@ -332,6 +435,113 @@ function buildLocalPreview(payload = {}) {
       requestPayloadPreview,
       mockWaybillPreview: mode === 'mock' ? buildLocalSfMockWaybillPreview(requestPayloadPreview) : null,
       sandboxPayloadPreview: mode === 'sandbox' ? buildLocalSfSandboxPayloadPreview(requestPayloadPreview) : null,
+      confirmToken: null,
+      confirmRequirement: {
+        enabled: false,
+        required: true,
+        persisted: false,
+        token: null,
+        tokenHash: null,
+        expiresAt: null,
+        reason: externalPreviewOpen ? 'renderer-preview-no-bridge' : 'renderer-preview-execute-disabled',
+      },
+      idempotency: {
+        mode: 'noop',
+        required: true,
+        persisted: false,
+        keyHash: null,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+        reason: 'renderer-preview-no-bridge',
+      },
+      rollback: {
+        mode: 'noop',
+        planned: externalPreviewOpen,
+        persisted: false,
+        canRollback: false,
+        compensationRequired: true,
+        reason: 'renderer-preview-no-write-executed',
+      },
+      source: 'renderer-noop',
+    }
+  }
+  if (operationType === 'deposit.create' || operationType === 'deposit.finish') {
+    const mode = normalizeExternalMode(payload.payload?.mode)
+    const requestPayloadPreview = buildLocalDepositRequestPayloadPreview(payload.payload || {}, mode, operationType)
+    const externalPreviewOpen = mode === 'mock' || mode === 'sandbox'
+    const action = operationType === 'deposit.finish' ? 'finish' : 'create'
+    return {
+      ok: true,
+      supported: true,
+      operationType,
+      code: externalPreviewOpen ? undefined : 'SAFE_OP_EXTERNAL_DISABLED',
+      mode: externalPreviewOpen
+        ? `external-preview-${mode}`
+        : (mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled'),
+      writeWillExecute: false,
+      externalCallWillExecute: false,
+      riskLevel: policy.riskLevel,
+      warnings: externalPreviewOpen
+        ? [`Renderer deposit service ${action} preview only. No external request will be sent.`]
+        : ['External gateway is disabled by default.', `Deposit service ${action} real operation is not open.`],
+      blockers: externalPreviewOpen
+        ? []
+        : [
+            mode === 'real' ? `Real mode is disabled for deposit service ${action}.` : 'External gateway mode is disabled.',
+            'External execute is not implemented for this operationType.',
+          ],
+      impact: {
+        summary: externalPreviewOpen
+          ? `Renderer deposit service ${action} ${mode} preview. No deposit order will be created or finished and no external service will be called.`
+          : `Renderer deposit service ${action} preview is disabled. No deposit order will be created or finished and no external service will be called.`,
+        affectedRecords: [],
+        externalEffects: [],
+      },
+      audit: {
+        mode: 'noop',
+        persisted: false,
+        operationId: null,
+        payloadHash: null,
+        impactHash: null,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+      requiresConfirm: true,
+      requiresIdempotencyKey: true,
+      execute: cloneJson(EXTERNAL_EXECUTE_DISABLED_POLICY),
+      externalGateway: {
+        providerName: policy.providerName,
+        currentMode: mode,
+        realEnabled: false,
+        sandboxEnabled: true,
+        mockEnabled: true,
+        externalWritesEnabled: false,
+        externalCallWillExecute: false,
+        providerStatus: 'disabled',
+        compensationRequired: true,
+      },
+      externalAudit: {
+        mode: 'external-audit-shape',
+        required: true,
+        persisted: false,
+        providerName: policy.providerName,
+        operationType,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      externalIdempotency: {
+        mode: 'external-idempotency-shape',
+        required: true,
+        persisted: false,
+        providerName: policy.providerName,
+        operationType,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      expectedExternalAction: action,
+      externalPreviewMode: mode,
+      realExecutionBlocked: true,
+      requestPayloadPreview,
+      mockWaybillPreview: null,
+      mockDepositPreview: mode === 'mock' ? buildLocalDepositMockPreview(requestPayloadPreview) : null,
+      sandboxPayloadPreview: mode === 'sandbox' ? buildLocalDepositSandboxPayloadPreview(requestPayloadPreview) : null,
       confirmToken: null,
       confirmRequirement: {
         enabled: false,
@@ -897,6 +1107,131 @@ export async function executeSfCreateOrder({
   })
 }
 
+function buildDepositPayload({
+  mode = 'disabled',
+  orderId,
+  orderNo,
+  reviewId,
+  depositOrderId,
+  modelCode,
+  customerName,
+  realName,
+  contactName,
+  phone,
+  address,
+  idCard,
+  paymentAccount,
+  requestedFreeAmount,
+  depositAmount,
+  currency,
+  riskLevel,
+  reviewStatus,
+  depositStatus,
+  finishReason,
+  service,
+  reason,
+} = {}) {
+  return {
+    mode: normalizeExternalMode(mode),
+    orderId: String(orderId || ''),
+    orderNo: String(orderNo || ''),
+    reviewId: String(reviewId || ''),
+    depositOrderId: String(depositOrderId || ''),
+    modelCode: String(modelCode || ''),
+    customerName: String(customerName || ''),
+    realName: String(realName || ''),
+    contactName: String(contactName || ''),
+    phone: String(phone || ''),
+    address: String(address || ''),
+    idCard: String(idCard || ''),
+    paymentAccount: String(paymentAccount || ''),
+    requestedFreeAmount: requestedFreeAmount ?? '',
+    depositAmount: depositAmount ?? '',
+    currency: String(currency || 'CNY'),
+    riskLevel: String(riskLevel || ''),
+    reviewStatus: String(reviewStatus || ''),
+    depositStatus: String(depositStatus || ''),
+    finish: {
+      reason: String(finishReason || reason || ''),
+      status: 'finish_preview',
+    },
+    service: service || {},
+    providerName: 'deposit_service',
+    reason: String(reason || ''),
+    source: 'ui-v2-deposit-preview',
+  }
+}
+
+export async function previewDepositCreate({
+  actor,
+  clientRequestId,
+  ...payload
+} = {}) {
+  const id = String(payload.reviewId || payload.orderId || payload.orderNo || '')
+  return preview({
+    operationType: 'deposit.create',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'deposit_preview', id },
+    payload: buildDepositPayload(payload),
+    clientRequestId: clientRequestId || `ui-v2-deposit-create-preview-${Date.now()}`,
+  })
+}
+
+export async function previewDepositFinish({
+  actor,
+  clientRequestId,
+  ...payload
+} = {}) {
+  const id = String(payload.depositOrderId || payload.reviewId || payload.orderId || payload.orderNo || '')
+  return preview({
+    operationType: 'deposit.finish',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'deposit_preview', id },
+    payload: buildDepositPayload(payload),
+    clientRequestId: clientRequestId || `ui-v2-deposit-finish-preview-${Date.now()}`,
+  })
+}
+
+export async function executeDepositCreate({
+  previewResult,
+  actor,
+  clientRequestId,
+  ...payload
+} = {}) {
+  const id = String(payload.reviewId || payload.orderId || payload.orderNo || '')
+  return execute({
+    operationType: 'deposit.create',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'deposit_preview', id },
+    payload: buildDepositPayload(payload),
+    clientRequestId: clientRequestId || `ui-v2-deposit-create-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
+export async function executeDepositFinish({
+  previewResult,
+  actor,
+  clientRequestId,
+  ...payload
+} = {}) {
+  const id = String(payload.depositOrderId || payload.reviewId || payload.orderId || payload.orderNo || '')
+  return execute({
+    operationType: 'deposit.finish',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'deposit_preview', id },
+    payload: buildDepositPayload(payload),
+    clientRequestId: clientRequestId || `ui-v2-deposit-finish-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
@@ -913,4 +1248,8 @@ export const safeOpsAdapter = {
   executeLogisticsLocalRecordCreate,
   previewSfCreateOrder,
   executeSfCreateOrder,
+  previewDepositCreate,
+  previewDepositFinish,
+  executeDepositCreate,
+  executeDepositFinish,
 }

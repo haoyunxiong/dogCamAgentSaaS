@@ -17,7 +17,8 @@
 - 阶段 2 已完成：设备基础字段、档期 block 创建 / 取消、物流本地发货记录创建已统一收口；
 - 阶段 3A 已完成：外部 API 安全网关骨架已落地，real mode 默认 disabled；
 - 阶段 3B 已完成：`logistics.sf.create_order` 顺丰 mock/sandbox preview-only 网关已接入，真实顺丰调用仍 disabled；
-- Phase 04 当前仅开放五个真实内部写 operation，另有一个顺丰外部 preview-only operation，其它 execute 仍 disabled。
+- 阶段 3C 已完成：`deposit.create` / `deposit.finish` 免押 mock/sandbox preview-only 网关已接入，真实免押调用仍 disabled；
+- Phase 04 当前仅开放五个真实内部写 operation，另有顺丰与免押外部 preview-only operation，其它 execute 仍 disabled。
 
 阶段 2 收口 checkpoint：
 
@@ -33,6 +34,7 @@
 - 当前 execute 仅允许 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create`；
 - 其它 operationType execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
 - `logistics.sf.create_order` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `deposit.create` / `deposit.finish` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - 顺丰真实下单、免押真实审核、新增 DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：
@@ -54,6 +56,8 @@
 - 除 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消、单条本地 `shipping_records` 创建之外的真实业务表 write；
 - 顺丰 / 免押真实外部写入；
 - 顺丰真实下单、预下单、取消、查询、费用写入或外部 tracking 写入。
+- 免押真实创建、完结、取消、查询、资金或信用状态写入；
+- 新增 `deposit_orders` 表或写入免押业务表。
 
 当前 DB persistence 范围：
 
@@ -215,6 +219,47 @@ Mode：
 - 调用 Python；
 - 写 `shipping_records`；
 - 修改订单状态、设备、档期、免押或外部平台；
+- 新增 DB migration；
+- 开放 rollback executor。
+
+## 阶段 3C：免押 mock/sandbox 预览网关
+
+阶段 3C 已为免押创建 / 完结建立 preview-only 外部网关能力。
+
+- operationType：`deposit.create` / `deposit.finish`
+- provider：`deposit_service`
+- 默认 mode：`disabled`
+- `mode=mock`：生成 mock deposit preview，不真实创建或完结免押；
+- `mode=sandbox`：生成 sandbox payload preview，不发送 HTTP；
+- `mode=real`：返回 disabled / blocked；
+- execute：始终返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `writeWillExecute=false`；
+- `externalCallWillExecute=false`；
+- 不要求 `deposit_orders` 表存在。
+
+阶段 3C persistence：
+
+- mock / sandbox preview 可写入 `operation_audit_logs`；
+- mock / sandbox preview 可写入 confirm token hash；
+- mock / sandbox preview 可写入 idempotency key；
+- mock / sandbox preview 可写入 rollback placeholder；
+- rollback executor 仍为 unavailable。
+
+阶段 3C UI 边界：
+
+- Deposit 页面显示“免押预览 / 不真实创建免押 / 不真实完结免押 / 外部真实调用未开放 / 当前仅 mock/sandbox payload 预览”；
+- 真实免押创建 / 完结按钮保持 disabled；
+- 不显示手机号、地址、姓名、证件、paymentAccount、token、cookie、API key 明文；
+- 保持本地缓存 / 只读数据兼容。
+
+阶段 3C 禁止：
+
+- 调用免押真实 API、sandbox API 或任何 HTTP 请求；
+- 引入免押 SDK、axios、request、node-fetch；
+- 调用 Python；
+- 新增 `deposit_orders` 表；
+- 写 `rental_orders`；
+- 修改订单状态、设备、档期、物流或外部平台；
 - 新增 DB migration；
 - 开放 rollback executor。
 

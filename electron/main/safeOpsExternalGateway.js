@@ -119,6 +119,22 @@ function maskAddress(value, city = '') {
   }
 }
 
+function maskIdentity(value) {
+  const text = normalizeText(value)
+  return {
+    hasValue: Boolean(text),
+    length: text.length,
+    preview: text ? '<redacted-identity>' : null,
+  }
+}
+
+function maskAccount(value) {
+  const text = normalizeText(value)
+  if (!text) return null
+  if (text.length <= 4) return '<redacted-account>'
+  return `${text.slice(0, 2)}***${text.slice(-2)}`
+}
+
 function asNumberOrNull(value) {
   if (value === null || value === undefined || value === '') return null
   const number = Number(value)
@@ -207,6 +223,100 @@ function buildSandboxPayloadPreview(payloadPreview = {}) {
   }
 }
 
+function buildDepositRequestPayloadPreview(payload = {}, mode = 'mock', operationPolicy = {}) {
+  const servicePayload = payload.service && typeof payload.service === 'object' ? payload.service : {}
+  const finishPayload = payload.finish && typeof payload.finish === 'object' ? payload.finish : {}
+  const action = operationPolicy.externalAction || 'create'
+  return {
+    providerName: 'deposit_service',
+    operationType: operationPolicy.operationType,
+    externalAction: action,
+    mode,
+    realRequestWillBeSent: false,
+    order: {
+      orderId: normalizeText(payload.orderId || payload.order_id) || null,
+      orderNo: normalizeText(payload.orderNo || payload.order_no) || null,
+      reviewId: normalizeText(payload.reviewId || payload.review_id) || null,
+      modelCode: normalizeText(payload.modelCode || payload.model_code) || null,
+    },
+    deposit: {
+      depositOrderId: normalizeText(payload.depositOrderId || payload.deposit_order_id) || null,
+      requestedFreeAmount: asNumberOrNull(payload.requestedFreeAmount || payload.requested_free_amount),
+      depositAmount: asNumberOrNull(payload.depositAmount || payload.deposit_amount),
+      currency: normalizeText(payload.currency || 'CNY') || 'CNY',
+      riskLevel: normalizeText(payload.riskLevel || payload.risk_level) || null,
+      reviewStatus: normalizeText(payload.reviewStatus || payload.review_status) || null,
+      depositStatus: normalizeText(payload.depositStatus || payload.deposit_status) || null,
+    },
+    customer: {
+      realName: maskName(payload.realName || payload.real_name || payload.customerName || payload.customer_name),
+      contactName: maskName(payload.contactName || payload.contact_name || payload.customerName || payload.customer_name),
+      phoneMasked: maskPhone(payload.phone || payload.customerPhone || payload.customer_phone),
+      address: maskAddress(payload.address || payload.customerAddress || payload.customer_address),
+      userEidMasked: maskAccount(payload.userEid || payload.user_eid),
+      idCard: maskIdentity(payload.idCard || payload.id_card || payload.idCardNo || payload.id_card_no),
+      paymentAccountMasked: maskAccount(payload.paymentAccount || payload.payment_account),
+    },
+    finish: {
+      reason: normalizeText(finishPayload.reason || payload.finishReason || payload.finish_reason || payload.reason) || null,
+      requestedStatus: normalizeText(finishPayload.status || payload.finishStatus || payload.finish_status || 'finish_preview') || 'finish_preview',
+      shouldReleaseDeposit: false,
+      shouldNotifyExternalService: false,
+    },
+    service: {
+      appIdMasked: maskAccount(servicePayload.appId || payload.appId || payload.app_id),
+      productCode: normalizeText(servicePayload.productCode || servicePayload.product_code || payload.productCode || 'deposit_free_preview'),
+      scenario: normalizeText(servicePayload.scenario || payload.scenario || 'rental_deposit_free_preview'),
+      remark: payload.remark ? '<redacted-remark>' : null,
+    },
+  }
+}
+
+function buildMockDepositPreview(payloadPreview = {}, operationPolicy = {}) {
+  const stableSource = JSON.stringify({
+    providerName: payloadPreview.providerName,
+    operationType: payloadPreview.operationType,
+    externalAction: payloadPreview.externalAction,
+    order: payloadPreview.order,
+    deposit: payloadPreview.deposit,
+    service: payloadPreview.service,
+  })
+  const digest = sha256Hex(stableSource).slice(0, 12).toUpperCase()
+  const action = operationPolicy.externalAction || payloadPreview.externalAction || 'create'
+  return {
+    mockDepositNo: `DEPMOCK${digest}`,
+    providerName: 'deposit_service',
+    operation: action,
+    status: action === 'finish' ? 'mock_finish_preview_only' : 'mock_create_preview_only',
+    willCreateDepositOrder: false,
+    willFinishDepositOrder: false,
+    willChangeCreditState: false,
+    willChargeOrReleaseFunds: false,
+    willNotifyCustomer: false,
+    amountPreview: {
+      requestedFreeAmount: payloadPreview.deposit?.requestedFreeAmount || null,
+      depositAmount: payloadPreview.deposit?.depositAmount || null,
+      currency: payloadPreview.deposit?.currency || 'CNY',
+    },
+  }
+}
+
+function buildDepositSandboxPayloadPreview(payloadPreview = {}) {
+  return {
+    endpointMode: 'sandbox-preview-only',
+    providerName: 'deposit_service',
+    operation: payloadPreview.externalAction || 'create',
+    willSendHttpRequest: false,
+    payloadShape: {
+      order: payloadPreview.order,
+      deposit: payloadPreview.deposit,
+      customer: payloadPreview.customer,
+      finish: payloadPreview.finish,
+      service: payloadPreview.service,
+    },
+  }
+}
+
 function buildExternalGatewayDescriptor(operationPolicy, provider, mode) {
   return {
     providerName: operationPolicy.providerName,
@@ -222,6 +332,94 @@ function buildExternalGatewayDescriptor(operationPolicy, provider, mode) {
     retryPolicy: provider.retryPolicy || { enabled: false, maxAttempts: 0, backoffMs: 0 },
     sensitiveFields: provider.sensitiveFields || [],
     redactionRules: provider.redactionRules || {},
+  }
+}
+
+function buildDepositOperationPreview(operationInput, operationPolicy, provider) {
+  const normalizedMode = normalizeMode(operationInput, provider, operationPolicy)
+  const mode = normalizedMode.mode
+  const payload = operationInput.payload || {}
+  const action = operationPolicy.externalAction || 'create'
+  const gateway = buildExternalGatewayDescriptor(operationPolicy, provider, mode)
+  const base = {
+    ok: true,
+    supported: true,
+    operationType: operationPolicy.operationType,
+    writeWillExecute: false,
+    externalCallWillExecute: false,
+    riskLevel: operationPolicy.riskLevel,
+    expectedExternalAction: action,
+    realExecutionBlocked: true,
+    externalPreviewMode: mode,
+    externalGateway: gateway,
+    externalAudit: {
+      ...buildExternalAuditShape(operationPolicy),
+      status: mode === 'mock' || mode === 'sandbox' ? 'previewed' : 'blocked',
+    },
+    externalIdempotency: {
+      ...buildExternalIdempotencyShape(operationPolicy),
+      status: mode === 'mock' || mode === 'sandbox' ? 'previewed' : 'blocked',
+    },
+  }
+
+  if (mode === 'mock') {
+    const requestPayloadPreview = buildDepositRequestPayloadPreview(payload, mode, operationPolicy)
+    return {
+      ...base,
+      mode: 'external-preview-mock',
+      warnings: [
+        ...normalizedMode.warnings,
+        `Deposit service ${action} mock preview only. No external request will be sent.`,
+        'Sensitive customer, identity, and payment fields are redacted before preview persistence.',
+      ],
+      blockers: [],
+      impact: buildExternalImpact(operationPolicy, mode),
+      requestPayloadPreview,
+      mockWaybillPreview: null,
+      mockDepositPreview: buildMockDepositPreview(requestPayloadPreview, operationPolicy),
+      sandboxPayloadPreview: null,
+    }
+  }
+
+  if (mode === 'sandbox') {
+    const requestPayloadPreview = buildDepositRequestPayloadPreview(payload, mode, operationPolicy)
+    return {
+      ...base,
+      mode: 'external-preview-sandbox',
+      warnings: [
+        ...normalizedMode.warnings,
+        `Deposit service ${action} sandbox payload preview only. No sandbox or real HTTP request will be sent.`,
+        'Sensitive customer, identity, and payment fields are redacted before preview persistence.',
+      ],
+      blockers: [],
+      impact: buildExternalImpact(operationPolicy, mode),
+      requestPayloadPreview,
+      mockWaybillPreview: null,
+      mockDepositPreview: null,
+      sandboxPayloadPreview: buildDepositSandboxPayloadPreview(requestPayloadPreview),
+    }
+  }
+
+  return {
+    ...base,
+    code: 'SAFE_OP_EXTERNAL_DISABLED',
+    mode: mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled',
+    warnings: [
+      ...normalizedMode.warnings,
+      'External gateway is disabled by default.',
+      `Deposit service ${action} real operation is not open.`,
+    ],
+    blockers: [
+      mode === 'real'
+        ? `Real mode is disabled for deposit service ${action}.`
+        : 'External gateway mode is disabled.',
+      'External execute is not implemented for this operationType.',
+    ],
+    impact: buildExternalImpact(operationPolicy, mode),
+    requestPayloadPreview: buildDepositRequestPayloadPreview(payload, 'disabled', operationPolicy),
+    mockWaybillPreview: null,
+    mockDepositPreview: null,
+    sandboxPayloadPreview: null,
   }
 }
 
@@ -317,6 +515,9 @@ function previewExternalOperation(operationInput = {}) {
   const provider = operationPolicy.provider || {}
   if (operationType === 'logistics.sf.create_order') {
     return buildSfCreateOrderPreview(operationInput, operationPolicy, provider)
+  }
+  if (operationType === 'deposit.create' || operationType === 'deposit.finish') {
+    return buildDepositOperationPreview(operationInput, operationPolicy, provider)
   }
 
   return {

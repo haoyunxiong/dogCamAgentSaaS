@@ -1,14 +1,16 @@
 <template>
   <UiV2Page title="免押管理" description="免押本地缓存只读视图，查看风险状态、押金状态和后续处理提示。">
-    <template #actions><BaseButton variant="secondary" @click="previewDepositCreate('page-action')">免押网关预览</BaseButton></template>
+    <template #actions><BaseButton variant="secondary" :loading="depositPreview.loading" @click="previewDepositCreate('page-action')">免押预览</BaseButton></template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
     <section v-if="depositPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-page-safeops-preview">
-      <div><span>操作预览</span><strong>dry-run only</strong></div>
-      <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
+      <div><span>免押预览</span><strong>不真实创建/完结</strong></div>
+      <div><span>模式</span><strong>{{ depositPreview.view.mode }}</strong></div>
+      <div><span>预览模式</span><strong>{{ depositPreview.view.externalPreviewModeLabel }}</strong></div>
+      <div><span>开放状态</span><strong>{{ depositPreviewStatusLabel }}</strong></div>
       <div><span>persistence</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
       <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
       <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
@@ -17,6 +19,9 @@
       <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
       <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
       <div><span>external gateway</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
+      <div><span>request preview</span><strong>{{ depositPreview.view.requestPayloadPreviewLabel }}</strong></div>
+      <div><span>mock deposit</span><strong>{{ depositPreview.view.mockDepositLabel }}</strong></div>
+      <div><span>sandbox payload</span><strong>{{ depositPreview.view.sandboxPayloadLabel }}</strong></div>
       <div><span>说明</span><strong>不会写入 / 不会调用免押外部服务</strong></div>
     </section>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
@@ -46,10 +51,28 @@
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
-        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · gateway disabled`" primary-label="创建网关预览" danger-label="完结网关预览" @primary="previewDepositCreate('drawer-create')" @danger="previewDepositFinish" />
+        <DrawerSummary :status="selectedReview.reviewStatus" :title="selectedReview.customerName" :description="`${selectedReview.model} · ${selectedReview.rentPeriod}`" :meta="`${selectedReview.orderNo} · 不真实创建/完结`" primary-label="免押预览" danger-label="完结预览" @primary="previewDepositCreate('drawer-create')" @danger="previewDepositFinish('drawer-finish')" />
+        <section class="final-drawer-card deposit-preview-gateway" data-testid="deposit-preview-gateway">
+          <div class="deposit-preview-gateway__head">
+            <div>
+              <span>免押预览</span>
+              <strong>gateway disabled or mock/sandbox only</strong>
+            </div>
+            <span>不真实创建免押 · 不真实完结免押</span>
+          </div>
+          <div class="deposit-preview-gateway__controls">
+            <BaseSelect v-model="depositPreviewMode" label="预览模式" :options="depositPreviewModeOptions" />
+            <BaseButton size="sm" :loading="depositPreview.loading" @click="previewDepositCreate('drawer-mode-create')">创建预览</BaseButton>
+            <BaseButton size="sm" variant="secondary" :loading="depositPreview.loading" @click="previewDepositFinish('drawer-mode-finish')">完结预览</BaseButton>
+            <BaseButton size="sm" variant="secondary" disabled>真实免押未开放</BaseButton>
+          </div>
+          <p class="safeops-note">当前仅 mock/sandbox payload 预览；real 永远返回 disabled；不会新增 deposit_orders；不会写 rental_orders；不会更新订单、档期或资金状态。</p>
+        </section>
         <section v-if="depositPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-safeops-preview">
-          <div><span>操作预览</span><strong>dry-run only</strong></div>
-          <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
+          <div><span>免押预览</span><strong>不真实创建/完结</strong></div>
+          <div><span>模式</span><strong>{{ depositPreview.view.mode }}</strong></div>
+          <div><span>预览模式</span><strong>{{ depositPreview.view.externalPreviewModeLabel }}</strong></div>
+          <div><span>开放状态</span><strong>{{ depositPreviewStatusLabel }}</strong></div>
           <div><span>persistence</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
           <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
           <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
@@ -59,6 +82,9 @@
           <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
           <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
           <div><span>external gateway</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
+          <div><span>request preview</span><strong>{{ depositPreview.view.requestPayloadPreviewLabel }}</strong></div>
+          <div><span>mock deposit</span><strong>{{ depositPreview.view.mockDepositLabel }}</strong></div>
+          <div><span>sandbox payload</span><strong>{{ depositPreview.view.sandboxPayloadLabel }}</strong></div>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
@@ -84,7 +110,8 @@ import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { DrawerSummary, MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
-import { createSafeOpsPreviewState, runSafeOpsPreview } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
+import { createSafeOpsPreviewState, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -98,7 +125,15 @@ const drawerOpen = ref(false)
 const loading = ref(false)
 const loadError = ref('')
 const depositPreview = ref(createSafeOpsPreviewState())
+const depositPreviewMode = ref('disabled')
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const safeOpsActor = Object.freeze({ id: 'ui-v2-deposit-operator', source: 'ui-v2', role: 'operator' })
+const depositPreviewModeOptions = [
+  { label: 'disabled（默认）', value: 'disabled' },
+  { label: 'mock（不真实创建/完结）', value: 'mock' },
+  { label: 'sandbox payload（不发送请求）', value: 'sandbox' },
+  { label: 'real（禁用）', value: 'real' },
+]
 const columns = [
   { key: 'orderNo', label: '订单号' },
   { key: 'customerName', label: '客户/渠道' },
@@ -126,49 +161,70 @@ const filteredReviews = computed(() => reviews.value.filter((review) => {
     && (reviewStatus.value === '全部状态' || review.reviewStatus === reviewStatus.value)
     && (!keyword.value || text.includes(keyword.value))
 }))
+const depositPreviewStatusLabel = computed(() => {
+  const result = depositPreview.value?.result || {}
+  if (!result.operationType) return 'gateway disabled / 默认关闭'
+  if (result.externalPreviewMode === 'mock') return 'mock preview only / 不真实创建或完结'
+  if (result.externalPreviewMode === 'sandbox') return 'sandbox payload only / 不发送请求'
+  if (result.externalPreviewMode === 'real') return 'real disabled / 禁止真实调用'
+  return 'gateway disabled / 不真实创建或完结'
+})
 function openReview(review) {
   selectedReview.value = review
   drawerOpen.value = true
 }
+function getDepositSource() {
+  return selectedReview.value || filteredReviews.value[0] || reviews.value[0] || {}
+}
+function toDepositPreviewState(result = {}) {
+  const view = toSafeOpsPreviewView(result)
+  return {
+    loading: false,
+    result,
+    view,
+    error: result?.ok ? '' : view.summary,
+  }
+}
+function buildDepositPreviewPayload(reason) {
+  const source = getDepositSource()
+  return {
+    mode: depositPreviewMode.value,
+    orderId: source?.meta?.rawOrderId ? String(source.meta.rawOrderId) : String(source?.orderNo || ''),
+    orderNo: String(source?.orderNo || ''),
+    reviewId: String(source?.id || ''),
+    depositOrderId: String(source?.depositOrderId || source?.depositNo || ''),
+    modelCode: String(source?.model || ''),
+    customerName: String(source?.customerName || ''),
+    requestedFreeAmount: source?.requestedFreeAmount || '',
+    depositAmount: source?.depositAmount || '',
+    riskLevel: String(source?.riskLevel || ''),
+    reviewStatus: String(source?.reviewStatus || ''),
+    depositStatus: String(source?.depositStatus || ''),
+    finishReason: String(reason || ''),
+    service: {
+      productCode: 'deposit_free_preview',
+      scenario: 'rental_deposit_free_preview',
+    },
+    actor: safeOpsActor,
+    reason,
+  }
+}
 async function previewDepositCreate(reason) {
   depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
-  depositPreview.value = await runSafeOpsPreview('deposit.create', {
-    target: {
-      type: 'deposit',
-      id: selectedReview.value?.id || selectedReview.value?.orderNo || '',
-      orderId: selectedReview.value?.orderNo || '',
-      orderNo: selectedReview.value?.orderNo || '',
-      reviewId: selectedReview.value?.id || '',
-    },
-    payload: {
-      orderId: selectedReview.value?.orderNo || '',
-      customerName: selectedReview.value?.customerName || '',
-      modelCode: selectedReview.value?.model || '',
-      requestedFreeAmount: selectedReview.value?.requestedFreeAmount || '',
-      providerName: 'deposit_service',
-      reason,
-      source: 'deposit-page',
-    },
+  const result = await safeOpsAdapter.previewDepositCreate({
+    ...buildDepositPreviewPayload(reason),
+    clientRequestId: `ui-v2-deposit-create-preview-${Date.now()}`,
   })
+  depositPreview.value = toDepositPreviewState(result)
 }
 
-async function previewDepositFinish() {
+async function previewDepositFinish(reason = 'drawer-finish') {
   depositPreview.value = { ...depositPreview.value, loading: true, error: '' }
-  depositPreview.value = await runSafeOpsPreview('deposit.finish', {
-    target: {
-      type: 'deposit',
-      id: selectedReview.value?.id || selectedReview.value?.orderNo || '',
-      orderId: selectedReview.value?.orderNo || '',
-      orderNo: selectedReview.value?.orderNo || '',
-      reviewId: selectedReview.value?.id || '',
-    },
-    payload: {
-      orderId: selectedReview.value?.orderNo || '',
-      customerName: selectedReview.value?.customerName || '',
-      providerName: 'deposit_service',
-      source: 'deposit-drawer',
-    },
+  const result = await safeOpsAdapter.previewDepositFinish({
+    ...buildDepositPreviewPayload(reason),
+    clientRequestId: `ui-v2-deposit-finish-preview-${Date.now()}`,
   })
+  depositPreview.value = toDepositPreviewState(result)
 }
 async function loadDepositReviews() {
   loading.value = true
@@ -242,10 +298,40 @@ onMounted(loadDepositReviews)
   font-size: 13px;
   font-weight: 680;
 }
+.deposit-preview-gateway {
+  gap: 12px;
+}
+.deposit-preview-gateway__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+.deposit-preview-gateway__head div {
+  display: grid;
+  gap: 2px;
+}
+.deposit-preview-gateway__head strong {
+  color: var(--ui-text);
+  font-size: 13px;
+}
+.deposit-preview-gateway__controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: end;
+}
 .safeops-note {
   margin: 0;
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 680;
+}
+@media (max-width: 720px) {
+  .deposit-preview-gateway__controls {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

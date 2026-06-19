@@ -37,6 +37,7 @@ export function toSafeOpsPreviewView(result = {}) {
   const externalGateway = result?.externalGateway || {}
   const requestPayloadPreview = result?.requestPayloadPreview || {}
   const mockWaybillPreview = result?.mockWaybillPreview || {}
+  const mockDepositPreview = result?.mockDepositPreview || {}
   const sandboxPayloadPreview = result?.sandboxPayloadPreview || {}
 
   return {
@@ -69,6 +70,9 @@ export function toSafeOpsPreviewView(result = {}) {
       : 'not generated',
     mockWaybillLabel: mockWaybillPreview.waybillNo
       ? `${mockWaybillPreview.waybillNo} / create=${asFlag(mockWaybillPreview.willCreateWaybill)} / charge=${asFlag(mockWaybillPreview.willChargeFee)}`
+      : 'not generated',
+    mockDepositLabel: mockDepositPreview.mockDepositNo
+      ? `${mockDepositPreview.mockDepositNo} / operation=${mockDepositPreview.operation || 'deposit'} / funds=${asFlag(mockDepositPreview.willChargeOrReleaseFunds)}`
       : 'not generated',
     sandboxPayloadLabel: sandboxPayloadPreview.endpointMode
       ? `${sandboxPayloadPreview.endpointMode} / http=${asFlag(sandboxPayloadPreview.willSendHttpRequest)}`
