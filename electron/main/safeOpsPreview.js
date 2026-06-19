@@ -860,11 +860,13 @@ async function previewSafeOperation(request = {}) {
 
     const domainPreview = await buildDomainPreview(operationType, request)
     const status = domainPreview.blockers?.length ? 'blocked' : 'previewed'
+    const responseMode = domainPreview.mode || 'dry-run'
     const baseResponse = {
       ok: true,
       supported: true,
       operationType,
-      mode: 'dry-run',
+      code: domainPreview.code || undefined,
+      mode: responseMode,
       writeWillExecute: false,
       externalCallWillExecute: false,
       riskLevel: policy.riskLevel,
@@ -876,17 +878,27 @@ async function previewSafeOperation(request = {}) {
       externalGateway: domainPreview.externalGateway || null,
       externalAudit: domainPreview.externalAudit || null,
       externalIdempotency: domainPreview.externalIdempotency || null,
+      expectedExternalAction: domainPreview.expectedExternalAction || null,
+      externalPreviewMode: domainPreview.externalPreviewMode || null,
+      realExecutionBlocked: Boolean(domainPreview.realExecutionBlocked),
+      requestPayloadPreview: domainPreview.requestPayloadPreview || null,
+      mockWaybillPreview: domainPreview.mockWaybillPreview || null,
+      sandboxPayloadPreview: domainPreview.sandboxPayloadPreview || null,
     }
     const persistence = await persistSafeOperationContext({
       request: { ...request, operationType },
       policy,
       impact: domainPreview.impact,
       previewResponse: baseResponse,
-      mode: 'dry-run',
+      mode: responseMode,
       status,
-      issueConfirmToken: Boolean(policy.allowExecute && !domainPreview.blockers?.length),
+      issueConfirmToken: Boolean((policy.allowExecute || policy.issueConfirmTokenForPreview) && !domainPreview.blockers?.length),
       beforeSnapshot: domainPreview.beforeSnapshot || null,
       afterSnapshot: domainPreview.afterSnapshot || null,
+      rollback: {
+        compensationRequired: Boolean(policy.compensationRequired),
+        rollbackType: policy.compensationRequired ? 'compensation' : 'rollback',
+      },
     })
 
     const canExecute = Boolean(policy.allowExecute && !domainPreview.blockers?.length && persistence.persistence?.available)

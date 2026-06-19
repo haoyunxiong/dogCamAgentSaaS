@@ -76,6 +76,119 @@ function normalizeOperationType(operationType) {
   return String(operationType || '').trim()
 }
 
+function normalizeExternalMode(value) {
+  const mode = String(value || 'disabled').trim()
+  return ['disabled', 'mock', 'sandbox', 'real'].includes(mode) ? mode : 'disabled'
+}
+
+function maskName(value) {
+  const text = String(value || '').trim()
+  if (!text) return null
+  return {
+    hasValue: true,
+    length: text.length,
+    preview: text.length <= 1 ? '*' : `${text.slice(0, 1)}*`,
+  }
+}
+
+function maskPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (!digits) return null
+  if (digits.length < 7) return '<redacted-phone>'
+  return `${digits.slice(0, 3)}****${digits.slice(-4)}`
+}
+
+function maskAddress(value, city = '') {
+  const text = String(value || '').trim()
+  return {
+    hasValue: Boolean(text),
+    length: text.length,
+    city: String(city || '').trim() || null,
+    preview: text ? '<redacted-address>' : null,
+  }
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function buildLocalSfRequestPayloadPreview(payload = {}, mode = 'mock') {
+  const packagePayload = payload.package && typeof payload.package === 'object' ? payload.package : {}
+  const servicePayload = payload.service && typeof payload.service === 'object' ? payload.service : {}
+  const senderCity = String(payload.senderCity || payload.shipFromCity || '').trim()
+  const receiverCity = String(payload.receiverCity || payload.shipToCity || '').trim()
+  return {
+    providerName: 'sf_express',
+    operationType: 'logistics.sf.create_order',
+    externalAction: 'create_order',
+    mode,
+    realRequestWillBeSent: false,
+    order: {
+      orderId: String(payload.orderId || payload.order_id || '').trim() || null,
+      shipmentId: String(payload.shipmentId || payload.shipment_id || '').trim() || null,
+      modelCode: String(payload.modelCode || payload.model_code || '').trim() || null,
+    },
+    sender: {
+      contactName: maskName(payload.senderName || payload.senderContactName),
+      phoneMasked: maskPhone(payload.senderPhone || payload.sender_phone),
+      city: senderCity || null,
+      address: maskAddress(payload.senderAddress || payload.sender_address, senderCity),
+    },
+    receiver: {
+      contactName: maskName(payload.receiverName || payload.receiverContactName || payload.contactName),
+      phoneMasked: maskPhone(payload.receiverPhone || payload.receiver_phone || payload.phone),
+      city: receiverCity || null,
+      address: maskAddress(payload.receiverAddress || payload.receiver_address || payload.address, receiverCity),
+    },
+    package: {
+      weightKg: numberOrNull(packagePayload.weightKg || packagePayload.weight_kg || payload.weightKg || payload.weight_kg),
+      quantity: numberOrNull(packagePayload.quantity || packagePayload.count || payload.quantity || payload.packageCount) || 1,
+      goodsType: String(packagePayload.goodsType || packagePayload.goods_type || payload.goodsType || 'rental_device').trim(),
+      insuredAmount: numberOrNull(packagePayload.insuredAmount || packagePayload.insured_amount || payload.insuredAmount || payload.insured_amount),
+    },
+    service: {
+      productCode: String(servicePayload.productCode || servicePayload.product_code || payload.productCode || 'sf_standard').trim(),
+      payMethod: String(servicePayload.payMethod || servicePayload.pay_method || payload.payMethod || 'monthly_settlement_preview').trim(),
+      remark: payload.remark ? '<redacted-remark>' : null,
+    },
+  }
+}
+
+function buildLocalSfMockWaybillPreview(payloadPreview = {}) {
+  const orderId = payloadPreview.order?.orderId || 'preview'
+  const seed = Array.from(String(orderId)).reduce((total, char) => total + char.charCodeAt(0), 0)
+  return {
+    waybillNo: `SFMOCK${String(seed).padStart(8, '0')}`,
+    providerName: 'sf_express',
+    status: 'mock_preview_only',
+    willCreateWaybill: false,
+    willReserveTrackingNo: false,
+    willChargeFee: false,
+    routePreview: {
+      fromCity: payloadPreview.sender?.city || null,
+      toCity: payloadPreview.receiver?.city || null,
+    },
+  }
+}
+
+function buildLocalSfSandboxPayloadPreview(payloadPreview = {}) {
+  return {
+    endpointMode: 'sandbox-preview-only',
+    providerName: 'sf_express',
+    operation: 'create_order',
+    willSendHttpRequest: false,
+    payloadShape: {
+      order: payloadPreview.order,
+      sender: payloadPreview.sender,
+      receiver: payloadPreview.receiver,
+      package: payloadPreview.package,
+      service: payloadPreview.service,
+    },
+  }
+}
+
 function getSafeOpsBridge() {
   if (isUiV2PreviewMode()) return null
   if (!hasUiV2RuntimeBridge()) return null
@@ -143,6 +256,111 @@ function buildLocalPreview(payload = {}) {
 
   if (!policy) return buildUnsupportedPreview(operationType)
   const isExternalOperation = EXTERNAL_OPERATION_TYPES.includes(operationType)
+  if (operationType === 'logistics.sf.create_order') {
+    const mode = normalizeExternalMode(payload.payload?.mode)
+    const requestPayloadPreview = buildLocalSfRequestPayloadPreview(payload.payload || {}, mode)
+    const externalPreviewOpen = mode === 'mock' || mode === 'sandbox'
+    return {
+      ok: true,
+      supported: true,
+      operationType,
+      code: externalPreviewOpen ? undefined : 'SAFE_OP_EXTERNAL_DISABLED',
+      mode: externalPreviewOpen
+        ? `external-preview-${mode}`
+        : (mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled'),
+      writeWillExecute: false,
+      externalCallWillExecute: false,
+      riskLevel: policy.riskLevel,
+      warnings: externalPreviewOpen
+        ? ['Renderer SF Express preview only. No external request will be sent.']
+        : ['External gateway is disabled by default.', 'SF Express real order creation is not open.'],
+      blockers: externalPreviewOpen
+        ? []
+        : [
+            mode === 'real' ? 'Real mode is disabled for SF Express create order.' : 'External gateway mode is disabled.',
+            'External execute is not implemented for this operationType.',
+          ],
+      impact: {
+        summary: externalPreviewOpen
+          ? `Renderer SF Express ${mode} preview. No waybill will be created and no external service will be called.`
+          : 'Renderer SF Express preview is disabled. No waybill will be created and no external service will be called.',
+        affectedRecords: [],
+        externalEffects: [],
+      },
+      audit: {
+        mode: 'noop',
+        persisted: false,
+        operationId: null,
+        payloadHash: null,
+        impactHash: null,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+      requiresConfirm: true,
+      requiresIdempotencyKey: true,
+      execute: cloneJson(EXTERNAL_EXECUTE_DISABLED_POLICY),
+      externalGateway: {
+        providerName: policy.providerName,
+        currentMode: mode,
+        realEnabled: false,
+        sandboxEnabled: true,
+        mockEnabled: true,
+        externalWritesEnabled: false,
+        externalCallWillExecute: false,
+        providerStatus: 'disabled',
+        compensationRequired: true,
+      },
+      externalAudit: {
+        mode: 'external-audit-shape',
+        required: true,
+        persisted: false,
+        providerName: policy.providerName,
+        operationType,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      externalIdempotency: {
+        mode: 'external-idempotency-shape',
+        required: true,
+        persisted: false,
+        providerName: policy.providerName,
+        operationType,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+      },
+      expectedExternalAction: 'create_order',
+      externalPreviewMode: mode,
+      realExecutionBlocked: true,
+      requestPayloadPreview,
+      mockWaybillPreview: mode === 'mock' ? buildLocalSfMockWaybillPreview(requestPayloadPreview) : null,
+      sandboxPayloadPreview: mode === 'sandbox' ? buildLocalSfSandboxPayloadPreview(requestPayloadPreview) : null,
+      confirmToken: null,
+      confirmRequirement: {
+        enabled: false,
+        required: true,
+        persisted: false,
+        token: null,
+        tokenHash: null,
+        expiresAt: null,
+        reason: externalPreviewOpen ? 'renderer-preview-no-bridge' : 'renderer-preview-execute-disabled',
+      },
+      idempotency: {
+        mode: 'noop',
+        required: true,
+        persisted: false,
+        keyHash: null,
+        status: externalPreviewOpen ? 'previewed' : 'blocked',
+        reason: 'renderer-preview-no-bridge',
+      },
+      rollback: {
+        mode: 'noop',
+        planned: externalPreviewOpen,
+        persisted: false,
+        canRollback: false,
+        compensationRequired: true,
+        reason: 'renderer-preview-no-write-executed',
+      },
+      source: 'renderer-noop',
+    }
+  }
 
   return {
     ok: true,
@@ -599,6 +817,86 @@ export async function executeLogisticsLocalRecordCreate({
   })
 }
 
+export async function previewSfCreateOrder({
+  mode = 'disabled',
+  shipmentId,
+  orderId,
+  modelCode,
+  senderName,
+  senderPhone,
+  senderAddress,
+  senderCity,
+  receiverName,
+  receiverPhone,
+  receiverAddress,
+  receiverCity,
+  weightKg,
+  insuredAmount,
+  packageInfo,
+  service,
+  reason,
+  actor,
+  clientRequestId,
+} = {}) {
+  const id = String(shipmentId || orderId || '')
+  return preview({
+    operationType: 'logistics.sf.create_order',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'sf_shipment_preview', id },
+    payload: {
+      mode: normalizeExternalMode(mode),
+      shipmentId: String(shipmentId || ''),
+      orderId: String(orderId || ''),
+      modelCode: String(modelCode || ''),
+      senderName: String(senderName || ''),
+      senderPhone: String(senderPhone || ''),
+      senderAddress: String(senderAddress || ''),
+      senderCity: String(senderCity || ''),
+      receiverName: String(receiverName || ''),
+      receiverPhone: String(receiverPhone || ''),
+      receiverAddress: String(receiverAddress || ''),
+      receiverCity: String(receiverCity || ''),
+      package: {
+        ...(packageInfo || {}),
+        weightKg: packageInfo?.weightKg ?? weightKg ?? null,
+        insuredAmount: packageInfo?.insuredAmount ?? insuredAmount ?? null,
+      },
+      service: service || {},
+      providerName: 'sf_express',
+      reason: String(reason || ''),
+      source: 'ui-v2-logistics-sf-preview',
+    },
+    clientRequestId: clientRequestId || `ui-v2-sf-create-order-preview-${Date.now()}`,
+  })
+}
+
+export async function executeSfCreateOrder({
+  previewResult,
+  mode = 'disabled',
+  shipmentId,
+  orderId,
+  actor,
+  clientRequestId,
+} = {}) {
+  return execute({
+    operationType: 'logistics.sf.create_order',
+    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    target: { type: 'sf_shipment_preview', id: String(shipmentId || orderId || '') },
+    payload: {
+      mode: normalizeExternalMode(mode),
+      shipmentId: String(shipmentId || ''),
+      orderId: String(orderId || ''),
+      providerName: 'sf_express',
+      source: 'ui-v2-logistics-sf-preview',
+    },
+    clientRequestId: clientRequestId || `ui-v2-sf-create-order-execute-${Date.now()}`,
+    confirmTokenId: previewResult?.confirmRequirement?.tokenId || null,
+    auditLogId: previewResult?.audit?.auditLogId || null,
+    impactHash: previewResult?.audit?.impactHash || null,
+    idempotencyKeyHash: previewResult?.idempotency?.keyHash || null,
+  })
+}
+
 export const safeOpsAdapter = {
   getPolicy,
   preview,
@@ -613,4 +911,6 @@ export const safeOpsAdapter = {
   executeScheduleBlockCancel,
   previewLogisticsLocalRecordCreate,
   executeLogisticsLocalRecordCreate,
+  previewSfCreateOrder,
+  executeSfCreateOrder,
 }

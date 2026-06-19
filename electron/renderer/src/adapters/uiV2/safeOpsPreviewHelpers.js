@@ -35,6 +35,9 @@ export function toSafeOpsPreviewView(result = {}) {
   const conflictCheck = result?.conflictCheck || {}
   const duplicateRecordCheck = result?.duplicateRecordCheck || {}
   const externalGateway = result?.externalGateway || {}
+  const requestPayloadPreview = result?.requestPayloadPreview || {}
+  const mockWaybillPreview = result?.mockWaybillPreview || {}
+  const sandboxPayloadPreview = result?.sandboxPayloadPreview || {}
 
   return {
     title: isExecuted ? 'Operation executed' : (isOk ? 'Operation preview' : 'Operation preview unavailable'),
@@ -59,6 +62,17 @@ export function toSafeOpsPreviewView(result = {}) {
     externalGatewayLabel: externalGateway.providerName || externalGateway.currentMode
       ? `${externalGateway.providerName || 'external'} / mode=${externalGateway.currentMode || 'disabled'} / real=${asFlag(externalGateway.realEnabled)} / writes=${asFlag(externalGateway.externalWritesEnabled)}`
       : 'not configured',
+    externalPreviewModeLabel: result?.externalPreviewMode || externalGateway.currentMode || 'disabled',
+    expectedExternalActionLabel: result?.expectedExternalAction || 'none',
+    requestPayloadPreviewLabel: requestPayloadPreview.providerName
+      ? `${requestPayloadPreview.providerName} / ${requestPayloadPreview.externalAction || 'external'} / realRequest=${asFlag(requestPayloadPreview.realRequestWillBeSent)}`
+      : 'not generated',
+    mockWaybillLabel: mockWaybillPreview.waybillNo
+      ? `${mockWaybillPreview.waybillNo} / create=${asFlag(mockWaybillPreview.willCreateWaybill)} / charge=${asFlag(mockWaybillPreview.willChargeFee)}`
+      : 'not generated',
+    sandboxPayloadLabel: sandboxPayloadPreview.endpointMode
+      ? `${sandboxPayloadPreview.endpointMode} / http=${asFlag(sandboxPayloadPreview.willSendHttpRequest)}`
+      : 'not generated',
     conflictLabel: conflictCheck.checked
       ? `${conflictCheck.passed ? 'passed' : 'blocked'} / conflicts=${formatMaybe(conflictCheck.conflictCount, 0)}`
       : (conflictCheck.reason || 'not checked'),

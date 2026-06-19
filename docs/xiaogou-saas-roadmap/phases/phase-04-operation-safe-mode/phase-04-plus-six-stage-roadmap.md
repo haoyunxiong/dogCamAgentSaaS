@@ -24,6 +24,7 @@
 - 阶段 2C `logistics.local_record.create` 已开放为物流本地发货记录创建内部写 operation。
 - 阶段 2 内部写操作统一收口已完成，当前共有 5 个 gated internal write operationTypes。
 - 阶段 3A external gateway skeleton 已完成，真实外部调用仍默认 disabled。
+- 阶段 3B `logistics.sf.create_order` 顺丰 mock/sandbox preview-only 网关已完成，真实顺丰调用仍 disabled。
 
 当前 safeOps 能力：
 
@@ -34,7 +35,7 @@
 - `execute` 仅对 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create` gated enabled；
 - `rollback` 仍 unavailable；
 - 外部 API real mode 禁用；
-- external gateway 当前只提供 disabled policy / preview / blocked execute；
+- external gateway 当前提供 disabled policy / preview / blocked execute；`logistics.sf.create_order` 额外支持 mock / sandbox payload preview；
 - 业务表真实写仅限 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消、单条本地 `shipping_records` 创建。
 
 阶段 2 收口结论：
@@ -43,6 +44,7 @@
 - 其它 operationType execute 仍必须返回 `SAFE_OP_EXECUTE_DISABLED`；
 - rollback executor 仍 unavailable，仅保留 `not_executable` placeholder；
 - 外部 API 仍全部 disabled，顺丰、免押、闲鱼、Python 和其它外部写服务未开放；
+- 顺丰 `logistics.sf.create_order` 仅完成 mock / sandbox 结构化预览，不发送外部请求，不写业务表；
 - 页面服务验证后保持运行，方便继续从 UI 查看效果。
 
 当前禁止：
@@ -175,6 +177,20 @@
 - `externalWritesEnabled=false`；
 - external execute 返回 disabled / blocked；
 - UI 只显示“外部真实调用未开放 / gateway disabled”。
+
+阶段 3B 已完成边界：
+
+- `logistics.sf.create_order` 支持 `mode=disabled|mock|sandbox|real` preview；
+- 默认 `mode=disabled`；
+- `mode=mock` 只生成 mock waybill preview；
+- `mode=sandbox` 只生成 sandbox payload preview；
+- `mode=real` 仍返回 disabled / blocked；
+- `execute` 仍返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- preview 可写 audit / confirm token hash / idempotency / rollback placeholder；
+- `externalCallWillExecute=false`、`writeWillExecute=false` 始终成立；
+- 不调用 HTTP、顺丰 SDK、Python 或外部服务；
+- 不写 `shipping_records`，不改订单状态、设备、档期或免押；
+- Logistics 页面明确展示“不真实下单 / mock-sandbox only / 外部真实调用未开放”。
 
 规则：
 

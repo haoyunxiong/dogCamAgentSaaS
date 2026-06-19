@@ -16,7 +16,8 @@
 - 阶段 1B 已完成：首个真实内部写 `order.internal_note.update` 已通过 safeOps 闭环开放；
 - 阶段 2 已完成：设备基础字段、档期 block 创建 / 取消、物流本地发货记录创建已统一收口；
 - 阶段 3A 已完成：外部 API 安全网关骨架已落地，real mode 默认 disabled；
-- Phase 04 当前仅开放五个真实内部写 operation，其它 execute 仍 disabled。
+- 阶段 3B 已完成：`logistics.sf.create_order` 顺丰 mock/sandbox preview-only 网关已接入，真实顺丰调用仍 disabled；
+- Phase 04 当前仅开放五个真实内部写 operation，另有一个顺丰外部 preview-only operation，其它 execute 仍 disabled。
 
 阶段 2 收口 checkpoint：
 
@@ -31,6 +32,7 @@
 - 所有高风险操作必须先 `dry-run`，再二次确认，再审计执行；
 - 当前 execute 仅允许 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create`；
 - 其它 operationType execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
+- `logistics.sf.create_order` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - 顺丰真实下单、免押真实审核、新增 DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：
@@ -50,7 +52,8 @@
 - `safeOps.rollback`；
 - `safeOps.audit:list`；
 - 除 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消、单条本地 `shipping_records` 创建之外的真实业务表 write；
-- 顺丰 / 免押真实外部写入。
+- 顺丰 / 免押真实外部写入；
+- 顺丰真实下单、预下单、取消、查询、费用写入或外部 tracking 写入。
 
 当前 DB persistence 范围：
 
@@ -175,6 +178,45 @@ Mode：
 - Deposit 的免押创建 / 完结入口只显示“外部真实调用未开放 / gateway disabled”；
 - 不启用真实外部按钮；
 - 页面服务验证后保持运行。
+
+## 阶段 3B：顺丰 mock/sandbox 预览网关
+
+阶段 3B 已为顺丰创建运单建立 preview-only 外部网关能力。
+
+- operationType：`logistics.sf.create_order`
+- provider：`sf_express`
+- 默认 mode：`disabled`
+- `mode=mock`：生成 mock waybill preview，不真实下单；
+- `mode=sandbox`：生成 sandbox payload preview，不发送 HTTP；
+- `mode=real`：返回 disabled / blocked；
+- execute：始终返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `writeWillExecute=false`；
+- `externalCallWillExecute=false`。
+
+阶段 3B persistence：
+
+- mock / sandbox preview 可写入 `operation_audit_logs`；
+- mock / sandbox preview 可写入 confirm token hash；
+- mock / sandbox preview 可写入 idempotency key；
+- mock / sandbox preview 可写入 rollback placeholder；
+- rollback executor 仍为 unavailable。
+
+阶段 3B UI 边界：
+
+- Logistics 页面将顺丰预览与本地 `shipping_records` 创建分开；
+- 页面显示“顺丰预览 / 不真实下单 / 外部真实调用未开放 / 当前仅 mock/sandbox payload 预览”；
+- 真实下单按钮保持 disabled；
+- 不显示手机号、地址、姓名、token、cookie、API key 明文。
+
+阶段 3B 禁止：
+
+- 调用顺丰真实 API、sandbox API 或任何 HTTP 请求；
+- 引入顺丰 SDK、axios、request、node-fetch；
+- 调用 Python；
+- 写 `shipping_records`；
+- 修改订单状态、设备、档期、免押或外部平台；
+- 新增 DB migration；
+- 开放 rollback executor。
 
 ## 阶段 2B：档期 block 创建 / 取消真实写闭环
 
