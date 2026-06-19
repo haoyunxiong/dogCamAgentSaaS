@@ -14,12 +14,13 @@
 - Phase 04+ 后续六阶段快速推进路线图已落档；
 - 阶段 1A 已完成：为首个低风险内部写操作新增 `rental_orders.internal_note` additive schema；
 - 阶段 1B 已完成：首个真实内部写 `order.internal_note.update` 已通过 safeOps 闭环开放；
+- 阶段 2 已完成：设备基础字段、档期 block 创建 / 取消、物流本地发货记录创建已统一收口；
 - Phase 04 当前仅开放五个真实内部写 operation，其它 execute 仍 disabled。
 
-阶段 2C 执行前 checkpoint：
+阶段 2 收口 checkpoint：
 
 ```text
-b2c11ed feat: enable safeops schedule block operations
+24476ec feat: enable safeops logistics local record create
 ```
 
 核心原则：
@@ -29,7 +30,7 @@ b2c11ed feat: enable safeops schedule block operations
 - 所有高风险操作必须先 `dry-run`，再二次确认，再审计执行；
 - 当前 execute 仅允许 `order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create`；
 - 其它 operationType execute 一律返回 `SAFE_OP_EXECUTE_DISABLED`；
-- 顺丰真实下单、免押真实审核、DB migration 都需要用户单独确认。
+- 顺丰真实下单、免押真实审核、新增 DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：
 
@@ -60,8 +61,8 @@ b2c11ed feat: enable safeops schedule block operations
 当前仍然禁止：
 
 - 新增 `safeOps:rollback` / `safeOps:audit:list` IPC；
-- 通过 `safeOps:execute` 执行 `order.internal_note.update` 以外的 operationType；
-- 修改订单状态、设备、档期、物流、免押等业务表；
+- 通过 `safeOps:execute` 执行五个 gated internal write operationTypes 以外的 operationType；
+- 修改订单状态、设备高风险字段、档期批量锁库、外部物流状态、免押等未开放业务表能力；
 - 调用顺丰、免押或其他外部写接口；
 - 展示完整 confirm token。
 
@@ -106,6 +107,27 @@ b2c11ed feat: enable safeops schedule block operations
 - idempotency 记录保存 same-result response；
 - 重复 execute 返回 duplicate / same-result，不重复 UPDATE；
 - 页面通过 UI-V2 safeOps adapter 触发，不直接访问底层 bridge。
+
+## 阶段 2 收口：内部写操作统一验收
+
+阶段 2 已统一收口完成。当前共有 5 个 gated internal write operationTypes：
+
+- `order.internal_note.update`；
+- `device.basic.update`；
+- `schedule.block.create`；
+- `schedule.block.cancel`；
+- `logistics.local_record.create`。
+
+统一验收边界：
+
+- 5 个 operation 均必须经过 `preview -> confirm token -> idempotency -> audit -> execute -> after snapshot`；
+- 其它 operationType execute 仍返回 `SAFE_OP_EXECUTE_DISABLED`；
+- rollback executor 仍 unavailable，只保留 `not_executable` placeholder；
+- 顺丰、免押、闲鱼、Python 和其它外部 API 仍全部 disabled；
+- UI-V2 页面仍不得直接调用底层写 IPC、`fetch` 或 `axios`；
+- 页面服务验证后保持运行，便于继续从页面查看效果。
+
+阶段 3 下一步是外部 API 安全网关，不是直接开放真实外部调用。顺丰、免押、闲鱼等外部写能力必须默认 disabled，并先经过 mock / sandbox、二次确认、external idempotency、external audit 和失败补偿设计。
 
 ## 阶段 2B：档期 block 创建 / 取消真实写闭环
 

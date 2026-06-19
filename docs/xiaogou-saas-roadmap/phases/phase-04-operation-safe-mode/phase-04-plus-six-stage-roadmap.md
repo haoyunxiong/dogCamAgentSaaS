@@ -4,10 +4,10 @@
 
 ## 一、当前完成状态
 
-阶段 2C 执行前 checkpoint：
+阶段 2 收口 checkpoint：
 
 ```text
-b2c11ed feat: enable safeops schedule block operations
+24476ec feat: enable safeops logistics local record create
 ```
 
 已完成：
@@ -22,6 +22,7 @@ b2c11ed feat: enable safeops schedule block operations
 - 阶段 2A `device.basic.update` 已开放为第二个真实内部写 operation。
 - 阶段 2B `schedule.block.create` / `schedule.block.cancel` 已开放为档期 block 创建 / 取消内部写 operation。
 - 阶段 2C `logistics.local_record.create` 已开放为物流本地发货记录创建内部写 operation。
+- 阶段 2 内部写操作统一收口已完成，当前共有 5 个 gated internal write operationTypes。
 
 当前 safeOps 能力：
 
@@ -33,6 +34,14 @@ b2c11ed feat: enable safeops schedule block operations
 - `rollback` 仍 unavailable；
 - 外部 API 禁用；
 - 业务表真实写仅限 `rental_orders.internal_note`、`schedule_units` 低风险基础字段、单条 `schedule_blocks` 创建 / 软取消、单条本地 `shipping_records` 创建。
+
+阶段 2 收口结论：
+
+- 5 个 gated internal write operationTypes 已统一验收：`order.internal_note.update`、`device.basic.update`、`schedule.block.create`、`schedule.block.cancel`、`logistics.local_record.create`；
+- 其它 operationType execute 仍必须返回 `SAFE_OP_EXECUTE_DISABLED`；
+- rollback executor 仍 unavailable，仅保留 `not_executable` placeholder；
+- 外部 API 仍全部 disabled，顺丰、免押、闲鱼、Python 和其它外部写服务未开放；
+- 页面服务验证后保持运行，方便继续从 UI 查看效果。
 
 当前禁止：
 
@@ -156,6 +165,7 @@ b2c11ed feat: enable safeops schedule block operations
 规则：
 
 - 外部写操作必须默认 disabled；
+- 阶段 3 是外部 API 安全网关，不是直接开放真实外部调用；
 - 先 mock / sandbox，再 real；
 - 必须有二次确认；
 - 必须有 external idempotency；
