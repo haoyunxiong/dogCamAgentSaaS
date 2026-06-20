@@ -304,6 +304,43 @@ CREATE TABLE IF NOT EXISTS schedule_blocks (
   INDEX idx_schedule_blocks_unit (unit_id, start_date, end_date)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS schedule_holds (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  hold_no VARCHAR(80) NOT NULL UNIQUE,
+  merchant_id VARCHAR(64) NULL,
+  store_id INT NULL,
+  actor_id VARCHAR(128) NULL,
+  actor_role VARCHAR(64) NULL,
+  model_code VARCHAR(100) NOT NULL,
+  unit_id INT NOT NULL,
+  unit_code VARCHAR(100) NULL,
+  rent_start_date DATE NOT NULL,
+  rent_end_date DATE NOT NULL,
+  occupation_start_at DATETIME NOT NULL,
+  occupation_end_at DATETIME NOT NULL,
+  planned_ship_at DATETIME NULL,
+  expected_arrive_at DATETIME NULL,
+  return_buffer_days INT NOT NULL DEFAULT 2,
+  query_address_json JSON NULL,
+  address_parse_json JSON NULL,
+  sf_estimate_json JSON NULL,
+  availability_result_json JSON NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'active',
+  expires_at DATETIME NOT NULL,
+  extended_count INT NOT NULL DEFAULT 0,
+  converted_order_id INT NULL,
+  release_reason VARCHAR(255) NULL,
+  idempotency_key_hash VARCHAR(128) NULL,
+  client_request_id VARCHAR(128) NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_schedule_holds_unit_window_status (unit_id, status, occupation_start_at, occupation_end_at),
+  INDEX idx_schedule_holds_model_status_expires (model_code, status, expires_at),
+  INDEX idx_schedule_holds_store_status (store_id, status, expires_at),
+  INDEX idx_schedule_holds_client_request (client_request_id),
+  INDEX idx_schedule_holds_converted_order (converted_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS shipping_records (
   id INT AUTO_INCREMENT PRIMARY KEY,
   order_id INT NOT NULL,

@@ -48,6 +48,23 @@ const {
   getStoreSettings,
   saveNonSensitiveStoreSettings,
 } = require('./safeOpsConfigCenter')
+const {
+  getExternalConfigStatus,
+  getXianyuConfigStatus,
+  previewSfTransit,
+  saveExternalConfig,
+  testDepositConnection,
+  validateExternalConfig,
+} = require('./externalConfigService')
+const {
+  createOrderFromHold,
+  createRentalHold,
+  extendRentalHold,
+  listRentalHolds,
+  parseFuzzyAddress,
+  queryRentalAvailability,
+  releaseRentalHold,
+} = require('./rentalCoreWorkflowService')
 
 // 单例 闲管家 客户端，凭据从 config 表动态拉取
 const xgjClient = new XianguanjiaClient({})
@@ -377,6 +394,30 @@ async function registerIpcHandlers(ipcMain, mainWindow) {
     return saveNonSensitiveStoreSettings(payload || {})
   })
 
+  ipcMain.handle('configCenter:getExternalConfigStatus', async () => {
+    return getExternalConfigStatus()
+  })
+
+  ipcMain.handle('configCenter:saveExternalConfig', async (_event, payload = {}) => {
+    return saveExternalConfig(payload || {})
+  })
+
+  ipcMain.handle('configCenter:validateExternalConfig', async (_event, payload = {}) => {
+    return validateExternalConfig(payload || {})
+  })
+
+  ipcMain.handle('configCenter:previewSfTransit', async (_event, payload = {}) => {
+    return previewSfTransit(payload || {})
+  })
+
+  ipcMain.handle('configCenter:testDepositConnection', async (_event, payload = {}) => {
+    return testDepositConnection(payload || {})
+  })
+
+  ipcMain.handle('configCenter:getXianyuConfigStatus', async (_event, payload = {}) => {
+    return getXianyuConfigStatus(payload || {})
+  })
+
   ipcMain.handle('prompts:generate', async (_event, chatLog) => {
     sendCommand({ cmd: 'generate_prompts', chat_log: chatLog })
   })
@@ -585,6 +626,34 @@ async function registerIpcHandlers(ipcMain, mainWindow) {
 
   ipcMain.handle('schedule:availability', async (_event, payload = {}) => {
     return await checkScheduleAvailability(payload)
+  })
+
+  ipcMain.handle('rentalCore:parseAddress', async (_event, payload = {}) => {
+    return parseFuzzyAddress(payload || {})
+  })
+
+  ipcMain.handle('rentalCore:queryAvailability', async (_event, payload = {}) => {
+    return queryRentalAvailability(payload || {})
+  })
+
+  ipcMain.handle('rentalCore:createHold', async (_event, payload = {}) => {
+    return createRentalHold(payload || {})
+  })
+
+  ipcMain.handle('rentalCore:listHolds', async (_event, payload = {}) => {
+    return listRentalHolds(payload || {})
+  })
+
+  ipcMain.handle('rentalCore:extendHold', async (_event, payload = {}) => {
+    return extendRentalHold(payload || {})
+  })
+
+  ipcMain.handle('rentalCore:releaseHold', async (_event, payload = {}) => {
+    return releaseRentalHold(payload || {})
+  })
+
+  ipcMain.handle('rentalCore:createOrderFromHold', async (_event, payload = {}) => {
+    return createOrderFromHold(payload || {})
   })
 
   ipcMain.handle('orders:list', async (_event, filters = {}) => {

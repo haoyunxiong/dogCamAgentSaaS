@@ -225,7 +225,7 @@
           <textarea
             v-model="recipientPasteText"
             class="paste-textarea"
-            placeholder="李双双 13800138000 四川省成都市武侯区天府长岛50号"
+            placeholder="姓名 手机号 省市区 详细地址"
             @paste="handleRecipientPaste"
             @input="pasteParseMessage = ''"
           ></textarea>
@@ -729,7 +729,7 @@
           <textarea
             v-model="editRecipientPasteText"
             class="paste-textarea paste-textarea--compact"
-            placeholder="李双双 13800138000 四川省成都市武侯区天府长岛50号"
+            placeholder="姓名 手机号 省市区 详细地址"
             @paste="handleEditRecipientPaste"
             @input="editPasteParseMessage = ''"
           ></textarea>

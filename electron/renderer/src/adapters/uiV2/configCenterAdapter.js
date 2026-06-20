@@ -424,10 +424,111 @@ async function saveRuntimeConfig(payload = {}) {
   }
 }
 
+async function getExternalConfigStatus() {
+  try {
+    const bridge = getBridge()
+    if (bridge && typeof bridge.getExternalConfigStatus === 'function') {
+      const result = await bridge.getExternalConfigStatus()
+      if (result && typeof result === 'object') return result
+    }
+    return {
+      ok: true,
+      source: 'localStorage',
+      mode: 'renderer-fallback',
+      warning: '当前无 Electron bridge，仅显示浏览器预览配置草稿；未访问本地 MySQL。',
+      sensitiveValuesReturned: false,
+      groups: [],
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error?.message || '外部配置状态读取失败。',
+      groups: [],
+      sensitiveValuesReturned: false,
+    }
+  }
+}
+
+async function saveExternalConfig(payload = {}) {
+  try {
+    const bridge = getBridge()
+    if (bridge && typeof bridge.saveExternalConfig === 'function') {
+      return await bridge.saveExternalConfig(payload || {})
+    }
+    return {
+      ok: false,
+      source: 'localStorage',
+      code: 'NO_ELECTRON_BRIDGE',
+      message: '当前无 Electron bridge，未写入本地 MySQL。',
+      sensitiveValuesReturned: false,
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error?.message || '外部配置保存失败。',
+      sensitiveValuesReturned: false,
+    }
+  }
+}
+
+async function validateExternalConfig(payload = {}) {
+  try {
+    const bridge = getBridge()
+    if (bridge && typeof bridge.validateExternalConfig === 'function') {
+      return await bridge.validateExternalConfig(payload || {})
+    }
+    return { ok: false, message: '当前无 Electron bridge，无法校验本地 MySQL 配置。', sensitiveValuesReturned: false }
+  } catch (error) {
+    return { ok: false, message: error?.message || '配置校验失败。', sensitiveValuesReturned: false }
+  }
+}
+
+async function previewSfTransit(payload = {}) {
+  try {
+    const bridge = getBridge()
+    if (bridge && typeof bridge.previewSfTransit === 'function') {
+      return await bridge.previewSfTransit(payload || {})
+    }
+    return { ok: false, message: '当前无 Electron bridge，无法手动触发顺丰时效测试。', externalRequestSent: false, sensitiveValuesReturned: false }
+  } catch (error) {
+    return { ok: false, message: error?.message || '顺丰时效测试失败。', externalRequestSent: false, sensitiveValuesReturned: false }
+  }
+}
+
+async function testDepositConnection(payload = {}) {
+  try {
+    const bridge = getBridge()
+    if (bridge && typeof bridge.testDepositConnection === 'function') {
+      return await bridge.testDepositConnection(payload || {})
+    }
+    return { ok: false, message: '当前无 Electron bridge，无法校验免押接口配置。', externalRequestSent: false, sensitiveValuesReturned: false }
+  } catch (error) {
+    return { ok: false, message: error?.message || '免押连接测试失败。', externalRequestSent: false, sensitiveValuesReturned: false }
+  }
+}
+
+async function getXianyuConfigStatus(payload = {}) {
+  try {
+    const bridge = getBridge()
+    if (bridge && typeof bridge.getXianyuConfigStatus === 'function') {
+      return await bridge.getXianyuConfigStatus(payload || {})
+    }
+    return { ok: false, status: '未配置', message: '当前无 Electron bridge，无法读取闲鱼/闲管家配置状态。', externalRequestSent: false, sensitiveValuesReturned: false }
+  } catch (error) {
+    return { ok: false, status: '未知', message: error?.message || '闲鱼/闲管家状态读取失败。', externalRequestSent: false, sensitiveValuesReturned: false }
+  }
+}
+
 export const configCenterAdapter = {
   getOverview,
   getStoreSettings,
   saveStoreSettings,
   getRuntimeConfig,
   saveRuntimeConfig,
+  getExternalConfigStatus,
+  saveExternalConfig,
+  validateExternalConfig,
+  previewSfTransit,
+  testDepositConnection,
+  getXianyuConfigStatus,
 }

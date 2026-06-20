@@ -2,12 +2,13 @@
   <UiV2Page title="订单中心" description="按状态、押金、物流和风险推进履约，数据由 UI-V2 adapter 统一提供。">
     <template #actions>
       <BaseButton variant="secondary" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? '收起筛选' : '高级筛选' }}</BaseButton>
-      <BaseButton variant="secondary" data-testid="order-create-preview-button" @click="openCreateOrderPreview">新建订单预览</BaseButton>
+      <BaseButton variant="secondary" data-testid="order-create-preview-button" @click="openOrderWizard">从锁定创建订单</BaseButton>
       <BaseButton @click="openBulkEditPreview">批量分配预览</BaseButton>
     </template>
 
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span class="adapter-source is-real">闲鱼/闲管家：{{ xianyuConfigMode }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
@@ -110,6 +111,15 @@
           <div><span>幂等保护</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
         </section>
         <p v-if="orderPreview.error" class="adapter-source__error">{{ orderPreview.error }}</p>
+        <section class="final-drawer-card ui-v2-detail-grid" data-testid="order-next-action-card">
+          <div><span>下一步动作</span><strong>{{ selectedOrderNextAction.title }}</strong></div>
+          <div><span>主业务状态</span><strong>{{ selectedOrderNextAction.mainStatus }}</strong></div>
+          <div><span>押金/免押</span><strong>{{ selectedOrderNextAction.depositStatus }}</strong></div>
+          <div><span>发出物流</span><strong>{{ selectedOrderNextAction.outboundShippingStatus }}</strong></div>
+          <div><span>归还物流</span><strong>{{ selectedOrderNextAction.returnShippingStatus }}</strong></div>
+          <div><span>验机状态</span><strong>{{ selectedOrderNextAction.inspectionStatus }}</strong></div>
+          <div><span>支付状态</span><strong>{{ selectedOrderNextAction.paymentStatus }}</strong></div>
+        </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>客户电话</span><strong>{{ selectedOrder.phoneMasked }}</strong></div>
           <div><span>订单金额</span><strong>¥{{ selectedOrder.rentAmount.toLocaleString() }}</strong></div>
@@ -265,11 +275,84 @@
         </UiV2Section>
       </div>
     </BaseDrawer>
+
+    <BaseDrawer v-model="orderWizardOpen" title="创建订单" subtitle="从临时锁定转正式订单" width="760" test-id="order-create-wizard">
+      <div class="ui-v2-stack">
+        <div class="final-tabs" data-testid="order-create-wizard-steps">
+          <button
+            v-for="(step, index) in orderCreateSteps"
+            :key="step.key"
+            type="button"
+            class="final-tab"
+            :class="{ 'is-active': orderWizardStep === index }"
+            @click="orderWizardStep = index"
+          >
+            {{ index + 1 }}. {{ step.label }}
+          </button>
+        </div>
+
+        <section v-if="orderWizardStep === 0" class="final-drawer-card">
+          <div class="final-panel__head">
+            <div>
+              <h2>档期与设备</h2>
+              <p>选择 5 分钟临时锁定中的单机，创建后会转正式订单占用。</p>
+            </div>
+            <BaseButton size="sm" variant="secondary" :loading="holdLoading" @click="loadOrderWizardHolds">刷新锁定</BaseButton>
+          </div>
+          <DataTable
+            :columns="holdWizardColumns"
+            :rows="holdWizardRows"
+            row-key="holdNo"
+            compact
+            :selected-key="orderWizardHold?.holdNo || ''"
+            :empty-title="holdLoading ? '锁定读取中' : '暂无可转订单的锁定'"
+            @row-click="selectOrderWizardHold"
+          >
+            <template #statusLabel="{ row }"><StatusBadge :label="row.statusLabel" size="sm" /></template>
+            <template #countdown="{ row }"><strong>{{ row.countdown }}</strong></template>
+          </DataTable>
+        </section>
+
+        <section v-else-if="orderWizardStep === 1" class="final-drawer-card">
+          <div class="settings-form-grid">
+            <BaseInput v-model="orderWizardCustomer.customerName" label="姓名" />
+            <BaseInput v-model="orderWizardCustomer.customerPhone" label="手机号" />
+            <BaseInput v-model="orderWizardCustomer.province" label="省份" />
+            <BaseInput v-model="orderWizardCustomer.city" label="城市" />
+            <BaseInput v-model="orderWizardCustomer.district" label="区县" />
+            <BaseInput v-model="orderWizardCustomer.address" label="详细地址" placeholder="创建订单阶段才粘贴完整地址" />
+          </div>
+        </section>
+
+        <section v-else-if="orderWizardStep === 2" class="final-drawer-card">
+          <div class="settings-form-grid">
+            <BaseSelect v-model="orderWizardPrice.sourceChannel" label="订单渠道" :options="orderChannelOptions" />
+            <BaseInput v-model="orderWizardPrice.fee" label="租金" type="number" />
+            <BaseInput v-model="orderWizardPrice.deposit" label="押金/免押金额" type="number" />
+            <BaseInput v-model="orderWizardPrice.adjustReason" label="手动改价原因" placeholder="未改价可留空" />
+          </div>
+          <p class="drawer-note">本轮保存订单价格值；完整价格快照字段需要后续 schema 扩展。</p>
+        </section>
+
+        <section v-else class="final-drawer-card ui-v2-detail-grid">
+          <div v-for="item in orderWizardSummary" :key="item.label"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>
+        </section>
+
+        <p v-if="orderWizardMessage" class="adapter-source" :class="{ 'is-real': orderWizardResult?.ok }">{{ orderWizardMessage }}</p>
+        <p v-if="orderWizardError" class="adapter-source__error">{{ orderWizardError }}</p>
+      </div>
+      <template #footer>
+        <BaseButton variant="secondary" @click="orderWizardOpen = false">关闭</BaseButton>
+        <BaseButton variant="secondary" :disabled="orderWizardStep === 0" @click="orderWizardStep -= 1">上一步</BaseButton>
+        <BaseButton variant="secondary" :disabled="orderWizardStep >= 3" @click="orderWizardStep += 1">下一步</BaseButton>
+        <BaseButton :disabled="!canCreateOrderFromHold" :loading="orderWizardSaving" @click="submitOrderWizard">确认创建</BaseButton>
+      </template>
+    </BaseDrawer>
   </UiV2Page>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseDrawer from '../../../components/BaseDrawer.vue'
@@ -298,6 +381,15 @@ import {
   filterOperationalOrders,
   paginateOperationalOrders,
 } from '../../../adapters/uiV2/orderOperationalMapper.js'
+import { rentalCoreWorkflowAdapter } from '../../../adapters/uiV2/rentalCoreWorkflowAdapter.js'
+import { mapHoldRows } from '../../../adapters/uiV2/availabilityQueryMapper.js'
+import {
+  ORDER_CREATE_STEPS,
+  buildOrderWizardSummary,
+  canSubmitOrderWizard,
+} from '../../../adapters/uiV2/orderCreateWizardMapper.js'
+import { buildNextActionCard } from '../../../adapters/uiV2/nextActionMapper.js'
+import { configCenterAdapter } from '../../../adapters/uiV2/configCenterAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -319,6 +411,7 @@ const selectedOrder = ref(null)
 const drawerOpen = ref(false)
 const shippingOpen = ref(false)
 const xianyuOpen = ref(false)
+const orderWizardOpen = ref(false)
 const showAdvanced = ref(false)
 const selectedRows = ref([])
 const loading = ref(false)
@@ -335,7 +428,32 @@ const internalNoteError = ref('')
 const xianyuSyncLoading = ref(false)
 const xianyuSyncMode = ref('disabled')
 const xianyuSyncDirection = ref('pull_remote_order')
+const holdLoading = ref(false)
+const orderWizardStep = ref(0)
+const orderWizardHold = ref(null)
+const orderWizardHolds = ref([])
+const orderWizardSaving = ref(false)
+const orderWizardResult = ref(null)
+const orderWizardMessage = ref('')
+const orderWizardError = ref('')
+const orderWizardNow = ref(Date.now())
+let orderWizardTimer = null
+const orderWizardCustomer = ref({
+  customerName: '',
+  customerPhone: '',
+  province: '',
+  city: '',
+  district: '',
+  address: '',
+})
+const orderWizardPrice = ref({
+  sourceChannel: '手工录入',
+  fee: '',
+  deposit: '',
+  adjustReason: '',
+})
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const externalStatus = ref({ groups: [] })
 
 const columns = [
   { key: 'select', label: '', width: '42px' },
@@ -361,10 +479,24 @@ const xianyuSyncDirectionOptions = [
   { label: '推送本地状态', value: 'push_local_state' },
   { label: '对账状态', value: 'reconcile_status' },
 ]
+const orderCreateSteps = ORDER_CREATE_STEPS
+const orderChannelOptions = ['闲鱼', '小红书', '微信私域', '抖音', '线下', '手工录入', '其他']
+const holdWizardColumns = [
+  { key: 'holdNo', label: '锁定号' },
+  { key: 'statusLabel', label: '状态' },
+  { key: 'countdown', label: '倒计时' },
+  { key: 'modelCode', label: '型号' },
+  { key: 'unitLabel', label: '单机' },
+  { key: 'rentPeriod', label: '租期' },
+]
 
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '本地数据库'
   return '本地演示数据'
+})
+const xianyuConfigMode = computed(() => {
+  const group = (externalStatus.value?.groups || []).find((item) => item.id === 'xianyu')
+  return group ? `${group.mode} · ${group.completeness?.configured || 0}/${group.completeness?.required || 0}` : '读取中'
 })
 
 const orderMetrics = computed(() => buildOrderOperationalMetrics(orders.value))
@@ -383,6 +515,18 @@ const pagedOrders = computed(() => paginateOperationalOrders(filteredOrders.valu
 const drawerSubtitle = computed(() => selectedOrder.value ? `${selectedOrder.value.customerName} · ${selectedOrder.value.model}` : '')
 const xianyuModeLabel = computed(() => xianyuSyncModeOptions.find((item) => item.value === xianyuSyncMode.value)?.label || '默认关闭')
 const xianyuDirectionLabel = computed(() => xianyuSyncDirectionOptions.find((item) => item.value === xianyuSyncDirection.value)?.label || '拉取远端订单')
+const holdWizardRows = computed(() => mapHoldRows(orderWizardHolds.value.filter((hold) => hold.status === 'active'), orderWizardNow.value))
+const selectedOrderNextAction = computed(() => buildNextActionCard(selectedOrder.value || {}))
+const orderWizardSummary = computed(() => buildOrderWizardSummary({
+  hold: orderWizardHold.value,
+  customer: orderWizardCustomer.value,
+  price: orderWizardPrice.value,
+}))
+const canCreateOrderFromHold = computed(() => canSubmitOrderWizard({
+  hold: orderWizardHold.value,
+  customer: orderWizardCustomer.value,
+  price: orderWizardPrice.value,
+}) && !orderWizardSaving.value)
 const selectedOrderInternalNote = computed(() => String(
   selectedOrder.value?.raw?.internal_note
   || selectedOrder.value?.internalNote
@@ -429,6 +573,10 @@ async function loadOrders() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadExternalStatus() {
+  externalStatus.value = await configCenterAdapter.getExternalConfigStatus()
 }
 
 async function openOrder(order) {
@@ -636,6 +784,77 @@ async function openCreateOrderPreview() {
   })
 }
 
+async function openOrderWizard() {
+  orderWizardOpen.value = true
+  orderWizardStep.value = 0
+  orderWizardResult.value = null
+  orderWizardMessage.value = ''
+  orderWizardError.value = ''
+  await loadOrderWizardHolds()
+}
+
+async function loadOrderWizardHolds() {
+  holdLoading.value = true
+  try {
+    const result = await rentalCoreWorkflowAdapter.listHolds({ status: 'active' })
+    orderWizardHolds.value = Array.isArray(result?.holds) ? result.holds : []
+    if (!orderWizardHold.value && orderWizardHolds.value.length) selectOrderWizardHold(orderWizardHolds.value[0])
+  } finally {
+    holdLoading.value = false
+  }
+}
+
+function selectOrderWizardHold(hold) {
+  orderWizardHold.value = hold
+  const quote = hold?.availabilityResult?.quote || {}
+  const deposit = hold?.availabilityResult?.depositExemption?.assetValue || quote.deposit || ''
+  orderWizardPrice.value = {
+    ...orderWizardPrice.value,
+    fee: orderWizardPrice.value.fee || quote.totalPrice || quote.total || quote.price || '',
+    deposit: orderWizardPrice.value.deposit || deposit || '',
+  }
+  const address = hold?.addressParse || hold?.queryAddress || {}
+  orderWizardCustomer.value = {
+    ...orderWizardCustomer.value,
+    province: orderWizardCustomer.value.province || address.province || '',
+    city: orderWizardCustomer.value.city || address.city || '',
+    district: orderWizardCustomer.value.district || address.district || '',
+  }
+}
+
+async function submitOrderWizard() {
+  if (!canCreateOrderFromHold.value) {
+    orderWizardError.value = '请先完成四步订单信息。'
+    return
+  }
+  orderWizardSaving.value = true
+  orderWizardError.value = ''
+  orderWizardMessage.value = ''
+  try {
+    const result = await rentalCoreWorkflowAdapter.createOrderFromHold({
+      holdNo: orderWizardHold.value.holdNo,
+      customer: orderWizardCustomer.value,
+      price: {
+        fee: orderWizardPrice.value.fee,
+        deposit: orderWizardPrice.value.deposit,
+      },
+      sourceChannel: orderWizardPrice.value.sourceChannel,
+      remark: orderWizardPrice.value.adjustReason ? `手动改价原因：${orderWizardPrice.value.adjustReason}` : '',
+      actor: buildUiActor(),
+      clientRequestId: `ui-v2-order-from-hold-${Date.now()}`,
+    })
+    orderWizardResult.value = result
+    if (!result?.ok) throw new Error(result?.message || '订单创建失败')
+    orderWizardMessage.value = `${result.orderNo || result.orderId} 已创建；锁定已转订单。`
+    await loadOrders()
+    await loadOrderWizardHolds()
+  } catch (error) {
+    orderWizardError.value = error?.message || '订单创建失败'
+  } finally {
+    orderWizardSaving.value = false
+  }
+}
+
 async function openShippingPreview() {
   shippingOpen.value = true
   shippingPreview.value = { ...shippingPreview.value, loading: true, error: '' }
@@ -719,7 +938,7 @@ watch(
   () => route.query.intent,
   async (intent) => {
     if (intent !== 'create-order-preview') return
-    await openCreateOrderPreview()
+    await openOrderWizard()
   },
   { immediate: true },
 )
@@ -728,7 +947,17 @@ watch([status, keyword, channel, deposit, shipping, risk, assignee], () => {
   page.value = 1
 })
 
-onMounted(loadOrders)
+onMounted(() => {
+  loadOrders()
+  loadExternalStatus()
+  orderWizardTimer = window.setInterval(() => {
+    orderWizardNow.value = Date.now()
+  }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (orderWizardTimer) window.clearInterval(orderWizardTimer)
+})
 </script>
 
 <style scoped>
@@ -737,6 +966,12 @@ onMounted(loadOrders)
   grid-template-columns: 1.4fr repeat(2, minmax(180px, 0.7fr));
   gap: 10px;
   align-items: end;
+}
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .bulk-bar {

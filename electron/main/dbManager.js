@@ -7951,6 +7951,7 @@ module.exports = {
   updateSfShipmentActualPaid,
   querySfShipmentPromiseTime,
   quoteSfIntraCity,
+  estimateShippingWithSf,
   // 飞书待确认回复
   createFeishuPendingReply,
   listFeishuPendingReplies,

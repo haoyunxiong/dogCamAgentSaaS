@@ -6,6 +6,7 @@
     </template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
+      <span class="adapter-source is-real">顺丰配置：{{ sfConfigMode }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
     <section v-if="sfPreview?.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-sf-preview">
@@ -158,6 +159,7 @@ import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
+import { configCenterAdapter } from '../../../adapters/uiV2/configCenterAdapter.js'
 import { filterLogisticsRows, normalizeLogisticsRows, paginateLogisticsRows } from '../../../adapters/uiV2/logisticsTaskMapper.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
@@ -191,6 +193,7 @@ const localRecordForm = ref({
   actualArriveAt: '',
 })
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const externalStatus = ref({ groups: [] })
 const logisticsTabs = ['待创建运单', '待揽收', '运输中', '已签收', '异常', '历史记录', '全部']
 const safeOpsActor = buildSafeOpsActor('ui-v2-logistics')
 const sfPreviewModeOptions = [
@@ -245,6 +248,10 @@ const metrics = computed(() => [
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '本地数据库'
   return '本地演示数据'
+})
+const sfConfigMode = computed(() => {
+  const group = (externalStatus.value?.groups || []).find((item) => item.id === 'sf')
+  return group ? `${group.mode} · ${group.completeness?.configured || 0}/${group.completeness?.required || 0}` : '读取中'
 })
 const filteredWaybills = computed(() => filterLogisticsRows(waybills.value, { status: status.value, keyword: keyword.value }))
 const pagedWaybills = computed(() => paginateLogisticsRows(filteredWaybills.value, page.value, pageSize))
@@ -384,7 +391,14 @@ async function loadWaybills() {
   }
 }
 
-onMounted(loadWaybills)
+async function loadExternalStatus() {
+  externalStatus.value = await configCenterAdapter.getExternalConfigStatus()
+}
+
+onMounted(() => {
+  loadWaybills()
+  loadExternalStatus()
+})
 </script>
 
 <style scoped>

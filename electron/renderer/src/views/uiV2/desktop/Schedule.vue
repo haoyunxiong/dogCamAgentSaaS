@@ -1,6 +1,7 @@
 <template>
   <UiV2Page title="档期中心" description="按型号余量和单机排期两种视图管理库存占用、冲突与手工锁定。">
     <template #actions>
+      <BaseButton variant="secondary" :loading="holdsLoading" @click="loadHolds">刷新锁定</BaseButton>
       <BaseButton variant="secondary" @click="previewScheduleBlock('batch-lock')">批量锁库预览</BaseButton>
       <BaseButton @click="openCreateDrawer">新建占用预览</BaseButton>
     </template>
@@ -10,7 +11,107 @@
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
-    <section v-if="schedulePreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="schedule-safeops-preview">
+    <div class="final-tabs" data-testid="schedule-workflow-tabs">
+      <button
+        v-for="item in workflowModes"
+        :key="item.value"
+        type="button"
+        class="final-tab"
+        :class="{ 'is-active': workflowMode === item.value }"
+        @click="switchWorkflow(item.value)"
+      >
+        {{ item.label }}
+      </button>
+    </div>
+
+    <section v-if="workflowMode === 'availability'" class="availability-workbench" data-testid="rental-core-availability-query">
+      <div class="final-panel">
+        <div class="final-panel__head">
+          <div>
+            <h2>快速查档期</h2>
+            <p>只填写型号、租期、模糊目的地区域和发货门店；不采集姓名、电话或详细门牌地址。</p>
+          </div>
+          <StatusBadge :label="availabilityResult?.classification?.label || '待查询'" size="sm" />
+        </div>
+        <div class="final-panel__body availability-form">
+          <BaseSelect v-model="availabilityForm.modelCode" label="设备型号" :options="options.deviceModels" />
+          <BaseInput v-model="availabilityForm.rentStartDate" label="租期开始" type="date" />
+          <BaseInput v-model="availabilityForm.rentEndDate" label="租期结束" type="date" />
+          <BaseInput v-model="availabilityForm.fuzzyAddress" label="模糊目的地区域" placeholder="例如：成都锦江区 / 犀浦 / 华阳" />
+          <BaseInput v-model="availabilityForm.storeId" label="发货门店" placeholder="默认门店可留空" />
+          <BaseSelect v-model="availabilityForm.shippingMode" label="寄件方式" :options="shippingModeOptions" />
+          <BaseButton :loading="availabilityLoading" @click="queryAvailability">查询档期</BaseButton>
+        </div>
+        <p class="safeops-note">如果顺丰真实时效未配置或未开启，结果会明确标注本地预估；不会伪装成真实接口成功。</p>
+        <p v-if="availabilityError" class="adapter-source__error">{{ availabilityError }}</p>
+      </div>
+
+      <section v-if="availabilityResult?.ok" class="availability-result" data-testid="rental-core-availability-result">
+        <div class="final-panel">
+          <div class="final-panel__head">
+            <div>
+              <h2>{{ availabilityStatusLabel(availabilityResult) }}</h2>
+              <p>{{ availabilitySourceLabel(availabilityResult) }}</p>
+            </div>
+            <BaseButton :disabled="!availabilityResult.recommendedUnit" :loading="holdActionLoading" @click="createRecommendedHold">锁定推荐单机 5 分钟</BaseButton>
+          </div>
+          <div class="final-panel__body ui-v2-detail-grid">
+            <div><span>推荐单机</span><strong>{{ availabilityResult.recommendedUnit?.unitCode || '无可用单机' }}</strong></div>
+            <div><span>识别区县</span><strong>{{ availabilityResult.addressParse?.district || '-' }}</strong></div>
+            <div><span>置信度</span><strong>{{ Math.round((availabilityResult.addressParse?.confidence || 0) * 100) }}%</strong></div>
+            <div><span>可用 / 总库存</span><strong>{{ availabilityResult.counts?.availableUnits || 0 }} / {{ availabilityResult.counts?.totalUnits || 0 }}</strong></div>
+            <div><span>最晚发货</span><strong>{{ availabilityResult.plan?.latestShipAt || '-' }}</strong></div>
+            <div><span>重新可租</span><strong>{{ availabilityResult.plan?.reusableAt || '-' }}</strong></div>
+            <div><span>上午 10 点</span><strong>{{ availabilityResult.plan?.dualShipWindows?.[0]?.plannedShipAt || '-' }}</strong></div>
+            <div><span>下午 18 点</span><strong>{{ availabilityResult.plan?.dualShipWindows?.[1]?.plannedShipAt || '-' }}</strong></div>
+            <div><span>返程物流</span><strong>{{ availabilityResult.plan?.returnLogistics?.expectedReturnWarehouseDate || '-' }}</strong></div>
+            <div><span>周转缓冲</span><strong>{{ availabilityResult.plan?.turnaroundBuffer?.bufferEndDate || '-' }}</strong></div>
+          </div>
+        </div>
+        <div v-if="activeHold" class="final-panel" data-testid="rental-core-hold-countdown">
+          <div class="final-panel__head">
+            <div>
+              <h2>临时锁定倒计时 {{ holdCountdownLabel(activeHold, nowTick) }}</h2>
+              <p>{{ activeHold.holdNo }} · {{ activeHold.unitCode }} · {{ activeHold.rentStartDate }} 至 {{ activeHold.rentEndDate }}</p>
+            </div>
+            <div class="schedule-safe-update__actions">
+              <BaseButton size="sm" variant="secondary" :loading="holdActionLoading" @click="extendHold(activeHold)">延长一次</BaseButton>
+              <BaseButton size="sm" variant="danger" :loading="holdActionLoading" @click="releaseHold(activeHold)">释放</BaseButton>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section v-if="workflowMode === 'holds'" class="final-panel" data-testid="rental-core-hold-list">
+      <div class="final-panel__head">
+        <div>
+          <h2>临时锁定列表</h2>
+          <p>锁定中、已转订单、已过期释放和手动释放统一在这里查看。</p>
+        </div>
+        <BaseButton variant="secondary" :loading="holdsLoading" @click="loadHolds">刷新</BaseButton>
+      </div>
+      <div class="final-panel__body">
+        <DataTable
+          :columns="holdColumns"
+          :rows="holdRows"
+          row-key="holdNo"
+          compact
+          :empty-title="holdsLoading ? '锁定记录读取中' : '暂无临时锁定'"
+        >
+          <template #statusLabel="{ row }"><StatusBadge :label="row.statusLabel" size="sm" /></template>
+          <template #countdown="{ row }"><strong>{{ row.countdown }}</strong></template>
+          <template #actions="{ row }">
+            <div class="schedule-safe-update__actions">
+              <BaseButton size="sm" variant="secondary" :disabled="row.status !== 'active'" @click.stop="extendHold(row)">延长</BaseButton>
+              <BaseButton size="sm" variant="danger" :disabled="row.status !== 'active'" @click.stop="releaseHold(row)">释放</BaseButton>
+            </div>
+          </template>
+        </DataTable>
+      </div>
+    </section>
+
+    <section v-if="workflowMode !== 'availability' && workflowMode !== 'holds' && schedulePreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="schedule-safeops-preview">
       <div><span>操作预览</span><strong>{{ schedulePreview.view.title || '档期预览' }}</strong></div>
       <div><span>开放状态</span><strong>{{ schedulePreviewStatusLabel }}</strong></div>
       <div><span>数据写入</span><strong>{{ schedulePreview.view.writeWillExecute }}</strong></div>
@@ -19,11 +120,11 @@
       <div><span>冲突检查</span><strong>{{ schedulePreview.view.conflictLabel || '创建时重新检查真实冲突' }}</strong></div>
     </section>
 
-    <section class="summary-grid">
+    <section v-if="workflowMode !== 'availability' && workflowMode !== 'holds'" class="summary-grid">
       <MetricCard v-for="metric in scheduleMetrics" :key="metric.key" :metric="metric" />
     </section>
 
-    <div class="final-tabs" data-testid="schedule-view-switch">
+    <div v-if="false" class="final-tabs" data-testid="schedule-view-switch">
       <button
         v-for="item in viewModes"
         :key="item.value"
@@ -36,7 +137,7 @@
       </button>
     </div>
 
-    <FilterBar title="档期筛选" hint="日期列展示总库存 / 可用 / 占用 / 冲突，点击行查看详情">
+    <FilterBar v-if="workflowMode !== 'availability' && workflowMode !== 'holds'" title="档期筛选" hint="日期列展示总库存 / 可用 / 占用 / 冲突，点击行查看详情">
       <div class="filter-row">
         <BaseSelect v-model="scheduleRange" label="日期范围" :options="scheduleRangeOptions" />
         <BaseInput v-model="keyword" search clearable placeholder="搜索型号、设备编号、门店" />
@@ -45,7 +146,7 @@
       </div>
     </FilterBar>
 
-    <section class="legend-row">
+    <section v-if="workflowMode !== 'availability' && workflowMode !== 'holds'" class="legend-row">
       <span><i class="ok"></i>可安排</span>
       <span><i class="mid"></i>余量紧张</span>
       <span><i class="full"></i>满租/占用</span>
@@ -54,6 +155,7 @@
     </section>
 
     <DataTable
+      v-if="workflowMode !== 'availability' && workflowMode !== 'holds'"
       :columns="activeColumns"
       :rows="pagedRows"
       row-key="id"
@@ -66,7 +168,7 @@
       <template #assetNo="{ row }"><div class="ui-v2-cell-stack"><strong>{{ row.assetNo }}</strong><small>{{ row.model }}</small></div></template>
       <template #risk="{ row }"><StatusBadge :label="row.risk" size="sm" /></template>
     </DataTable>
-    <Pagination v-model:page="page" :total="activeRows.length" :page-size="pageSize" />
+    <Pagination v-if="workflowMode !== 'availability' && workflowMode !== 'holds'" v-model:page="page" :total="activeRows.length" :page-size="pageSize" />
 
     <BaseDrawer v-model="drawerOpen" :title="drawerTitle" :subtitle="drawerSubtitle" width="680" test-id="schedule-detail-drawer">
       <div class="ui-v2-stack">
@@ -132,7 +234,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseDrawer from '../../../components/BaseDrawer.vue'
 import BaseInput from '../../../components/BaseInput.vue'
@@ -145,6 +247,13 @@ import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
+import { rentalCoreWorkflowAdapter } from '../../../adapters/uiV2/rentalCoreWorkflowAdapter.js'
+import {
+  availabilitySourceLabel,
+  availabilityStatusLabel,
+  holdCountdownLabel,
+  mapHoldRows,
+} from '../../../adapters/uiV2/availabilityQueryMapper.js'
 import {
   buildScheduleDates,
   buildScheduleModelAvailability,
@@ -176,6 +285,24 @@ const scheduleWriteExecuting = ref(false)
 const scheduleCancelBlockId = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const safeOpsActor = buildSafeOpsActor('ui-v2-schedule')
+const workflowMode = ref('availability')
+const availabilityLoading = ref(false)
+const availabilityError = ref('')
+const availabilityResult = ref(null)
+const activeHold = ref(null)
+const holds = ref([])
+const holdsLoading = ref(false)
+const holdActionLoading = ref(false)
+const nowTick = ref(Date.now())
+let holdTimer = null
+const availabilityForm = ref({
+  modelCode: '',
+  rentStartDate: '',
+  rentEndDate: '',
+  fuzzyAddress: '',
+  storeId: '',
+  shippingMode: 'land',
+})
 const scheduleCreateForm = ref({
   unitId: '',
   blockType: 'manual_hold',
@@ -187,8 +314,21 @@ const viewModes = [
   { label: '型号余量总览', value: 'model' },
   { label: '单机排期', value: 'unit' },
 ]
+const workflowModes = [
+  { label: '快速查档期', value: 'availability' },
+  { label: '型号余量', value: 'model' },
+  { label: '单机排期', value: 'unit' },
+  { label: '临时锁定', value: 'holds' },
+]
 const scheduleTabs = ['全部', '可安排', '余量不足', '满租', '冲突', '占用', '维修']
 const scheduleRangeOptions = ['今日', '未来 7 天', '本月']
+const shippingModeOptions = [
+  { label: '普通快递', value: 'land' },
+  { label: '顺丰标快', value: 'sf_standard' },
+  { label: '半日达', value: 'sf_half_day' },
+  { label: '同城急送', value: 'same_city' },
+  { label: '自取/自还', value: 'self_pickup' },
+]
 const scheduleBlockTypeOptions = [
   { label: '手工锁定', value: 'manual_hold' },
   { label: '内部占用', value: 'internal_hold' },
@@ -197,6 +337,17 @@ const scheduleBlockTypeOptions = [
 ]
 
 const sourceLabel = computed(() => sourceMeta.value.source === 'real' ? '本地数据库' : '本地演示数据')
+const holdRows = computed(() => mapHoldRows(holds.value, nowTick.value))
+const holdColumns = [
+  { key: 'holdNo', label: '锁定号' },
+  { key: 'statusLabel', label: '状态' },
+  { key: 'countdown', label: '倒计时' },
+  { key: 'modelCode', label: '型号' },
+  { key: 'unitLabel', label: '单机' },
+  { key: 'rentPeriod', label: '租期' },
+  { key: 'windowLabel', label: '物流占用窗口' },
+  { key: 'actions', label: '操作' },
+]
 const activeDates = computed(() => buildScheduleDates(dates.value, scheduleRange.value === '今日' ? 1 : 7))
 const modelRows = computed(() => buildScheduleModelAvailability({ devices: devices.value, schedule: schedule.value, dates: activeDates.value }))
 const unitRows = computed(() => buildScheduleUnitRows({ devices: devices.value, schedule: schedule.value, dates: activeDates.value }))
@@ -258,6 +409,86 @@ function toTableRow(row) {
 function switchView(nextMode) {
   viewMode.value = nextMode
   page.value = 1
+}
+
+function switchWorkflow(nextMode) {
+  workflowMode.value = nextMode
+  if (nextMode === 'model' || nextMode === 'unit') switchView(nextMode)
+  if (nextMode === 'holds') loadHolds()
+}
+
+async function queryAvailability() {
+  availabilityLoading.value = true
+  availabilityError.value = ''
+  activeHold.value = null
+  try {
+    const result = await rentalCoreWorkflowAdapter.queryAvailability({
+      ...availabilityForm.value,
+      actor: safeOpsActor,
+      clientRequestId: `ui-v2-availability-${Date.now()}`,
+    })
+    availabilityResult.value = result
+    if (!result?.ok) availabilityError.value = result?.message || '查档期失败'
+  } catch (error) {
+    availabilityError.value = error?.message || '查档期失败'
+  } finally {
+    availabilityLoading.value = false
+  }
+}
+
+async function createRecommendedHold() {
+  if (!availabilityResult.value?.ok) return
+  holdActionLoading.value = true
+  availabilityError.value = ''
+  try {
+    const result = await rentalCoreWorkflowAdapter.createHold({
+      ...availabilityForm.value,
+      availabilityResult: availabilityResult.value,
+      actor: safeOpsActor,
+      clientRequestId: `ui-v2-hold-create-${Date.now()}`,
+    })
+    if (!result?.ok) throw new Error(result?.message || '锁定失败')
+    activeHold.value = result.hold
+    await loadHolds()
+  } catch (error) {
+    availabilityError.value = error?.message || '锁定失败'
+  } finally {
+    holdActionLoading.value = false
+  }
+}
+
+async function loadHolds() {
+  holdsLoading.value = true
+  try {
+    const result = await rentalCoreWorkflowAdapter.listHolds({})
+    holds.value = Array.isArray(result?.holds) ? result.holds : []
+  } finally {
+    holdsLoading.value = false
+  }
+}
+
+async function extendHold(hold) {
+  if (!hold?.holdNo) return
+  holdActionLoading.value = true
+  try {
+    const result = await rentalCoreWorkflowAdapter.extendHold({ holdNo: hold.holdNo, actor: safeOpsActor })
+    if (result?.hold && activeHold.value?.holdNo === hold.holdNo) activeHold.value = result.hold
+    await loadHolds()
+  } finally {
+    holdActionLoading.value = false
+  }
+}
+
+async function releaseHold(hold) {
+  if (!hold?.holdNo) return
+  holdActionLoading.value = true
+  try {
+    const result = await rentalCoreWorkflowAdapter.releaseHold({ holdNo: hold.holdNo, reason: '页面手动释放', actor: safeOpsActor })
+    if (result?.hold && activeHold.value?.holdNo === hold.holdNo) activeHold.value = result.hold
+    await loadHolds()
+  } finally {
+    holdActionLoading.value = false
+  }
 }
 
 function openScheduleRow(row) {
@@ -394,7 +625,17 @@ watch([viewMode, keyword, model, status, scheduleRange], () => {
   page.value = 1
 })
 
-onMounted(loadSchedule)
+onMounted(() => {
+  loadSchedule()
+  loadHolds()
+  holdTimer = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (holdTimer) window.clearInterval(holdTimer)
+})
 </script>
 
 <style scoped>
@@ -402,6 +643,19 @@ onMounted(loadSchedule)
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.availability-workbench,
+.availability-result {
+  display: grid;
+  gap: 14px;
+}
+
+.availability-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
 }
 
 .filter-row {

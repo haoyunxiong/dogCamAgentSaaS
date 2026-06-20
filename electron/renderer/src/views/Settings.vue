@@ -382,7 +382,7 @@
               <div><label>顺丰时效查询</label><p class="hint">开启后先取 accessToken，再调用时效标准查询接口</p></div>
               <label class="switch"><input type="checkbox" v-model="sfOpenEnabled" /><span class="slider"></span></label>
             </div>
-            <div class="form-group"><label>顾客编码</label><input v-model="form.SF_APP_ID" placeholder="如 YVFCG8GB" /></div>
+            <div class="form-group"><label>顾客编码</label><input v-model="form.SF_APP_ID" placeholder="请输入顺丰 App ID" /></div>
             <div class="form-group"><label>密钥 Secret</label><input type="password" v-model="form.SF_APP_KEY" placeholder="OAuth2 secret" /></div>
           </div>
           <div class="form-row three-cols">

@@ -481,6 +481,13 @@ function maskMonthlyCard(value) {
   return `${'*'.repeat(Math.max(4, card.length - 4))}${card.slice(-4)}`
 }
 
+function redactRawText(value) {
+  return text(value)
+    .replace(/("accessToken"\s*:\s*")[^"]+(")/ig, '$1[hidden]$2')
+    .replace(/("token"\s*:\s*")[^"]+(")/ig, '$1[hidden]$2')
+    .replace(/(accessToken=)[^&\s]+/ig, '$1[hidden]')
+}
+
 function redactShipmentSecrets(value) {
   if (Array.isArray(value)) return value.map((item) => redactShipmentSecrets(item))
   if (!value || typeof value !== 'object') return value
@@ -488,9 +495,22 @@ function redactShipmentSecrets(value) {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => {
     const normalizedKey = key.replace(/[_-]/g, '').toLowerCase()
     if (normalizedKey === 'monthlycard') return [key, maskMonthlyCard(item)]
+    if (normalizedKey === 'rawtext') return [key, redactRawText(item)]
     if (normalizedKey.includes('token') || normalizedKey.includes('secret')
       || normalizedKey === 'checkword' || normalizedKey === 'accesscode') {
       return [key, '[hidden]']
+    }
+    if (normalizedKey === 'partnerid' || normalizedKey === 'customercode' || normalizedKey === 'appid') {
+      return [key, '[configured]']
+    }
+    if (normalizedKey.includes('mobile') || normalizedKey.includes('phone') || normalizedKey.includes('checkno')) {
+      return [key, '[redacted-phone]']
+    }
+    if (normalizedKey.includes('address')) {
+      return [key, '[redacted-address]']
+    }
+    if (normalizedKey === 'contact' || normalizedKey === 'sender' || normalizedKey === 'receiver') {
+      return [key, '[redacted-contact]']
     }
     return [key, redactShipmentSecrets(item)]
   }))

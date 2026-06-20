@@ -27,6 +27,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getOverview: () => ipcRenderer.invoke('configCenter:getOverview'),
     getStoreSettings: () => ipcRenderer.invoke('configCenter:getStoreSettings'),
     saveStoreSettings: (payload) => ipcRenderer.invoke('configCenter:saveStoreSettings', payload || {}),
+    getExternalConfigStatus: () => ipcRenderer.invoke('configCenter:getExternalConfigStatus'),
+    saveExternalConfig: (payload) => ipcRenderer.invoke('configCenter:saveExternalConfig', payload || {}),
+    validateExternalConfig: (payload) => ipcRenderer.invoke('configCenter:validateExternalConfig', payload || {}),
+    previewSfTransit: (payload) => ipcRenderer.invoke('configCenter:previewSfTransit', payload || {}),
+    testDepositConnection: (payload) => ipcRenderer.invoke('configCenter:testDepositConnection', payload || {}),
+    getXianyuConfigStatus: (payload) => ipcRenderer.invoke('configCenter:getXianyuConfigStatus', payload || {}),
+  },
+  rentalCore: {
+    parseAddress: (payload) => ipcRenderer.invoke('rentalCore:parseAddress', payload || {}),
+    queryAvailability: (payload) => ipcRenderer.invoke('rentalCore:queryAvailability', payload || {}),
+    createHold: (payload) => ipcRenderer.invoke('rentalCore:createHold', payload || {}),
+    listHolds: (payload) => ipcRenderer.invoke('rentalCore:listHolds', payload || {}),
+    extendHold: (payload) => ipcRenderer.invoke('rentalCore:extendHold', payload || {}),
+    releaseHold: (payload) => ipcRenderer.invoke('rentalCore:releaseHold', payload || {}),
+    createOrderFromHold: (payload) => ipcRenderer.invoke('rentalCore:createOrderFromHold', payload || {}),
   },
 
   // Prompts

@@ -26,11 +26,20 @@ const MIGRATIONS = Object.freeze([
     rollbackPath: path.join(ROOT_DIR, 'scripts/migrations/20260619_0002_add_rental_orders_internal_note.rollback.sql'),
     shape: 'rental_orders_internal_note',
   },
+  {
+    version: '20260621_0003_create_schedule_holds',
+    name: 'create_schedule_holds',
+    sqlPath: path.join(ROOT_DIR, 'scripts/migrations/20260621_0003_create_schedule_holds.sql'),
+    rollbackPath: path.join(ROOT_DIR, 'scripts/migrations/20260621_0003_create_schedule_holds.rollback.sql'),
+    shape: 'schedule_holds',
+  },
 ])
 
 const MIGRATION_WORKTREE_ALLOWLIST = Object.freeze(new Set([
   'scripts/migrations/20260619_0002_add_rental_orders_internal_note.sql',
   'scripts/migrations/20260619_0002_add_rental_orders_internal_note.rollback.sql',
+  'scripts/migrations/20260621_0003_create_schedule_holds.sql',
+  'scripts/migrations/20260621_0003_create_schedule_holds.rollback.sql',
   'scripts/run_safeops_migration.js',
   'scripts/mysql_schema.sql',
   'docs/xiaogou-saas-roadmap/05_PHASE_STATUS_阶段状态表.md',
@@ -52,11 +61,35 @@ const LEGACY_TABLES = Object.freeze([
   'schedule_units',
   'schedule_blocks',
   'shipping_records',
+  'schedule_holds',
 ])
 
 const REQUIRED_COLUMNS = Object.freeze({
   schema_migrations: ['version', 'name', 'checksum', 'applied_at', 'applied_by', 'status'],
   rental_orders: ['internal_note'],
+  schedule_holds: [
+    'hold_no',
+    'merchant_id',
+    'store_id',
+    'actor_id',
+    'actor_role',
+    'model_code',
+    'unit_id',
+    'rent_start_date',
+    'rent_end_date',
+    'occupation_start_at',
+    'occupation_end_at',
+    'planned_ship_at',
+    'expected_arrive_at',
+    'query_address_json',
+    'address_parse_json',
+    'sf_estimate_json',
+    'status',
+    'expires_at',
+    'converted_order_id',
+    'idempotency_key_hash',
+    'client_request_id',
+  ],
   operation_audit_logs: ['operation_id', 'operation_type', 'payload_hash', 'impact_hash', 'before_snapshot_json', 'after_snapshot_json'],
   operation_confirm_tokens: ['token_hash', 'operation_type', 'payload_hash', 'impact_hash'],
   operation_idempotency_keys: ['key_hash', 'operation_type', 'payload_hash'],
@@ -89,6 +122,14 @@ const REQUIRED_INDEXES = Object.freeze({
     'idx_operation_rollback_plans_type_status',
     'idx_operation_rollback_plans_target',
     'idx_operation_rollback_plans_expires_at',
+  ],
+  schedule_holds: [
+    'hold_no',
+    'idx_schedule_holds_unit_window_status',
+    'idx_schedule_holds_model_status_expires',
+    'idx_schedule_holds_store_status',
+    'idx_schedule_holds_client_request',
+    'idx_schedule_holds_converted_order',
   ],
 })
 
@@ -186,6 +227,21 @@ function assertGitClean() {
   }
 }
 
+function warnGitDirtyForVerify() {
+  const result = spawnSync('git', ['status', '--porcelain=v1'], {
+    cwd: ROOT_DIR,
+    encoding: 'utf8',
+  })
+  if (result.error || result.status !== 0) {
+    console.log('[safeOps migration] Verify could not inspect git status; continuing without executing migration SQL.')
+    return
+  }
+  const dirtyFiles = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  if (!dirtyFiles.length) return
+  console.log('[safeOps migration] Verify is running with a dirty worktree; this mode is read-only and will not execute migration SQL:')
+  for (const filePath of dirtyFiles) console.log(`  ${filePath}`)
+}
+
 function assertLocalGuard(config) {
   const errors = []
   const envLabel = String(process.env.XIANYU_ENV_LABEL || '').trim().toLowerCase()
@@ -240,6 +296,21 @@ function assertMigrationSqlShape(migration, sqlText) {
     const allowed = /^ALTER\s+TABLE\s+`?rental_orders`?\s+ADD\s+COLUMN\s+`?internal_note`?\s+TEXT\s+NULL(?:\s+COMMENT\s+'[^']*')?$/i
     if (statements.length !== 1 || !allowed.test(statement.replace(/\s+/g, ' '))) {
       fail('Internal note migration must only add rental_orders.internal_note.', statements)
+    }
+    return
+  }
+
+  if (migration.shape === 'schedule_holds') {
+    const prohibited = sqlText
+      .split(/\r?\n/)
+      .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+      .filter(({ line }) => /^(ALTER|DROP|INSERT|UPDATE|DELETE|RENAME|TRUNCATE)\b/i.test(line))
+    if (prohibited.length) {
+      fail('schedule_holds migration must be additive only.', prohibited.map((item) => `${item.number}: ${item.line}`))
+    }
+    const statement = statements.join(' ')
+    if (statements.length !== 1 || !/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?schedule_holds`?\s*\(/i.test(statement.replace(/\s+/g, ' '))) {
+      fail('schedule_holds migration must only create schedule_holds.', statements)
     }
     return
   }
@@ -388,7 +459,9 @@ async function precheck(conn, mode, checksumsByVersion) {
   const pendingMigrations = getPendingMigrations(ledgerRows)
   const safeOpsLedgerRow = ledgerRows.get('20260618_0001_create_safe_ops_tables')
   const internalNoteLedgerRow = ledgerRows.get('20260619_0002_add_rental_orders_internal_note')
+  const scheduleHoldsLedgerRow = ledgerRows.get('20260621_0003_create_schedule_holds')
   const hasInternalNoteColumn = await columnExists(conn, 'rental_orders', 'internal_note')
+  const hasScheduleHoldsTable = (await listExistingTables(conn, ['schedule_holds'])).has('schedule_holds')
 
   if (existingOperationTables.length > 0 && existingOperationTables.length < SAFE_OPS_TABLES.length) {
     fail('Partial safeOps operation tables found. Stop and inspect manually.', existingOperationTables)
@@ -402,6 +475,12 @@ async function precheck(conn, mode, checksumsByVersion) {
   if (internalNoteLedgerRow && !hasInternalNoteColumn) {
     fail('schema_migrations says internal_note migration is applied, but rental_orders.internal_note is missing.')
   }
+  if (hasScheduleHoldsTable && !scheduleHoldsLedgerRow) {
+    fail('schedule_holds table already exists but ledger row is missing. Stop and inspect manually.')
+  }
+  if (scheduleHoldsLedgerRow && !hasScheduleHoldsTable) {
+    fail('schema_migrations says schedule_holds migration is applied, but schedule_holds is missing.')
+  }
 
   console.log('[safeOps migration] Precheck tables:')
   console.log(`  ${LEDGER_TABLE}: ${existingTables.has(LEDGER_TABLE) ? 'exists' : 'missing'}`)
@@ -409,6 +488,7 @@ async function precheck(conn, mode, checksumsByVersion) {
     console.log(`  ${table}: ${existingTables.has(table) ? 'exists' : 'missing'}`)
   }
   console.log(`  rental_orders.internal_note: ${hasInternalNoteColumn ? 'exists' : 'missing'}`)
+  console.log(`  schedule_holds: ${hasScheduleHoldsTable ? 'exists' : 'missing'}`)
   console.log('[safeOps migration] Migration ledger:')
   for (const migration of MIGRATIONS) {
     console.log(`  ${migration.version}: ${ledgerRows.has(migration.version) ? 'applied' : 'pending'}`)
@@ -533,7 +613,8 @@ async function main() {
 
   const config = loadMysqlConfig()
   printMaskedDbConfig(config)
-  assertGitClean()
+  if (mode === 'verify') warnGitDirtyForVerify()
+  else assertGitClean()
   assertLocalGuard(config)
 
   const checksumsByVersion = new Map()
