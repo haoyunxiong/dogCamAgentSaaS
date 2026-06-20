@@ -15,13 +15,43 @@
         </div>
 
         <div class="final-panel">
+          <div class="final-panel__head"><div><h2>本地 Demo 上下文</h2><p>最小权限、角色、商户隔离模型</p></div></div>
+          <div class="system-info">
+            <div><span>当前角色</span><strong>{{ actorContext.role }}</strong></div>
+            <div><span>操作人</span><strong>{{ actorContext.id }}</strong></div>
+            <div><span>商户</span><strong>{{ actorContext.merchantId }}</strong></div>
+            <div><span>门店</span><strong>{{ actorContext.storeId }}</strong></div>
+            <div><span>外部 real</span><strong class="warn">disabled</strong></div>
+          </div>
+          <div class="settings-inline-form">
+            <BaseSelect v-model="selectedRole" label="切换 Demo 角色" :options="roleOptions" @change="changeRole" />
+            <p class="settings-note">viewer 只读；operator 可执行阶段 1/2 内部安全操作；owner 可执行内部安全操作并查看外部 preview。外部 real 始终 disabled。</p>
+          </div>
+        </div>
+
+        <div class="final-panel">
+          <div class="final-panel__head"><div><h2>系统健康 / 上线准备</h2><p>本地 readiness，不触发外部请求</p></div><BaseButton size="sm" variant="secondary" @click="loadHealth">刷新</BaseButton></div>
+          <div class="readiness-grid">
+            <div v-for="check in healthChecks" :key="check.key" class="readiness-card" :class="`is-${check.status}`">
+              <span>{{ check.label }}</span>
+              <strong>{{ check.status }}</strong>
+              <small>{{ check.detail }}</small>
+            </div>
+          </div>
+          <div class="settings-checklist">
+            <span v-for="item in healthChecklist" :key="item">{{ item }}</span>
+          </div>
+          <p v-if="healthError" class="settings-note is-error">{{ healthError }}</p>
+        </div>
+
+        <div class="final-panel">
           <div class="final-panel__head"><div><h2>系统信息</h2><p>Demo 环境状态</p></div></div>
           <div class="system-info">
-            <div><span>系统版本</span><strong>v2.4.6</strong></div>
-            <div><span>更新时间</span><strong>2025-06-10 18:23:45</strong></div>
-            <div><span>服务状态</span><strong class="ok">正常运行</strong></div>
-            <div><span>数据备份</span><strong>已开启（每日 02:00）</strong></div>
-            <div><span>当前环境</span><strong>生产环境</strong></div>
+            <div><span>Demo 版本</span><strong>Phase 04 → 06</strong></div>
+            <div><span>safeOps</span><strong>{{ healthSafeMode }}</strong></div>
+            <div><span>服务状态</span><strong class="ok">{{ healthStatus }}</strong></div>
+            <div><span>rollback</span><strong class="warn">unavailable</strong></div>
+            <div><span>当前环境</span><strong>本地 Demo</strong></div>
           </div>
         </div>
       </div>
@@ -32,7 +62,7 @@
             <h2>门店设置</h2>
             <p>基础信息、联系信息与营业设置</p>
           </div>
-          <BaseButton size="sm">保存设置</BaseButton>
+          <BaseButton size="sm" disabled>保存设置</BaseButton>
         </div>
         <div class="final-panel__body form-stack">
           <h3>基础信息</h3>
@@ -63,17 +93,56 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseInput from '../../../components/BaseInput.vue'
 import BaseSelect from '../../../components/BaseSelect.vue'
 import { SettingsCard } from '../../../components/ui'
 import { uiV2MockAdapter } from '../../../adapters/uiV2'
+import { actorContextAdapter, getCurrentActorContext } from '../../../adapters/uiV2/actorContextAdapter.js'
+import { healthCheckAdapter } from '../../../adapters/uiV2/healthCheckAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
 const settings = uiV2MockAdapter.getSettings()
 const selectedId = ref(settings[0]?.id || '')
+const actorContext = ref(actorContextAdapter.getLocalActorContext())
+const selectedRole = ref(actorContext.value.role)
+const health = ref(null)
+const healthError = ref('')
+const roleOptions = [
+  { label: 'owner', value: 'owner' },
+  { label: 'operator', value: 'operator' },
+  { label: 'viewer', value: 'viewer' },
+]
+
+const healthChecks = computed(() => Array.isArray(health.value?.checks) ? health.value.checks : [])
+const healthChecklist = computed(() => Array.isArray(health.value?.checklist) ? health.value.checklist : [])
+const healthStatus = computed(() => health.value?.status || 'checking')
+const healthSafeMode = computed(() => health.value?.safeOps?.safeMode || 'gated-internal-write')
+
+async function loadActorContext() {
+  const result = await getCurrentActorContext({ role: selectedRole.value, source: 'settings-page' })
+  actorContext.value = result?.current || actorContextAdapter.getLocalActorContext({ role: selectedRole.value })
+}
+
+async function loadHealth() {
+  healthError.value = ''
+  const result = await healthCheckAdapter.getLocalDemoHealthCheck()
+  health.value = result
+  if (!result?.ok) healthError.value = result?.message || 'health check returned blocked status'
+}
+
+async function changeRole() {
+  actorContext.value = actorContextAdapter.setDemoRole(selectedRole.value)
+  await loadActorContext()
+  await loadHealth()
+}
+
+onMounted(async () => {
+  await loadActorContext()
+  await loadHealth()
+})
 </script>
 
 <style scoped>
@@ -102,6 +171,18 @@ const selectedId = ref(settings[0]?.id || '')
   font-size: 12px;
 }
 
+.settings-note.is-error {
+  color: var(--color-danger);
+}
+
+.settings-inline-form {
+  padding: 0 18px 18px;
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+}
+
 .system-info {
   padding: 18px;
   display: grid;
@@ -123,6 +204,75 @@ const selectedId = ref(settings[0]?.id || '')
 
 .system-info .ok {
   color: var(--color-status-success);
+}
+
+.system-info .warn {
+  color: var(--color-status-warning);
+}
+
+.readiness-grid {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.readiness-card {
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-8);
+  background: var(--ui-surface);
+  display: grid;
+  gap: 6px;
+}
+
+.readiness-card span {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.readiness-card strong {
+  color: var(--ui-text);
+  font-size: 16px;
+}
+
+.readiness-card small {
+  color: var(--ui-text-muted);
+  line-height: 1.5;
+}
+
+.readiness-card.is-ready {
+  border-color: var(--brand-primary-border);
+  background: rgba(232, 247, 243, 0.72);
+}
+
+.readiness-card.is-blocked {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(254, 242, 242, 0.78);
+}
+
+.readiness-card.is-preview-only {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(255, 251, 235, 0.78);
+}
+
+.settings-checklist {
+  padding: 0 18px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-checklist span {
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 720;
 }
 
 .settings-form {
@@ -188,6 +338,11 @@ const selectedId = ref(settings[0]?.id || '')
 
   .settings-form {
     position: static;
+  }
+
+  .settings-inline-form,
+  .readiness-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

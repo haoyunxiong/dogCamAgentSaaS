@@ -19,6 +19,10 @@
 - 阶段 3B 已完成：`logistics.sf.create_order` 顺丰 mock/sandbox preview-only 网关已接入，真实顺丰调用仍 disabled；
 - 阶段 3C 已完成：`deposit.create` / `deposit.finish` 免押 mock/sandbox preview-only 网关已接入，真实免押调用仍 disabled；
 - 阶段 3D 已完成：`xianyu.order.sync` 闲鱼 mock/sandbox preview-only 网关已接入，真实闲鱼同步仍 disabled；
+- 阶段 3 收口已完成：顺丰、免押、闲鱼 external preview-only 能力统一验收，real mode 全 disabled；
+- 阶段 4 最小 Demo 已完成：本地 actor / role / merchant / store context 与 permission gating 接入 safeOps；
+- 阶段 5 最小 Demo 已完成：health check / readiness checklist 已接入 Dashboard / Settings；
+- 阶段 6 本地 Demo 产品闭环已完成：核心页面可连续查看内部写、安全预览、权限上下文、健康状态和阶段边界；
 - Phase 04 当前仅开放五个真实内部写 operation，另有顺丰、免押、闲鱼外部 preview-only operation，其它 execute 仍 disabled。
 
 阶段 2 收口 checkpoint：
@@ -37,6 +41,8 @@
 - `logistics.sf.create_order` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - `deposit.create` / `deposit.finish` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - `xianyu.order.sync` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `viewer` 角色只读，`operator` 可执行阶段 1/2 内部安全操作，`owner` 可执行内部安全操作并查看外部 preview；
+- Dashboard / Settings 展示本地 Demo actor、merchant、store、health readiness 和生产未开启状态；
 - 顺丰真实下单、免押真实审核、新增 DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：
@@ -304,6 +310,90 @@ Mode：
 - 修改订单状态、设备、档期、物流、免押或外部平台；
 - 新增 DB migration；
 - 开放 rollback executor。
+
+## 阶段 3 收口：外部 preview-only 网关统一验收
+
+阶段 3 本地 Demo 收口完成。当前 external provider：
+
+- `sf_express`：`logistics.sf.create_order`；
+- `deposit_service`：`deposit.create` / `deposit.finish`；
+- `xianyu_platform`：`xianyu.order.sync`。
+
+统一结论：
+
+- `disabled` / `mock` / `sandbox` / `real` mode 均有明确返回；
+- `disabled` 返回 `SAFE_OP_EXTERNAL_DISABLED`；
+- `mock` 只生成 mock preview；
+- `sandbox` 只生成 sandbox payload preview；
+- `real` 必须返回 disabled / blocked；
+- external execute 全部 disabled；
+- `writeWillExecute=false` 与 `externalCallWillExecute=false` 始终成立；
+- preview 可写 safeOps audit / confirm token hash / idempotency / rollback placeholder；
+- 不发送 HTTP，不调用 Python，不引入外部 SDK，不写业务表。
+
+## 阶段 4：权限、账号、商户隔离最小 Demo
+
+阶段 4 以本地 Demo 方式完成，不引入真实登录、短信、OAuth、支付或用户业务表。
+
+当前 context：
+
+- `actorId`：本地 Demo 操作人；
+- `role`：`owner` / `operator` / `viewer`；
+- `merchantId`：本地 Demo 商户；
+- `storeId`：本地 Demo 门店；
+- `isDemo=true`。
+
+权限边界：
+
+- `viewer`：只读，可查看 preview，不允许 execute；
+- `operator`：可执行阶段 1/2 的 5 个 gated internal write operationTypes；
+- `owner`：可执行内部安全操作，并可查看外部 preview；
+- 所有角色都不能执行 external real；
+- audit metadata / preview response 携带 actor / role / merchant / store context。
+
+## 阶段 5：生产准备最小 Demo
+
+阶段 5 已完成本地 readiness / health check 展示。
+
+当前 health check 覆盖：
+
+- 本地 DB / safeOps persistence；
+- `schema_migrations` ledger；
+- `operation_*` safeOps tables；
+- external real disabled；
+- rollback executor unavailable；
+- 当前 gated operations；
+- UI-V2 Demo route 配置状态。
+
+阶段 5 仍不是生产上线：
+
+- 未接 staging / production 真实发布流程；
+- 未开放生产 DB migration；
+- 未开放真实外部密钥；
+- 未开放 rollback executor；
+- 未做生产监控 / release automation。
+
+## 阶段 6：本地 Demo 产品闭环
+
+阶段 6 的目标是让本地页面可连续演示完整租赁商户后台，而不是交付生产 SaaS。
+
+页面收口：
+
+- Dashboard：显示本地 Demo 角色、商户、safeOps readiness 和阶段状态；
+- Orders：显示内部备注安全更新与闲鱼同步 preview，真实外部同步 disabled；
+- Devices：显示设备基础字段安全更新；
+- Schedule：显示 block 创建 / 取消与冲突检测提示；
+- Logistics：显示本地发货记录创建与顺丰 mock / sandbox preview，真实下单 disabled；
+- Deposit：显示免押 create / finish mock / sandbox preview，真实免押 disabled；
+- Settings：显示 actor / role / merchant context、health check、上线准备和配置占位。
+
+阶段 6 仍不做：
+
+- 不做商业化计费真实实现；
+- 不做真实多员工账号系统；
+- 不做生产外部 API；
+- 不做跨商户真实隔离写入；
+- 不做 rollback executor。
 
 ## 阶段 2B：档期 block 创建 / 取消真实写闭环
 

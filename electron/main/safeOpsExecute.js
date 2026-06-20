@@ -4,6 +4,10 @@ const {
   getOperationPolicy,
   normalizeOperationType,
 } = require('./safeOpsPolicy')
+const {
+  evaluateSafeOpsPermission,
+  normalizeActorContext,
+} = require('./safeOpsActorContext')
 const { executeExternalOperation } = require('./safeOpsExternalGateway')
 const { isExternalOperationType } = require('./safeOpsExternalPolicy')
 const {
@@ -1705,32 +1709,58 @@ async function executeSafeOperation(request = {}) {
       return executeExternalOperation({ ...request, operationType })
     }
 
+    const actorContext = normalizeActorContext(request.actor || {})
+    const executePermission = evaluateSafeOpsPermission({
+      actor: actorContext,
+      operationType,
+      action: 'execute',
+    })
+    if (!executePermission.allowed) {
+      return persistDisabledExecuteAudit(
+        { ...request, operationType, actor: actorContext },
+        policy,
+        {
+          ...buildExecuteDisabledResponse(operationType, policy),
+          code: executePermission.code,
+          message: executePermission.reason,
+          actorContext,
+          permission: {
+            execute: executePermission,
+          },
+          blockers: [
+            executePermission.reason,
+            'No business write was executed.',
+          ],
+        }
+      )
+    }
+
     if (!ENABLED_OPERATION_TYPES.has(operationType) || !policy.allowExecute) {
       return persistDisabledExecuteAudit(
-        { ...request, operationType },
+        { ...request, operationType, actor: actorContext },
         policy,
         buildExecuteDisabledResponse(operationType, policy)
       )
     }
 
     if (operationType === ORDER_INTERNAL_NOTE_OPERATION_TYPE) {
-      return executeOrderInternalNoteUpdate({ ...request, operationType }, policy)
+      return executeOrderInternalNoteUpdate({ ...request, operationType, actor: actorContext }, policy)
     }
     if (operationType === DEVICE_BASIC_UPDATE_OPERATION_TYPE) {
-      return executeDeviceBasicUpdate({ ...request, operationType }, policy)
+      return executeDeviceBasicUpdate({ ...request, operationType, actor: actorContext }, policy)
     }
     if (operationType === SCHEDULE_BLOCK_CREATE_OPERATION_TYPE) {
-      return executeScheduleBlockCreate({ ...request, operationType }, policy)
+      return executeScheduleBlockCreate({ ...request, operationType, actor: actorContext }, policy)
     }
     if (operationType === SCHEDULE_BLOCK_CANCEL_OPERATION_TYPE) {
-      return executeScheduleBlockCancel({ ...request, operationType }, policy)
+      return executeScheduleBlockCancel({ ...request, operationType, actor: actorContext }, policy)
     }
     if (operationType === LOGISTICS_LOCAL_RECORD_CREATE_OPERATION_TYPE) {
-      return executeLogisticsLocalRecordCreate({ ...request, operationType }, policy)
+      return executeLogisticsLocalRecordCreate({ ...request, operationType, actor: actorContext }, policy)
     }
 
     return persistDisabledExecuteAudit(
-      { ...request, operationType },
+      { ...request, operationType, actor: actorContext },
       policy,
       buildExecuteDisabledResponse(operationType, policy)
     )

@@ -28,6 +28,11 @@ function normalizeActor(actor = {}) {
     role: String(actor.role || 'operator').trim() || 'operator',
     source: String(actor.source || 'safeops').trim() || 'safeops',
     sessionId: actor.sessionId ? String(actor.sessionId) : null,
+    merchantId: actor.merchantId ? String(actor.merchantId) : null,
+    merchantName: actor.merchantName ? String(actor.merchantName) : null,
+    storeId: actor.storeId ? String(actor.storeId) : null,
+    storeName: actor.storeName ? String(actor.storeName) : null,
+    isDemo: actor.isDemo === undefined ? undefined : Boolean(actor.isDemo),
   }
 }
 
@@ -242,11 +247,19 @@ function buildRollbackDescriptor({
   }
 }
 
-function buildPersistenceDescriptor({ mode = 'noop', available = false, reason = null } = {}) {
+function buildPersistenceDescriptor({
+  mode = 'noop',
+  available = false,
+  reason = null,
+  migration = null,
+  tables = [],
+} = {}) {
   return {
     mode,
     available,
     reason,
+    migration,
+    tables,
   }
 }
 
@@ -479,6 +492,8 @@ async function getSafeOpsPersistenceStatus() {
       mode: health.available ? 'db' : 'noop',
       available: Boolean(health.available),
       reason: health.reason || null,
+      migration: health.migration || null,
+      tables: Array.isArray(health.tables) ? health.tables : [],
     })
   } catch (error) {
     return buildPersistenceDescriptor({

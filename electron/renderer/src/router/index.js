@@ -51,6 +51,7 @@ const routes = [
   { path: '/sf-shipping', component: SfShippingWorkbench },
   { path: '/deposits', component: DepositManagement },
   { path: '/ui-v2', component: UiV2Dashboard, meta: { uiV2Mock: true } },
+  { path: '/ui-v2/dashboard', component: UiV2Dashboard, meta: { uiV2Mock: true } },
   { path: '/ui-v2/orders', component: UiV2Orders, meta: { uiV2Mock: true } },
   { path: '/ui-v2/schedule', component: UiV2Schedule, meta: { uiV2Mock: true } },
   { path: '/ui-v2/devices', component: UiV2Devices, meta: { uiV2Mock: true } },

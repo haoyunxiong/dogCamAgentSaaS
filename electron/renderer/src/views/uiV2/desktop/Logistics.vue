@@ -1,7 +1,7 @@
 <template>
   <UiV2Page title="物流发货" description="物流只读可视化，展示运单、揽收、运输和异常状态。">
     <template #actions>
-      <BaseButton variant="secondary" :loading="sfPreview.loading" @click="previewShipment('page-action')">顺丰预览</BaseButton>
+      <BaseButton variant="secondary" :loading="sfPreview?.loading || false" @click="previewShipment('page-action')">顺丰预览</BaseButton>
       <BaseButton @click="previewLogisticsLocalRecordCreate">新增本地发货记录</BaseButton>
     </template>
     <div class="adapter-source-row">
@@ -9,7 +9,7 @@
       <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
-    <section v-if="sfPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-sf-preview">
+    <section v-if="sfPreview?.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-sf-preview">
       <div><span>顺丰预览</span><strong>不真实下单</strong></div>
       <div><span>模式</span><strong>{{ sfPreview.view.mode }}</strong></div>
       <div><span>预览模式</span><strong>{{ sfPreview.view.externalPreviewModeLabel }}</strong></div>
@@ -75,12 +75,12 @@
           </div>
           <div class="sf-preview-gateway__controls">
             <BaseSelect v-model="sfPreviewMode" label="预览模式" :options="sfPreviewModeOptions" />
-            <BaseButton size="sm" :loading="sfPreview.loading" @click="previewShipment('drawer-mode-action')">生成顺丰预览</BaseButton>
+            <BaseButton size="sm" :loading="sfPreview?.loading || false" @click="previewShipment('drawer-mode-action')">生成顺丰预览</BaseButton>
             <BaseButton size="sm" variant="secondary" disabled>真实下单未开放</BaseButton>
           </div>
           <p class="safeops-note">当前仅 mock/sandbox payload 预览；real 永远返回 disabled；不会写 shipping_records；不会更新订单或档期。</p>
         </section>
-        <section v-if="sfPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-sf-safeops-preview">
+        <section v-if="sfPreview?.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-sf-safeops-preview">
           <div><span>顺丰预览</span><strong>不真实下单</strong></div>
           <div><span>模式</span><strong>{{ sfPreview.view.mode }}</strong></div>
           <div><span>预览模式</span><strong>{{ sfPreview.view.externalPreviewModeLabel }}</strong></div>
@@ -117,7 +117,7 @@
             <BaseInput v-model="localRecordForm.shipToCity" label="到达城市" />
           </div>
           <div class="logistics-local-record__actions">
-            <BaseButton size="sm" :loading="shipmentPreview.loading" @click="previewLogisticsLocalRecordCreate">本地记录预览</BaseButton>
+            <BaseButton size="sm" :loading="shipmentPreview?.loading || false" @click="previewLogisticsLocalRecordCreate">本地记录预览</BaseButton>
             <BaseButton
               size="sm"
               variant="primary"
@@ -129,7 +129,7 @@
             </BaseButton>
           </div>
           <p class="safeops-note">只写本地 shipping_records；不调用顺丰；不调用外部接口；不更新订单状态。</p>
-          <p v-if="shipmentPreview.view?.blockedReason" class="adapter-source__error">{{ shipmentPreview.view.blockedReason }}</p>
+          <p v-if="shipmentPreview?.view?.blockedReason" class="adapter-source__error">{{ shipmentPreview.view.blockedReason }}</p>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>保价金额</span><strong>¥{{ Number(selectedWaybill.insuredAmount || 0).toLocaleString() }}</strong></div>
@@ -157,6 +157,7 @@ import { DrawerSummary, MetricCard, TrackingTimeline } from '../../../components
 import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -188,7 +189,7 @@ const localRecordForm = ref({
 })
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const logisticsTabs = ['全部', '待下单', '待揽收', '运输中', '已签收', '异常', '已取消']
-const safeOpsActor = Object.freeze({ id: 'ui-v2-logistics-operator', source: 'ui-v2', role: 'operator' })
+const safeOpsActor = buildSafeOpsActor('ui-v2-logistics')
 const sfPreviewModeOptions = [
   { label: 'disabled（默认）', value: 'disabled' },
   { label: 'mock（不真实下单）', value: 'mock' },

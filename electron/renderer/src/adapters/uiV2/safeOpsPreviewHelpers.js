@@ -1,4 +1,5 @@
 import { safeOpsAdapter } from './safeOpsAdapter.js'
+import { buildSafeOpsActor } from './actorContextAdapter.js'
 
 export function createSafeOpsPreviewState() {
   return {
@@ -98,7 +99,7 @@ export async function runSafeOpsPreview(operationType, context = {}) {
   try {
     const result = await safeOpsAdapter.preview({
       operationType,
-      actor: context.actor || { source: 'ui-v2', role: 'operator' },
+      actor: context.actor || buildSafeOpsActor('ui-v2-preview-helper'),
       target: context.target || {},
       payload: context.payload || {},
       clientRequestId: context.clientRequestId || `ui-v2-${operationType}-${Date.now()}`,

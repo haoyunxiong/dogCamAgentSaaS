@@ -156,6 +156,7 @@ import { DrawerSummary, MetricCard, Pagination, StatusTabs, TrackingTimeline } f
 import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -179,6 +180,7 @@ const deviceBasicExecuting = ref(false)
 const deviceBasicForm = ref({ city: '', note: '', status: 'idle' })
 const deviceBasicPreviewPatch = ref(null)
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const safeOpsActor = buildSafeOpsActor('ui-v2-devices')
 const deviceStatusOptions = [
   { label: '可租', value: 'idle' },
   { label: '维护中', value: 'repair' },
@@ -365,7 +367,7 @@ async function previewDeviceBasicUpdate() {
   const result = await safeOpsAdapter.previewDeviceBasicUpdate({
     unitId: getSelectedDeviceUnitId(),
     patch,
-    actor: { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: safeOpsActor,
     clientRequestId: `ui-v2-device-basic-preview-${Date.now()}`,
   })
   devicePreview.value = toPreviewState(result)
@@ -379,7 +381,7 @@ async function executeDeviceBasicUpdate() {
       previewResult: devicePreview.value.result,
       unitId: getSelectedDeviceUnitId(),
       patch: deviceBasicPreviewPatch.value || buildDeviceBasicPatch(),
-      actor: { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+      actor: safeOpsActor,
       clientRequestId: `ui-v2-device-basic-execute-${Date.now()}`,
     })
     devicePreview.value = toPreviewState(result)

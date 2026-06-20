@@ -290,6 +290,7 @@ import {
   previewXianyuOrderSync,
   previewOrderInternalNoteUpdate,
 } from '../../../adapters/uiV2/safeOpsAdapter.js'
+import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -455,11 +456,7 @@ async function openOrder(order) {
 }
 
 function buildUiActor() {
-  return {
-    id: 'ui-v2-local-operator',
-    role: 'operator',
-    source: 'orders-page',
-  }
+  return buildSafeOpsActor('orders-page')
 }
 
 async function refreshSelectedOrderAfterInternalNote() {

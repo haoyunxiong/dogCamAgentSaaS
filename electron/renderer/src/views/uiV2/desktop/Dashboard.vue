@@ -11,6 +11,25 @@
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
+    <section class="demo-status-band">
+      <div>
+        <span>本地 Demo</span>
+        <strong>{{ actorContext.role }} · {{ actorContext.merchantId }}</strong>
+        <small>{{ actorContext.storeId }} / real external disabled</small>
+      </div>
+      <div>
+        <span>safeOps</span>
+        <strong>{{ healthStatus }}</strong>
+        <small>{{ healthSummary }}</small>
+      </div>
+      <div>
+        <span>阶段状态</span>
+        <strong>3D → 6 Demo 收口</strong>
+        <small>安全预览、权限门禁、健康检查已接入</small>
+      </div>
+      <RouterLink to="/ui-v2/settings">系统健康 / 上线准备</RouterLink>
+    </section>
+
     <section class="ui-v2-metric-grid">
       <MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" />
     </section>
@@ -126,6 +145,8 @@ import BaseButton from '../../../components/BaseButton.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import { actorContextAdapter } from '../../../adapters/uiV2/actorContextAdapter.js'
+import { healthCheckAdapter } from '../../../adapters/uiV2/healthCheckAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
@@ -140,6 +161,8 @@ const customers = ref([])
 const loading = ref(false)
 const loadError = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const actorContext = ref(actorContextAdapter.getLocalActorContext())
+const health = ref(null)
 
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '真实只读'
@@ -161,6 +184,13 @@ const overviewItems = computed(() => [
 
 const topModel = computed(() => topBy(orders.value, (order) => order.model || '未填写型号'))
 const topSource = computed(() => topBy(orders.value, (order) => order.channel || order.source || '手工'))
+const healthStatus = computed(() => health.value?.status || 'checking')
+const healthSummary = computed(() => {
+  if (!health.value?.ok) return '本地检查待完成'
+  const readyCount = health.value.checks?.filter((check) => check.status === 'ready').length || 0
+  const totalCount = health.value.checks?.length || 0
+  return `${readyCount}/${totalCount} readiness checks ready`
+})
 
 function countStatus(status) {
   return orders.value.filter((order) => order.status === status).length
@@ -218,6 +248,8 @@ async function loadDashboard() {
     schedule.value = Array.isArray(nextSchedule) ? nextSchedule : []
     customers.value = Array.isArray(nextCustomers) ? nextCustomers : []
     sourceMeta.value = resolveDashboardMeta()
+    actorContext.value = actorContextAdapter.getLocalActorContext()
+    health.value = await healthCheckAdapter.getLocalDemoHealthCheck()
   } catch (error) {
     metrics.value = []
     orders.value = []
@@ -241,6 +273,46 @@ onMounted(loadDashboard)
 </script>
 
 <style scoped>
+.demo-status-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.demo-status-band > div,
+.demo-status-band > a {
+  min-height: 82px;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-8);
+  background: var(--ui-surface);
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+.demo-status-band span,
+.demo-status-band small {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.demo-status-band strong {
+  color: var(--ui-text);
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.demo-status-band > a {
+  min-width: 168px;
+  place-items: center;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 820;
+  text-align: center;
+}
+
 .dashboard-layout {
   display: grid;
   grid-template-columns: minmax(380px, 1.1fr) minmax(320px, 0.75fr) minmax(320px, 0.75fr);
@@ -463,6 +535,10 @@ onMounted(loadDashboard)
 }
 
 @media (max-width: 1380px) {
+  .demo-status-band {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .dashboard-layout {
     grid-template-columns: 1fr 1fr;
   }

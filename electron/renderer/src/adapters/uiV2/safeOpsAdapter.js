@@ -2,6 +2,10 @@ import {
   hasUiV2RuntimeBridge,
   isUiV2PreviewMode,
 } from './mode.js'
+import {
+  buildSafeOpsActor,
+  canExecuteOperation,
+} from './actorContextAdapter.js'
 
 const SAFE_OPS_MODE = 'dry-run-only'
 const EXECUTE_DISABLED_POLICY = Object.freeze({
@@ -918,6 +922,33 @@ function buildLocalExecuteDisabled(operationType) {
   }
 }
 
+function buildLocalPermissionDenied(operationType, actor = {}) {
+  return {
+    ok: false,
+    supported: true,
+    code: 'SAFE_OP_PERMISSION_DENIED',
+    message: 'Current demo role cannot execute this safeOps operation.',
+    operationType: normalizeOperationType(operationType),
+    mode: 'execute-disabled',
+    writeWillExecute: false,
+    externalCallWillExecute: false,
+    actorContext: actor,
+    blockers: [
+      'Viewer role is read-only in local demo.',
+      'No business write was executed.',
+    ],
+    rollback: {
+      mode: 'noop',
+      planned: false,
+      persisted: false,
+      canRollback: false,
+      compensationRequired: false,
+      reason: 'renderer-demo-permission-denied',
+    },
+    source: 'renderer-noop',
+  }
+}
+
 function buildSafeError(code, message) {
   return {
     ok: false,
@@ -959,6 +990,10 @@ async function execute(payload = {}) {
     if (!['order.internal_note.update', 'device.basic.update', 'schedule.block.create', 'schedule.block.cancel', 'logistics.local_record.create'].includes(operationType)) {
       return buildLocalExecuteDisabled(operationType)
     }
+    const actor = payload.actor || buildSafeOpsActor('ui-v2')
+    if (!canExecuteOperation(actor, operationType)) {
+      return buildLocalPermissionDenied(operationType, actor)
+    }
 
     const bridge = getSafeOpsBridge()
     if (!bridge || typeof bridge.execute !== 'function') {
@@ -982,7 +1017,7 @@ export async function previewOrderInternalNoteUpdate({
 } = {}) {
   return preview({
     operationType: 'order.internal_note.update',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'order', id: String(orderId || '') },
     payload: {
       orderId: String(orderId || ''),
@@ -1001,7 +1036,7 @@ export async function executeOrderInternalNoteUpdate({
 } = {}) {
   return execute({
     operationType: 'order.internal_note.update',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'order', id: String(orderId || '') },
     payload: {
       orderId: String(orderId || ''),
@@ -1025,7 +1060,7 @@ export async function previewDeviceBasicUpdate({
   const id = String(unitId || deviceId || '')
   return preview({
     operationType: 'device.basic.update',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'device', id },
     payload: {
       unitId: id,
@@ -1046,7 +1081,7 @@ export async function executeDeviceBasicUpdate({
   const id = String(unitId || deviceId || '')
   return execute({
     operationType: 'device.basic.update',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'device', id },
     payload: {
       unitId: id,
@@ -1076,7 +1111,7 @@ export async function previewScheduleBlockCreate({
   const id = String(unitId || deviceId || '')
   return preview({
     operationType: 'schedule.block.create',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'schedule_block', id: `new-${id}-${startDate || ''}` },
     payload: {
       unitId: id,
@@ -1110,7 +1145,7 @@ export async function executeScheduleBlockCreate({
   const id = String(unitId || deviceId || '')
   return execute({
     operationType: 'schedule.block.create',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'schedule_block', id: `new-${id}-${startDate || ''}` },
     payload: {
       unitId: id,
@@ -1139,7 +1174,7 @@ export async function previewScheduleBlockCancel({
   const id = String(blockId || '')
   return preview({
     operationType: 'schedule.block.cancel',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'schedule_block', id },
     payload: {
       blockId: id,
@@ -1157,7 +1192,7 @@ export async function executeScheduleBlockCancel({
   const id = String(blockId || '')
   return execute({
     operationType: 'schedule.block.cancel',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'schedule_block', id },
     payload: {
       blockId: id,
@@ -1188,7 +1223,7 @@ export async function previewLogisticsLocalRecordCreate({
   const id = String(orderId || '')
   return preview({
     operationType: 'logistics.local_record.create',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'shipping_record', id: `new-${id}-${trackingNo || ''}` },
     payload: {
       orderId: id,
@@ -1226,7 +1261,7 @@ export async function executeLogisticsLocalRecordCreate({
   const id = String(orderId || '')
   return execute({
     operationType: 'logistics.local_record.create',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'shipping_record', id: `new-${id}-${trackingNo || ''}` },
     payload: {
       orderId: id,
@@ -1273,7 +1308,7 @@ export async function previewSfCreateOrder({
   const id = String(shipmentId || orderId || '')
   return preview({
     operationType: 'logistics.sf.create_order',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'sf_shipment_preview', id },
     payload: {
       mode: normalizeExternalMode(mode),
@@ -1312,7 +1347,7 @@ export async function executeSfCreateOrder({
 } = {}) {
   return execute({
     operationType: 'logistics.sf.create_order',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'sf_shipment_preview', id: String(shipmentId || orderId || '') },
     payload: {
       mode: normalizeExternalMode(mode),
@@ -1392,7 +1427,7 @@ export async function previewDepositCreate({
   const id = String(payload.reviewId || payload.orderId || payload.orderNo || '')
   return preview({
     operationType: 'deposit.create',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'deposit_preview', id },
     payload: buildDepositPayload(payload),
     clientRequestId: clientRequestId || `ui-v2-deposit-create-preview-${Date.now()}`,
@@ -1407,7 +1442,7 @@ export async function previewDepositFinish({
   const id = String(payload.depositOrderId || payload.reviewId || payload.orderId || payload.orderNo || '')
   return preview({
     operationType: 'deposit.finish',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'deposit_preview', id },
     payload: buildDepositPayload(payload),
     clientRequestId: clientRequestId || `ui-v2-deposit-finish-preview-${Date.now()}`,
@@ -1423,7 +1458,7 @@ export async function executeDepositCreate({
   const id = String(payload.reviewId || payload.orderId || payload.orderNo || '')
   return execute({
     operationType: 'deposit.create',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'deposit_preview', id },
     payload: buildDepositPayload(payload),
     clientRequestId: clientRequestId || `ui-v2-deposit-create-execute-${Date.now()}`,
@@ -1443,7 +1478,7 @@ export async function executeDepositFinish({
   const id = String(payload.depositOrderId || payload.reviewId || payload.orderId || payload.orderNo || '')
   return execute({
     operationType: 'deposit.finish',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'deposit_preview', id },
     payload: buildDepositPayload(payload),
     clientRequestId: clientRequestId || `ui-v2-deposit-finish-execute-${Date.now()}`,
@@ -1527,7 +1562,7 @@ export async function previewXianyuOrderSync({
   const id = String(payload.xianyuOrderId || payload.remoteOrderId || payload.orderId || payload.orderNo || '')
   return preview({
     operationType: 'xianyu.order.sync',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'xianyu_order_sync_preview', id },
     payload: buildXianyuOrderSyncPayload(payload),
     clientRequestId: clientRequestId || `ui-v2-xianyu-order-sync-preview-${Date.now()}`,
@@ -1543,7 +1578,7 @@ export async function executeXianyuOrderSync({
   const id = String(payload.xianyuOrderId || payload.remoteOrderId || payload.orderId || payload.orderNo || '')
   return execute({
     operationType: 'xianyu.order.sync',
-    actor: actor || { id: 'ui-v2-operator', source: 'ui-v2', role: 'operator' },
+    actor: actor || buildSafeOpsActor('ui-v2'),
     target: { type: 'xianyu_order_sync_preview', id },
     payload: buildXianyuOrderSyncPayload(payload),
     clientRequestId: clientRequestId || `ui-v2-xianyu-order-sync-execute-${Date.now()}`,

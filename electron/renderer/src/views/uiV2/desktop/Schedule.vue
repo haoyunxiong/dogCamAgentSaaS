@@ -174,6 +174,7 @@ import { MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
 
@@ -206,7 +207,7 @@ const scheduleBlockTypeOptions = [
   { label: '通用占用', value: 'block' },
   { label: '缓冲', value: 'buffer' },
 ]
-const safeOpsActor = Object.freeze({ id: 'ui-v2-schedule-operator', source: 'ui-v2', role: 'operator' })
+const safeOpsActor = buildSafeOpsActor('ui-v2-schedule')
 
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '真实只读'

@@ -41,6 +41,8 @@ const { getSafeOpsPolicy } = require('./safeOpsPolicy')
 const { previewSafeOperation } = require('./safeOpsPreview')
 const { executeSafeOperation } = require('./safeOpsExecute')
 const { getSafeOpsPersistenceStatus } = require('./safeOpsPersistence')
+const { getDemoActorContext } = require('./safeOpsActorContext')
+const { getSafeOpsHealthCheck } = require('./safeOpsHealthCheck')
 
 // 单例 闲管家 客户端，凭据从 config 表动态拉取
 const xgjClient = new XianguanjiaClient({})
@@ -348,6 +350,14 @@ async function registerIpcHandlers(ipcMain, mainWindow) {
 
   ipcMain.handle('safeOps:execute', async (_event, payload = {}) => {
     return executeSafeOperation(payload || {})
+  })
+
+  ipcMain.handle('safeOps:actorContext', async (_event, payload = {}) => {
+    return getDemoActorContext(payload || {})
+  })
+
+  ipcMain.handle('safeOps:healthCheck', async (_event, payload = {}) => {
+    return getSafeOpsHealthCheck(payload || {})
   })
 
   ipcMain.handle('prompts:generate', async (_event, chatLog) => {

@@ -27,6 +27,10 @@
 - 阶段 3B `logistics.sf.create_order` 顺丰 mock/sandbox preview-only 网关已完成，真实顺丰调用仍 disabled。
 - 阶段 3C `deposit.create` / `deposit.finish` 免押 mock/sandbox preview-only 网关已完成，真实免押调用仍 disabled。
 - 阶段 3D `xianyu.order.sync` 闲鱼 mock/sandbox preview-only 网关已完成，真实闲鱼同步仍 disabled。
+- 阶段 3 收口已完成：`sf_express`、`deposit_service`、`xianyu_platform` 统一 preview-only 验收，external real 与 external execute 全 disabled。
+- 阶段 4 最小本地 Demo 已完成：actor / role / merchant / store context 与 permission gating 已接入 safeOps。
+- 阶段 5 最小本地 Demo 已完成：health check / readiness checklist 已接入 Dashboard / Settings。
+- 阶段 6 本地 Demo 产品闭环已完成：核心页面可连续演示内部安全写、外部 mock/sandbox preview、权限上下文、系统健康和上线准备状态。
 
 当前 safeOps 能力：
 
@@ -49,6 +53,9 @@
 - 顺丰 `logistics.sf.create_order` 仅完成 mock / sandbox 结构化预览，不发送外部请求，不写业务表；
 - 免押 `deposit.create` / `deposit.finish` 仅完成 mock / sandbox 结构化预览，不发送外部请求，不要求 `deposit_orders`，不写业务表；
 - 闲鱼 `xianyu.order.sync` 仅完成 mock / sandbox 结构化预览，不发送外部请求，不写 `rental_orders`，不更新订单状态；
+- 本地 Demo 已提供三种角色：`owner`、`operator`、`viewer`；
+- safeOps audit / preview metadata 携带 actor / role / merchant / store context；
+- Settings / Dashboard 已显示 health readiness 与生产未开启状态；
 - 页面服务验证后保持运行，方便继续从 UI 查看效果。
 
 当前禁止：
@@ -256,6 +263,25 @@
 - 敏感数据权限；
 - 操作审批流。
 
+本地 Demo 已完成范围：
+
+- 本地 actor context：`actorId` / `role` / `merchantId` / `storeId`；
+- role matrix：`owner` / `operator` / `viewer`；
+- `viewer` 只读，不允许 execute；
+- `operator` 可执行阶段 1/2 的 5 个 gated internal write operationTypes；
+- `owner` 可执行内部安全操作并查看外部 preview；
+- 所有角色 external real execute 仍 disabled；
+- safeOps preview / execute request 与 audit metadata 携带 actor / merchant / store context；
+- Settings 页面可切换本地 Demo 角色，Dashboard 显示当前 Demo 上下文。
+
+生产版仍需后续单独推进：
+
+- 真实登录账号；
+- 员工表 / 商户表 / 门店表；
+- token session；
+- 权限审批流；
+- audit 查询权限。
+
 目标：
 
 - 所有 safeOps write 必须能追踪到 actor；
@@ -281,6 +307,25 @@
 - 打包发布；
 - 错误监控；
 - 版本升级策略。
+
+本地 Demo 已完成范围：
+
+- health check 输出本地 DB / safeOps persistence 状态；
+- health check 输出 `schema_migrations` ledger 状态；
+- health check 输出 `operation_*` safeOps tables 状态；
+- health check 输出 external real disabled 状态；
+- health check 输出 rollback unavailable 状态；
+- health check 输出当前 gated operations；
+- Dashboard / Settings 展示 readiness checklist。
+
+生产版仍需后续单独推进：
+
+- staging / production 环境隔离；
+- production migration runbook；
+- 备份 / 回滚演练；
+- 日志脱敏审计；
+- release candidate checklist；
+- 打包发布与错误监控。
 
 规则：
 
@@ -316,6 +361,26 @@
 - 从内部提效工具推进到可运营的商户 SaaS；
 - 补齐订单、设备、档期、物流、免押、报表的产品闭环；
 - 为多商户试用版和后续商业化打基础。
+
+本地 Demo 已完成范围：
+
+- Dashboard 汇总本地 Demo 状态、safeOps readiness 与经营聚合；
+- Orders 展示内部备注安全更新与闲鱼同步 preview；
+- Devices 展示设备基础字段安全更新；
+- Schedule 展示 block 创建 / 取消与冲突检测提示；
+- Logistics 展示本地发货记录创建与顺丰 mock/sandbox preview；
+- Deposit 展示免押 create / finish mock/sandbox preview；
+- Settings 展示 actor/role/merchant context、health check 与上线准备；
+- 页面文案统一强调本地 Demo、安全预览、可审计、真实外部未开放。
+
+生产商业化仍需后续单独推进：
+
+- 商户 onboarding；
+- 多门店 / 多员工真实模型；
+- 价格 / 押金规则；
+- 客户画像；
+- 移动端操作闭环；
+- 订阅 / 套餐 / 权限。
 
 阶段 6 不做：
 

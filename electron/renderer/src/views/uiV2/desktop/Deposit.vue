@@ -112,6 +112,7 @@ import { DrawerSummary, MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
+import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -127,7 +128,7 @@ const loadError = ref('')
 const depositPreview = ref(createSafeOpsPreviewState())
 const depositPreviewMode = ref('disabled')
 const sourceMeta = ref(uiV2Adapter.getMeta())
-const safeOpsActor = Object.freeze({ id: 'ui-v2-deposit-operator', source: 'ui-v2', role: 'operator' })
+const safeOpsActor = buildSafeOpsActor('ui-v2-deposit')
 const depositPreviewModeOptions = [
   { label: 'disabled（默认）', value: 'disabled' },
   { label: 'mock（不真实创建/完结）', value: 'mock' },

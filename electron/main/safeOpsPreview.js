@@ -7,6 +7,10 @@ const {
   normalizeOperationType,
 } = require('./safeOpsPolicy')
 const {
+  evaluateSafeOpsPermission,
+  normalizeActorContext,
+} = require('./safeOpsActorContext')
+const {
   previewExternalOperation,
 } = require('./safeOpsExternalGateway')
 const {
@@ -858,7 +862,28 @@ async function previewSafeOperation(request = {}) {
       return buildUnsupportedOperationResponse(operationType)
     }
 
-    const domainPreview = await buildDomainPreview(operationType, request)
+    const actorContext = normalizeActorContext(request.actor || {})
+    const previewPermission = evaluateSafeOpsPermission({
+      actor: actorContext,
+      operationType,
+      action: 'preview',
+    })
+    const executePermission = evaluateSafeOpsPermission({
+      actor: actorContext,
+      operationType,
+      action: 'execute',
+    })
+    const domainPreview = await buildDomainPreview(operationType, {
+      ...request,
+      actor: actorContext,
+    })
+    if (!previewPermission.allowed) {
+      domainPreview.blockers = [
+        ...(domainPreview.blockers || []),
+        previewPermission.reason,
+      ]
+      domainPreview.warnings = domainPreview.warnings || []
+    }
     const status = domainPreview.blockers?.length ? 'blocked' : 'previewed'
     const responseMode = domainPreview.mode || 'dry-run'
     const baseResponse = {
@@ -886,10 +911,15 @@ async function previewSafeOperation(request = {}) {
       mockDepositPreview: domainPreview.mockDepositPreview || null,
       mockXianyuSyncPreview: domainPreview.mockXianyuSyncPreview || null,
       sandboxPayloadPreview: domainPreview.sandboxPayloadPreview || null,
+      actorContext,
+      permission: {
+        preview: previewPermission,
+        execute: executePermission,
+      },
     }
     const persistenceRequest = domainPreview.sanitizedRequestPayload
-      ? { ...request, operationType, payload: domainPreview.sanitizedRequestPayload }
-      : { ...request, operationType }
+      ? { ...request, operationType, actor: actorContext, payload: domainPreview.sanitizedRequestPayload }
+      : { ...request, operationType, actor: actorContext }
     const persistence = await persistSafeOperationContext({
       request: persistenceRequest,
       policy,
@@ -897,7 +927,7 @@ async function previewSafeOperation(request = {}) {
       previewResponse: baseResponse,
       mode: responseMode,
       status,
-      issueConfirmToken: Boolean((policy.allowExecute || policy.issueConfirmTokenForPreview) && !domainPreview.blockers?.length),
+      issueConfirmToken: Boolean((policy.allowExecute || policy.issueConfirmTokenForPreview) && executePermission.allowed && !domainPreview.blockers?.length),
       beforeSnapshot: domainPreview.beforeSnapshot || null,
       afterSnapshot: domainPreview.afterSnapshot || null,
       rollback: {
@@ -906,7 +936,7 @@ async function previewSafeOperation(request = {}) {
       },
     })
 
-    const canExecute = Boolean(policy.allowExecute && !domainPreview.blockers?.length && persistence.persistence?.available)
+    const canExecute = Boolean(policy.allowExecute && executePermission.allowed && !domainPreview.blockers?.length && persistence.persistence?.available)
     const executeDescriptor = canExecute
       ? {
           enabled: true,
