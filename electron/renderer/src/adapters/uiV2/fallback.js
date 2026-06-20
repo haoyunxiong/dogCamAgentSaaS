@@ -2,6 +2,8 @@ import { createUiV2AdapterMeta, createUiV2MockAdapter, UI_V2_ADAPTER_METHODS } f
 import { createUiV2RealAdapter } from './realAdapter.js'
 import {
   getUiV2AdapterMode,
+  hasUiV2RuntimeBridge,
+  isUiV2PreviewMode,
   normalizeUiV2AdapterMode,
 } from './mode.js'
 
@@ -20,6 +22,10 @@ function getFallbackReason(error) {
 
 function isPromiseLike(value) {
   return value && typeof value.then === 'function'
+}
+
+function shouldFailClosed(activeMode) {
+  return activeMode === 'real' || (!isUiV2PreviewMode() && hasUiV2RuntimeBridge())
 }
 
 export function createUiV2Adapter({ mode } = {}) {
@@ -66,6 +72,19 @@ export function createUiV2Adapter({ mode } = {}) {
     return data
   }
 
+  function readRealError(methodName, activeMode, error) {
+    setMeta(methodName, 'real-error', activeMode, getFallbackReason(error))
+    throw error
+  }
+
+  function recoverFromRealError(methodName, args, activeMode, error) {
+    if (shouldFailClosed(activeMode)) {
+      return readRealError(methodName, activeMode, error)
+    }
+
+    return readMock(methodName, args, 'mock-fallback', activeMode, getFallbackReason(error))
+  }
+
   UI_V2_ADAPTER_METHODS.forEach((methodName) => {
     adapter[methodName] = (...args) => {
       const activeMode = normalizeUiV2AdapterMode(mode || getUiV2AdapterMode())
@@ -82,12 +101,12 @@ export function createUiV2Adapter({ mode } = {}) {
               setMeta(methodName, 'real', activeMode)
               return result
             })
-            .catch((error) => readMock(methodName, args, 'mock-fallback', activeMode, getFallbackReason(error)))
+            .catch((error) => recoverFromRealError(methodName, args, activeMode, error))
         }
         setMeta(methodName, 'real', activeMode)
         return data
       } catch (error) {
-        return readMock(methodName, args, 'mock-fallback', activeMode, getFallbackReason(error))
+        return recoverFromRealError(methodName, args, activeMode, error)
       }
     }
   })

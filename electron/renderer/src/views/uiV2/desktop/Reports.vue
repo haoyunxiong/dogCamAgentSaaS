@@ -9,6 +9,21 @@
 
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in report.kpis" :key="metric.key" :metric="metric" /></section>
 
+    <section class="final-drawer-card report-coverage">
+      <div>
+        <span>数据覆盖范围</span>
+        <strong>{{ report.coverage?.label || '暂无真实订单日期' }}</strong>
+      </div>
+      <div>
+        <span>当前周期</span>
+        <strong>{{ report.activePeriodLabel || '暂无数据周期' }}</strong>
+      </div>
+      <div>
+        <span>趋势状态</span>
+        <strong>{{ report.trendEmptyLabel || '可展示' }}</strong>
+      </div>
+    </section>
+
     <div v-if="loading" class="adapter-state">报表只读聚合读取中...</div>
 
     <FilterBar title="报表筛选" hint="基础只读聚合，字段缺失时自动降级">
@@ -22,7 +37,7 @@
     </FilterBar>
 
     <section class="reports-layout">
-      <ChartCard class="reports-trend" title="订单金额趋势" subtitle="近 7 日基础金额（元）" :value="reportAmountLabel" note="只读汇总" :data="report.revenueTrend" variant="trend" />
+      <ChartCard class="reports-trend" title="订单金额趋势" :subtitle="report.trendEmptyLabel || '近 7 日基础金额（元）'" :value="reportAmountLabel" note="只读汇总" :data="report.revenueTrend" variant="trend" />
       <div class="final-panel">
         <div class="final-panel__head"><div><h2>订单来源占比</h2><p>按渠道统计订单量</p></div></div>
         <div class="final-panel__body channel-card">
@@ -46,6 +61,7 @@
           <div class="donut small">{{ depositTotalLabel }}<span>记录数</span></div>
           <div class="channel-list">
             <div v-for="item in depositRows" :key="item.label"><i></i><span>{{ item.label }}</span><strong>{{ item.valueLabel }}</strong></div>
+            <div v-if="!depositRows.length"><i></i><span>暂无数据</span><strong>暂无记录</strong></div>
           </div>
         </div>
       </div>
@@ -63,6 +79,7 @@
             <i :style="{ width: `${store.percent}%` }"></i>
             <strong>¥{{ store.value }}</strong>
           </div>
+          <p v-if="!storeRows.length" class="empty-report-note">该时间范围暂无门店金额数据。</p>
         </div>
       </div>
     </section>
@@ -70,7 +87,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseSelect from '../../../components/BaseSelect.vue'
 import DataTable from '../../../components/DataTable.vue'
@@ -121,7 +138,7 @@ const sourceLabel = computed(() => {
 
 const reportAmountLabel = computed(() => {
   const metric = report.value.kpis.find((item) => item.key === 'revenue' || item.key === 'orderAmount')
-  return metric ? `¥${metric.value}` : '¥0'
+  return metric ? `¥${metric.value}` : '暂无数据'
 })
 
 const orderTotalLabel = computed(() => {
@@ -131,20 +148,25 @@ const orderTotalLabel = computed(() => {
 
 const depositRows = computed(() => {
   const rows = report.value.depositTrend || []
-  return rows.length ? rows : [{ label: '暂无数据', value: 0, valueLabel: '0单' }]
+  return rows
 })
 
 const depositTotalLabel = computed(() => depositRows.value.reduce((sum, item) => sum + Number(item.value || 0), 0).toLocaleString())
 const storeRows = computed(() => {
   const rows = report.value.storeRanking || []
-  return rows.length ? rows : [{ name: '暂无数据', value: '0', percent: 6 }]
+  return rows
 })
 
 async function loadReport() {
   loading.value = true
   loadError.value = ''
   try {
-    const nextReport = await uiV2Adapter.getReport()
+    const nextReport = await uiV2Adapter.getReport({
+      range: reportRange.value,
+      store: reportStore.value,
+      channel: reportChannel.value,
+      deviceType: reportDeviceType.value,
+    })
     report.value = { ...emptyReport, ...(nextReport || {}) }
     sourceMeta.value = uiV2Adapter.getLastMeta('getReport')
   } catch (error) {
@@ -161,9 +183,14 @@ function resetFilters() {
   reportRange.value = '近 7 天'
   reportChannel.value = '全部渠道'
   reportDeviceType.value = '全部类型'
+  loadReport()
 }
 
 onMounted(loadReport)
+
+watch([reportStore, reportRange, reportChannel, reportDeviceType], () => {
+  loadReport()
+})
 </script>
 
 <style scoped>
@@ -179,6 +206,25 @@ onMounted(loadReport)
   grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr) 320px;
   gap: 14px;
   align-items: start;
+}
+
+.report-coverage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-coverage span,
+.empty-report-note {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.report-coverage strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ui-text);
+  font-size: 14px;
 }
 
 .reports-trend {

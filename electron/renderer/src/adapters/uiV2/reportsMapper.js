@@ -73,6 +73,12 @@ function formatDate(date) {
   return date.toISOString().slice(0, 10)
 }
 
+function formatZhDateText(value) {
+  const date = parseDate(value)
+  if (!date) return '暂无日期'
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+
 function formatCurrency(value) {
   return Math.round(toNumber(value)).toLocaleString()
 }
@@ -134,6 +140,16 @@ function latestDateFromOrders(orders = []) {
   const dates = orders.map((order) => parseDate(orderDate(order))).filter(Boolean)
   if (!dates.length) return new Date()
   return new Date(Math.max(...dates.map((date) => date.getTime())))
+}
+
+function coverageFromOrders(orders = []) {
+  const dates = orders.map(orderDate).filter(Boolean).sort()
+  if (!dates.length) return { from: '', to: '', label: '暂无真实订单日期' }
+  return {
+    from: dates[0],
+    to: dates[dates.length - 1],
+    label: `${formatZhDateText(dates[0])} 至 ${formatZhDateText(dates[dates.length - 1])}`,
+  }
 }
 
 function lastDays(endDate, count = 7) {
@@ -226,6 +242,7 @@ function modelRanking(orders = [], devices = [], scheduleBlocks = []) {
 export function mapRealReport(sources = {}) {
   const normalized = normalizeSources(sources)
   const endDate = latestDateFromOrders(normalized.orders)
+  const coverage = coverageFromOrders(normalized.orders)
   const month = currentMonthFromEndDate(endDate)
   const lastSevenDates = new Set(lastDays(endDate, 7).map(formatDate))
   const totalAmount = normalized.orders.reduce((sum, order) => sum + orderAmount(order), 0)
@@ -244,7 +261,12 @@ export function mapRealReport(sources = {}) {
   const storeEntries = groupRows(normalized.orders, orderStore, orderAmount).slice(0, 5)
   const maxStoreAmount = Math.max(...storeEntries.map((entry) => entry[1]), 1)
 
+  const revenueTrend = normalized.orders.length ? trendRows(normalized.orders, endDate) : []
+
   return {
+    coverage,
+    activePeriodLabel: normalized.orders.length ? `${month} 最近有数据周期` : '暂无数据周期',
+    trendEmptyLabel: normalized.orders.length ? '' : '该时间范围暂无数据',
     kpis: [
       { key: 'revenue', label: '订单金额', value: formatCurrency(totalAmount), unit: '元', trend: '基础只读汇总', tone: 'success' },
       { key: 'orders', label: '本月订单', value: monthOrders.length, unit: '单', trend: month, tone: 'info' },
@@ -253,7 +275,7 @@ export function mapRealReport(sources = {}) {
       { key: 'customers', label: '客户数', value: normalized.customers.length, unit: '位', trend: '派生只读', tone: 'info' },
       { key: 'exception', label: '异常率', value: exceptionRate, unit: '%', trend: `${exceptionCount} 单需复核`, tone: exceptionCount ? 'warning' : 'success' },
     ],
-    revenueTrend: trendRows(normalized.orders, endDate),
+    revenueTrend,
     channelTrend: channelEntries.map(([label, value]) => ({ label, value, valueLabel: `${value}单` })),
     depositTrend: depositEntries.map(([label, value]) => ({ label, value, valueLabel: `${value}单` })),
     durationRows: percentRows(durationEntries, normalized.orders.length),

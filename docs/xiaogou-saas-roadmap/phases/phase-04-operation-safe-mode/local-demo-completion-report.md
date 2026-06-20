@@ -10,6 +10,7 @@
 - 阶段 5：本地 health check / readiness checklist 完成；
 - 阶段 6：Dashboard / Orders / Devices / Schedule / Logistics / Deposit / Settings 本地 Demo 页面闭环完成。
 - 本地配置中心：Settings / Dashboard 已接入本地 MySQL `stores` / `config` 非敏感配置读取保存，敏感凭证只显示 configured / missing 状态。
+- Desktop 产品语义与信息架构加固：桌面端核心页面已从数据库记录展示调整为运营任务视图；Orders 默认进行中、Devices 默认型号视图、Schedule 双视图、Logistics 区分发货任务与物流记录、Customers 派生风险标注系统派生、Reports 展示数据覆盖周期、Settings 收敛为七个模块。
 
 ## 当前内部写 operationTypes
 
@@ -99,6 +100,18 @@
 - `/#/ui-v2/settings`
 
 页面统一展示本地 Demo、安全预览、可审计、真实外部未开放的边界。
+
+## Desktop IA Hardening 验收口径
+
+- 订单中心：当前运营订单与历史归档分离，默认显示 `进行中`；
+- 设备中心：默认型号分组视图，单机详情进入 Drawer；
+- 档期中心：`型号余量总览` / `单机排期` 双视图，单格语义为总量、可用、占用、冲突；
+- 客户中心：继续派生客户视图，风险标注为系统派生；
+- 物流发货：发货任务与物流记录分离，不再把全部订单当物流记录；
+- 免押管理：展示接口同步、本地缓存、订单关联和状态时间线；
+- 报表中心：展示数据覆盖范围，空周期不绘制假趋势；
+- Dashboard：运营指标优先，系统状态折叠；
+- Settings：七模块信息架构，凭证只显示已配置 / 未配置。
 
 ## 仍未开放
 

@@ -4,7 +4,7 @@ const STATUS_LABELS = {
   approved: '已通过',
   rejected: '已拒绝',
   cancelled: '已取消',
-  finished: '已完成',
+  finished: '已完结',
 }
 
 function pick(row, keys, fallback = '') {
@@ -64,7 +64,22 @@ function nextAction(status) {
   return '查看记录'
 }
 
-export function mapStoredDepositReviews(payload = []) {
+function buildTimeline(status, row = {}, sourceLabel = '') {
+  const createdAt = toDate(pick(row, ['thirdPartyCreatedAt', 'third_party_created_at', 'createdAt', 'created_at'])) || '暂无记录'
+  const updatedAt = toDate(pick(row, ['updatedAt', 'updated_at', 'syncedAt', 'synced_at'])) || createdAt
+  return [
+    { label: '接口/缓存同步', desc: sourceLabel || '暂无记录', done: Boolean(sourceLabel), current: false },
+    { label: '创建记录', desc: createdAt, done: createdAt !== '暂无记录', current: status === '待审核' },
+    { label: '审核状态', desc: status || '暂无记录', done: !['待审核', '待复核'].includes(status), current: ['待审核', '待复核'].includes(status) },
+    { label: '最近更新', desc: updatedAt, done: updatedAt !== '暂无记录', current: false },
+  ]
+}
+
+export function mapStoredDepositReviews(payload = [], options = {}) {
+  const sourceLabel = options.sourceLabel || (payload?.stale ? '接口失败回退本地缓存' : '免押接口同步')
+  const sourceCode = options.sourceCode || (payload?.stale ? 'deposit-local-cache-stale' : 'deposit-api-sync')
+  const readonlyReason = options.readonlyReason || '来自免押接口刷新后的本地同步记录；状态变化会沉淀到本地审计缓存。'
+
   return extractRows(payload, ['orders', 'depositOrders']).map((row, index) => {
     const status = reviewStatus(row)
     const requestedFreeAmount = toNumber(pick(row, ['depositAmount', 'deposit_amount', 'requestedFreeAmount']))
@@ -83,14 +98,22 @@ export function mapStoredDepositReviews(payload = []) {
       depositStatus: status,
       reviewStatus: status,
       riskLevel: riskLevel(row),
-      channel: pick(row, ['sourceType', 'source_type'], '本地缓存'),
+      channel: pick(row, ['sourceType', 'source_type'], sourceLabel),
       assignee: '只读模式',
       submittedAt: toDate(pick(row, ['thirdPartyCreatedAt', 'third_party_created_at', 'createdAt', 'created_at'])) || '未记录',
-      riskReason: '来自免押本地缓存的只读记录，本轮不执行审核、创建、完结、取消或远程刷新。',
+      riskReason: readonlyReason,
       nextAction: nextAction(status),
+      sourceLabel,
+      dataSourceLabel: sourceLabel,
+      syncedAtLabel: toDate(pick(row, ['syncedAt', 'synced_at', 'updatedAt', 'updated_at', 'createdAt', 'created_at'])) || '暂无记录',
+      localCacheStatus: sourceCode.includes('cache') ? '本地缓存' : '已同步到本地缓存',
+      orderLinkedStatus: pick(row, ['sourceOrderNo', 'source_order_no', 'orderNo', 'order_no']) ? '已关联订单' : '未绑定订单',
+      timeline: buildTimeline(status, row, sourceLabel),
       meta: {
         readonly: true,
-        source: 'deposit-local-cache',
+        source: sourceCode,
+        syncedFromRemote: sourceCode === 'deposit-api-sync',
+        stale: Boolean(payload?.stale),
         isLatest: pick(row, ['isLatest', 'is_latest'], ''),
       },
       raw: row,

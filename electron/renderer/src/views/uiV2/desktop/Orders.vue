@@ -2,6 +2,7 @@
   <UiV2Page title="订单中心" description="按状态、押金、物流和风险推进履约，数据由 UI-V2 adapter 统一提供。">
     <template #actions>
       <BaseButton variant="secondary" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? '收起筛选' : '高级筛选' }}</BaseButton>
+      <BaseButton variant="secondary" data-testid="order-create-preview-button" @click="openCreateOrderPreview">新建订单预览</BaseButton>
       <BaseButton @click="openBulkEditPreview">批量分配预览</BaseButton>
     </template>
 
@@ -53,7 +54,7 @@
 
     <DataTable
       :columns="columns"
-      :rows="filteredOrders"
+      :rows="pagedOrders"
       row-key="orderNo"
       :selected-key="selectedOrder?.orderNo || ''"
       compact
@@ -63,23 +64,23 @@
       <template #select="{ row }">
         <input type="checkbox" :checked="selectedRows.includes(row.orderNo)" @click.stop="toggleRow(row.orderNo)" />
       </template>
-      <template #orderNo="{ row }"><strong>{{ row.orderNo }}</strong></template>
+      <template #orderNo="{ row }"><strong :title="row.fullOrderNo">{{ row.orderNoDisplay }}</strong></template>
       <template #customerName="{ row }">
         <div class="ui-v2-cell-stack">
           <strong>{{ row.customerName }}</strong>
           <small>{{ row.channel }} · {{ row.phoneMasked }}</small>
         </div>
       </template>
-      <template #status="{ row }"><StatusBadge :label="row.status" size="sm" /></template>
-      <template #rentPeriod="{ row }"><span>{{ row.rentStart.slice(5) }} ~ {{ row.rentEnd.slice(5) }}</span></template>
-      <template #rentAmount="{ row }">¥{{ row.rentAmount.toLocaleString() }}</template>
+      <template #stage="{ row }"><StatusBadge :label="row.stage" size="sm" /></template>
+      <template #riskDisplay="{ row }"><StatusBadge :label="row.riskDisplay" size="sm" /></template>
+      <template #rentPeriod="{ row }"><span>{{ row.rentPeriod }}</span></template>
+      <template #rentAmount="{ row }">{{ row.amountLabel }}</template>
       <template #channel="{ row }"><span>{{ row.channel }}</span></template>
-      <template #store="{ row }">{{ row.storeName || '未分配门店' }}</template>
-      <template #createdAt="{ row }">{{ row.createdAt ? row.createdAt.slice(5, 16) : '-' }}</template>
+      <template #ownerStore="{ row }">{{ row.ownerStore }}</template>
       <template #nextAction="{ row }"><span class="next-action">{{ row.nextAction }}</span></template>
     </DataTable>
 
-    <Pagination v-model:page="page" :total="filteredOrders.length" :page-size="12" />
+    <Pagination v-model:page="page" :total="filteredOrders.length" :page-size="pageSize" />
 
     <BaseDrawer v-model="drawerOpen" :title="selectedOrder?.orderNo || '订单详情'" :subtitle="drawerSubtitle" width="720" test-id="order-detail-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
@@ -88,7 +89,7 @@
           :status="selectedOrder.status"
           :title="selectedOrder.customerName"
           :description="`${selectedOrder.channel} · ${selectedOrder.model}`"
-          :meta="`${selectedOrder.rentStart || '-'} 至 ${selectedOrder.rentEnd || '-'}`"
+          :meta="selectedOrder.rentPeriod || '未填写租期'"
           primary-label="顺丰网关预览"
           secondary-label="状态预览"
           danger-label="编辑预览"
@@ -290,6 +291,13 @@ import {
   previewOrderInternalNoteUpdate,
 } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
+import {
+  buildOrderOperationalMetrics,
+  buildOrderOperationalTabs,
+  decorateOperationalOrder,
+  filterOperationalOrders,
+  paginateOperationalOrders,
+} from '../../../adapters/uiV2/orderOperationalMapper.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -297,8 +305,8 @@ import '../shared/uiV2View.css'
 const route = useRoute()
 const orders = ref([])
 const options = ref({ channels: [], depositStatuses: [], shippingStatuses: [] })
-const statusTabs = ref([{ label: '全部', value: '全部', count: 0 }])
-const status = ref('全部')
+const statusTabs = ref([{ label: '进行中', value: '进行中', count: 0 }])
+const status = ref('进行中')
 const keyword = ref('')
 const channel = ref('全部渠道')
 const deposit = ref('全部押金状态')
@@ -306,6 +314,7 @@ const shipping = ref('全部物流状态')
 const risk = ref('全部风险')
 const assignee = ref('全部负责人')
 const page = ref(1)
+const pageSize = 20
 const selectedOrder = ref(null)
 const drawerOpen = ref(false)
 const shippingOpen = ref(false)
@@ -332,13 +341,13 @@ const columns = [
   { key: 'select', label: '', width: '42px' },
   { key: 'orderNo', label: '订单号' },
   { key: 'customerName', label: '客户' },
-  { key: 'model', label: '设备' },
+  { key: 'deviceSummary', label: '设备摘要' },
   { key: 'rentPeriod', label: '租期' },
-  { key: 'status', label: '订单状态' },
+  { key: 'stage', label: '当前阶段' },
+  { key: 'riskDisplay', label: '风险/异常' },
   { key: 'rentAmount', label: '金额' },
   { key: 'channel', label: '渠道' },
-  { key: 'store', label: '门店' },
-  { key: 'createdAt', label: '下单时间' },
+  { key: 'ownerStore', label: '负责人/门店' },
   { key: 'nextAction', label: '操作' },
 ]
 const xianyuSyncModeOptions = [
@@ -358,25 +367,18 @@ const sourceLabel = computed(() => {
   return '本地演示数据'
 })
 
-const orderMetrics = computed(() => [
-  { key: 'pending', label: '待处理', value: countByStatuses(['待确认', '待押金', '待分配设备']), unit: '', trend: '只读', tone: 'warning' },
-  { key: 'ship', label: '待发货', value: countByStatuses(['待发货']), unit: '', trend: '只读', tone: 'warning' },
-  { key: 'return', label: '待归还', value: countByStatuses(['待归还']), unit: '', trend: '只读', tone: 'info' },
-  { key: 'risk', label: '异常/逾期', value: countByStatuses(['异常']), unit: '', trend: '只读', tone: 'danger' },
-  { key: 'revenue', label: '订单金额(元)', value: `¥${orders.value.reduce((sum, order) => sum + Number(order.rentAmount || 0), 0).toLocaleString()}`, unit: '', trend: '只读汇总', tone: 'success' },
-  { key: 'total', label: '订单总数', value: orders.value.length, unit: '单', trend: sourceLabel.value, tone: 'info' },
-])
+const orderMetrics = computed(() => buildOrderOperationalMetrics(orders.value))
 
-const filteredOrders = computed(() => orders.value.filter((order) => {
-  const text = `${order.orderNo}${order.customerName}${order.model}${order.phoneMasked}`
-  return (status.value === '全部' || order.status === status.value)
-    && (!keyword.value || text.includes(keyword.value))
-    && (channel.value === '全部渠道' || order.channel === channel.value)
-    && (deposit.value === '全部押金状态' || order.depositStatus === deposit.value)
-    && (shipping.value === '全部物流状态' || order.shippingStatus === shipping.value)
-    && (risk.value === '全部风险' || order.riskLevel === risk.value)
-    && (assignee.value === '全部负责人' || order.assignee === assignee.value)
+const filteredOrders = computed(() => filterOperationalOrders(orders.value, {
+  status: status.value,
+  keyword: keyword.value,
+  channel: channel.value,
+  deposit: deposit.value,
+  shipping: shipping.value,
+  risk: risk.value,
+  assignee: assignee.value,
 }))
+const pagedOrders = computed(() => paginateOperationalOrders(filteredOrders.value, page.value, pageSize))
 
 const drawerSubtitle = computed(() => selectedOrder.value ? `${selectedOrder.value.customerName} · ${selectedOrder.value.model}` : '')
 const xianyuModeLabel = computed(() => xianyuSyncModeOptions.find((item) => item.value === xianyuSyncMode.value)?.label || '默认关闭')
@@ -417,12 +419,11 @@ async function loadOrders() {
     const nextOrders = await uiV2Adapter.getOrders()
     orders.value = Array.isArray(nextOrders) ? nextOrders : []
     options.value = { channels: [], depositStatuses: [], shippingStatuses: [], ...(await uiV2Adapter.getOptions()) }
-    const nextStatusTabs = await uiV2Adapter.getOrderStatusTabs()
-    statusTabs.value = Array.isArray(nextStatusTabs) ? nextStatusTabs : [{ label: '全部', value: '全部', count: orders.value.length }]
+    statusTabs.value = buildOrderOperationalTabs(orders.value)
     sourceMeta.value = uiV2Adapter.getLastMeta('getOrders')
   } catch (error) {
     orders.value = []
-    statusTabs.value = [{ label: '全部', value: '全部', count: 0 }]
+    statusTabs.value = buildOrderOperationalTabs([])
     sourceMeta.value = uiV2Adapter.getMeta()
     loadError.value = error?.message || '订单只读数据读取失败'
   } finally {
@@ -431,7 +432,7 @@ async function loadOrders() {
 }
 
 async function openOrder(order) {
-  selectedOrder.value = order
+  selectedOrder.value = decorateOperationalOrder(order)
   drawerOpen.value = true
   internalNotePreview.value = createSafeOpsPreviewState()
   internalNoteExecute.value = createSafeOpsPreviewState()
@@ -442,7 +443,7 @@ async function openOrder(order) {
   try {
     const detail = await uiV2Adapter.getOrder(order.orderNo)
     if (detail) {
-      selectedOrder.value = { ...order, ...detail }
+      selectedOrder.value = decorateOperationalOrder({ ...order, ...detail })
       internalNoteDraft.value = String(detail?.raw?.internal_note || detail?.internalNote || '')
     } else if (uiV2Adapter.getLastMeta('getOrder')?.source === 'mock-fallback') {
       loadError.value = '真实详情读取失败，当前显示列表只读摘要。'
@@ -465,10 +466,10 @@ async function refreshSelectedOrderAfterInternalNote() {
   await loadOrders()
   const refreshedListOrder = orders.value.find((order) => order.orderNo === currentOrderNo) || selectedOrder.value
   const detail = await uiV2Adapter.getOrder(refreshedListOrder.rawId || refreshedListOrder.orderNo)
-  selectedOrder.value = {
+  selectedOrder.value = decorateOperationalOrder({
     ...refreshedListOrder,
     ...detail,
-  }
+  })
   internalNoteDraft.value = String(selectedOrder.value?.raw?.internal_note || selectedOrder.value?.internalNote || internalNoteDraft.value || '')
 }
 
@@ -524,14 +525,14 @@ async function executeInternalNoteUpdate() {
     }
     internalNoteError.value = internalNoteExecute.value.error
     if (result?.ok) {
-      selectedOrder.value = {
+      selectedOrder.value = decorateOperationalOrder({
         ...selectedOrder.value,
         note: internalNoteDraft.value,
         raw: {
           ...(selectedOrder.value?.raw || {}),
           internal_note: internalNoteDraft.value,
         },
-      }
+      })
       await refreshSelectedOrderAfterInternalNote()
     }
   } catch (error) {
@@ -617,6 +618,24 @@ async function openBulkEditPreview() {
   })
 }
 
+async function openCreateOrderPreview() {
+  orderPreview.value = { ...orderPreview.value, loading: true, error: '' }
+  orderPreview.value = await runSafeOpsPreview('order.edit.preview', {
+    target: {
+      type: 'order-create',
+      id: 'new-order-preview',
+    },
+    payload: {
+      reason: 'create-order-preview',
+      source: 'orders-page',
+      amount: '',
+      rentStartDate: '',
+      rentEndDate: '',
+      modelCode: '',
+    },
+  })
+}
+
 async function openShippingPreview() {
   shippingOpen.value = true
   shippingPreview.value = { ...shippingPreview.value, loading: true, error: '' }
@@ -695,6 +714,19 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  () => route.query.intent,
+  async (intent) => {
+    if (intent !== 'create-order-preview') return
+    await openCreateOrderPreview()
+  },
+  { immediate: true },
+)
+
+watch([status, keyword, channel, deposit, shipping, risk, assignee], () => {
+  page.value = 1
+})
 
 onMounted(loadOrders)
 </script>

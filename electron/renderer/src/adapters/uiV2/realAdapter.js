@@ -29,8 +29,8 @@ import {
   mapRealReport,
 } from './reportsMapper.js'
 import {
-  mapRealWaybills,
-} from './logisticsMapper.js'
+  mapLogisticsWorkspace,
+} from './logisticsTaskMapper.js'
 import {
   mapStoredDepositReviews,
 } from './depositMapper.js'
@@ -114,6 +114,56 @@ async function readShippingRecordsByOrder(bridge, orders = []) {
     }
   }))
   return Object.fromEntries(entries)
+}
+
+async function readDepositOrdersWithRemoteSync(bridge, filters = {}) {
+  if (typeof bridge?.depositListOrders === 'function') {
+    try {
+      const result = await bridge.depositListOrders(filters || {})
+      const rows = Array.isArray(result?.orders) ? result.orders : []
+      if (result?.success || rows.length) {
+        return {
+          payload: result,
+          sourceCode: result?.stale ? 'deposit-local-cache-stale' : 'deposit-api-sync',
+          sourceLabel: result?.stale ? '接口失败回退本地缓存' : '免押接口同步',
+          readonlyReason: result?.stale
+            ? '免押接口刷新失败，当前展示本地审计快照；不会执行审核、创建、完结或取消。'
+            : '来自免押接口刷新并同步到本地 DB 的记录；接口返回的新增记录和历史状态变化会沉淀到本地缓存。',
+        }
+      }
+    } catch {
+      // Fall through to local stored cache.
+    }
+  }
+
+  if (typeof bridge?.depositListStoredOrders === 'function') {
+    const stored = await bridge.depositListStoredOrders(filters || {})
+    return {
+      payload: stored,
+      sourceCode: 'deposit-local-cache',
+      sourceLabel: '本地缓存',
+      readonlyReason: '免押接口刷新不可用，当前展示本地缓存；不会执行审核、创建、完结或取消。',
+    }
+  }
+
+  return {
+    payload: [],
+    sourceCode: 'deposit-unavailable',
+    sourceLabel: '免押数据不可用',
+    readonlyReason: '未找到免押接口或本地缓存读取能力。',
+  }
+}
+
+function uniqueOptionValues(rows = [], pickers = []) {
+  const values = new Set()
+  rows.forEach((row) => {
+    pickers.forEach((picker) => {
+      const value = typeof picker === 'function' ? picker(row) : row?.[picker]
+      const normalized = String(value || '').trim()
+      if (normalized) values.add(normalized)
+    })
+  })
+  return Array.from(values)
 }
 
 export function createUiV2RealAdapter() {
@@ -250,13 +300,38 @@ export function createUiV2RealAdapter() {
     async getWaybills(filters = {}) {
       const bridge = getRuntimeBridge()
       const orders = await bridge.listOrders(filters.orders || {})
-      const recordsByOrder = await readShippingRecordsByOrder(bridge, orders)
-      return mapRealWaybills({ orders, recordsByOrder })
+      const [recordsByOrder, sfShipments] = await Promise.all([
+        readShippingRecordsByOrder(bridge, orders),
+        readOptionalBridge(bridge, 'listSfShipments', filters.sfShipments || {}),
+      ])
+      return mapLogisticsWorkspace({ orders, recordsByOrder, sfShipments }).rows
     },
     async getDepositReviews(filters = {}) {
       const bridge = getRuntimeBridge()
-      const deposits = await bridge.depositListStoredOrders(filters.deposits || {})
-      return mapStoredDepositReviews(deposits)
+      const result = await readDepositOrdersWithRemoteSync(bridge, filters.deposits || {})
+      return mapStoredDepositReviews(result.payload, {
+        sourceCode: result.sourceCode,
+        sourceLabel: result.sourceLabel,
+        readonlyReason: result.readonlyReason,
+      })
+    },
+    async getOptions(filters = {}) {
+      const bridge = getRuntimeBridge()
+      const [ordersPayload, devicesPayload] = await Promise.all([
+        mappedOrdersCache.length ? mappedOrdersCache : readOptionalBridge(bridge, 'listOrders', filters.orders || {}),
+        mappedDevicesCache.length ? mappedDevicesCache : readOptionalBridge(bridge, 'listScheduleUnits', { activeInventoryOnly: true, ...(filters.devices || {}) }),
+      ])
+      const orders = mappedOrdersCache.length ? mappedOrdersCache : mapRealOrders(ordersPayload)
+      const devices = mappedDevicesCache.length ? mappedDevicesCache : mapRealDevices(devicesPayload)
+
+      return {
+        orderStatuses: uniqueOptionValues(orders, ['status']),
+        channels: uniqueOptionValues(orders, ['channel', 'sourceChannel']),
+        depositStatuses: uniqueOptionValues(orders, ['depositStatus']),
+        shippingStatuses: uniqueOptionValues(orders, ['shippingStatus']),
+        deviceModels: uniqueOptionValues(devices, ['model', 'category']),
+        deviceStatuses: uniqueOptionValues(devices, ['status']),
+      }
     },
   }
 

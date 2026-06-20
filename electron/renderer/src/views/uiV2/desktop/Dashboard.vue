@@ -1,8 +1,8 @@
 <template>
   <UiV2Page title="经营工作台" description="聚合今日履约、风险、订单和设备占用，先处理最影响交付的事项。">
     <template #actions>
-      <BaseButton variant="secondary">查看全部待办</BaseButton>
-      <BaseButton>新建订单</BaseButton>
+      <BaseButton variant="secondary" @click="router.push('/ui-v2/orders')">查看全部待办</BaseButton>
+      <BaseButton data-testid="dashboard-create-order-button" @click="goCreateOrder">新建订单</BaseButton>
     </template>
 
     <div class="adapter-source-row">
@@ -10,32 +10,8 @@
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
-    <section class="demo-status-band">
-      <div>
-        <span>本地演示</span>
-        <strong>{{ actorRoleLabel }} · {{ actorContext.merchantName || actorContext.merchantId }}</strong>
-        <small>{{ actorContext.storeName || actorContext.storeId }} / 外部真实调用关闭</small>
-      </div>
-      <div>
-        <span>安全操作</span>
-        <strong>{{ healthStatusLabel }}</strong>
-        <small>{{ healthSummary }}</small>
-      </div>
-      <div>
-        <span>配置中心</span>
-        <strong>{{ configSourceLabel }}</strong>
-        <small>{{ configSummary }}</small>
-      </div>
-      <div>
-        <span>阶段状态</span>
-        <strong>3D → 6 本地演示收口</strong>
-        <small>安全预览、权限门禁、配置中心、健康检查已接入</small>
-      </div>
-      <RouterLink to="/ui-v2/settings">系统健康 / 上线准备</RouterLink>
-    </section>
-
     <section class="ui-v2-metric-grid">
-      <MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" />
+      <MetricCard v-for="metric in dashboardMetrics" :key="metric.key" :metric="metric" />
     </section>
 
     <div v-if="loading" class="adapter-state">工作台只读聚合读取中...</div>
@@ -138,6 +114,28 @@
           </div>
         </div>
       </div>
+
+      <details class="final-panel demo-status-band">
+        <summary>系统状态 / 上线准备</summary>
+        <div class="demo-status-grid">
+          <div>
+            <span>本地演示</span>
+            <strong>{{ actorRoleLabel }} · {{ actorContext.merchantName || actorContext.merchantId }}</strong>
+            <small>{{ actorContext.storeName || actorContext.storeId }} / 外部真实调用关闭</small>
+          </div>
+          <div>
+            <span>安全操作</span>
+            <strong>{{ healthStatusLabel }}</strong>
+            <small>{{ healthSummary }}</small>
+          </div>
+          <div>
+            <span>配置中心</span>
+            <strong>{{ configSourceLabel }}</strong>
+            <small>{{ configSummary }}</small>
+          </div>
+          <RouterLink to="/ui-v2/settings">系统健康 / 上线准备</RouterLink>
+        </div>
+      </details>
     </section>
   </UiV2Page>
 </template>
@@ -174,6 +172,15 @@ const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '本地数据库'
   return '本地演示数据'
 })
+
+const dashboardMetrics = computed(() => [
+  { key: 'todayTodo', label: '今日待处理', value: todayActionTotal.value, unit: '单', trend: todayActionTotal.value ? '优先处理' : '今日暂无新订单', tone: todayActionTotal.value ? 'warning' : 'success' },
+  { key: 'ship', label: '待发货', value: countStatus('待发货'), unit: '单', trend: '需补充物流', tone: 'warning' },
+  { key: 'return', label: '待归还', value: countStatus('待归还'), unit: '单', trend: '关注租期结束', tone: 'warning' },
+  { key: 'risk', label: '异常订单', value: countStatus('异常'), unit: '单', trend: '需人工复核', tone: countStatus('异常') ? 'danger' : 'success' },
+  { key: 'renting', label: '当前在租', value: countStatus('租赁中'), unit: '单', trend: '履约中', tone: 'info' },
+  { key: 'scheduleRisk', label: '未来档期风险', value: schedule.value.filter((slot) => ['冲突', '维修'].includes(slot.status)).length, unit: '处', trend: '未来窗口', tone: 'warning' },
+])
 
 const todayActionTotal = computed(() => countStatus('待发货') + countStatus('待归还') + countStatus('待押金') + countStatus('异常'))
 const totalAmountLabel = computed(() => `¥${orders.value.reduce((sum, order) => sum + Number(order.rentAmount || order.totalAmount || 0), 0).toLocaleString()}`)
@@ -236,6 +243,10 @@ function topBy(rows, resolver) {
     counts.set(key, (counts.get(key) || 0) + 1)
   })
   return Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0]?.[0] || '暂无数据'
+}
+
+function goCreateOrder() {
+  router.push({ path: '/ui-v2/orders', query: { intent: 'create-order-preview' } })
 }
 
 function resolveDashboardMeta() {
@@ -307,14 +318,26 @@ onMounted(loadDashboard)
 
 <style scoped>
 .demo-status-band {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-  gap: 12px;
-  align-items: stretch;
+  grid-column: 1 / -1;
+  padding: 12px;
 }
 
-.demo-status-band > div,
-.demo-status-band > a {
+.demo-status-band summary {
+  cursor: pointer;
+  color: var(--ui-text);
+  font-weight: 820;
+}
+
+.demo-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 12px;
+}
+
+.demo-status-grid > div,
+.demo-status-grid > a {
   min-height: 82px;
   padding: 12px;
   border: 1px solid var(--ui-border);
@@ -325,19 +348,19 @@ onMounted(loadDashboard)
   gap: 5px;
 }
 
-.demo-status-band span,
-.demo-status-band small {
+.demo-status-grid span,
+.demo-status-grid small {
   color: var(--ui-text-muted);
   font-size: 12px;
 }
 
-.demo-status-band strong {
+.demo-status-grid strong {
   color: var(--ui-text);
   font-size: 15px;
   font-weight: 850;
 }
 
-.demo-status-band > a {
+.demo-status-grid > a {
   min-width: 168px;
   place-items: center;
   color: var(--color-primary);

@@ -23,6 +23,7 @@
 - 阶段 4 最小 Demo 已完成：本地 actor / role / merchant / store context 与 permission gating 接入 safeOps；
 - 阶段 5 最小 Demo 已完成：health check / readiness checklist 已接入 Dashboard / Settings；
 - 阶段 6 本地 Demo 产品闭环已完成：核心页面可连续查看内部写、安全预览、权限上下文、健康状态和阶段边界；
+- Desktop Product Semantics & Information Architecture Hardening 已完成：桌面端 Orders / Devices / Schedule / Customers / Logistics / Deposit / Reports / Dashboard / Settings 已按运营实体、默认视图、真实数据缺失表达、分页筛选和 Drawer 详情层级加固；
 - Phase 04 当前仅开放五个真实内部写 operation，另有顺丰、免押、闲鱼外部 preview-only operation，其它 execute 仍 disabled。
 
 阶段 2 收口 checkpoint：
@@ -43,6 +44,7 @@
 - `xianyu.order.sync` 仅允许 disabled / mock / sandbox preview，execute 一律返回 `SAFE_OP_EXTERNAL_DISABLED`；
 - `viewer` 角色只读，`operator` 可执行阶段 1/2 内部安全操作，`owner` 可执行内部安全操作并查看外部 preview；
 - Dashboard / Settings 展示本地 Demo actor、merchant、store、health readiness 和生产未开启状态；
+- Desktop 普通业务页不展示 raw operationType / provider key / safeOps 内部字段；外部能力只展示业务化预览状态和 real disabled 边界；
 - 顺丰真实下单、免押真实审核、新增 DB migration 都需要用户单独确认。
 
 当前已支持的 dry-run preview operation：

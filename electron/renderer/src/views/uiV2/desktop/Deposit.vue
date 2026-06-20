@@ -1,6 +1,9 @@
 <template>
-  <UiV2Page title="免押管理" description="免押本地缓存只读视图，查看风险状态、押金状态和后续处理提示。">
-    <template #actions><BaseButton variant="secondary" :loading="depositPreview.loading" @click="previewDepositCreate('page-action')">免押预览</BaseButton></template>
+  <UiV2Page title="免押管理" description="刷新免押接口并同步本地 DB 缓存；新增记录和历史状态变化都会沉淀到本地审计表。">
+    <template #actions>
+      <BaseButton variant="secondary" :loading="loading" @click="loadDepositReviews">刷新免押接口</BaseButton>
+      <BaseButton variant="secondary" :loading="depositPreview.loading" @click="previewDepositCreate('page-action')">免押预览</BaseButton>
+    </template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
@@ -24,12 +27,24 @@
       <div><span>说明</span><strong>不会写入 / 不会调用免押外部服务</strong></div>
     </section>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
-    <div v-if="loading" class="adapter-state">免押本地缓存读取中...</div>
-    <FilterBar title="审核筛选" hint="该页无最终图，结构从订单中心和系统设置派生">
+    <div v-if="loading" class="adapter-state">正在刷新免押接口并同步本地缓存...</div>
+    <div class="final-tabs" data-testid="deposit-status-tabs">
+      <button
+        v-for="item in reviewTabs"
+        :key="item"
+        type="button"
+        class="final-tab"
+        :class="{ 'is-active': reviewStatus === item }"
+        @click="reviewStatus = item"
+      >
+        {{ item }}
+      </button>
+    </div>
+    <FilterBar title="审核筛选" hint="刷新会优先读取免押接口；接口失败时回退本地缓存快照">
       <div class="filter-row">
         <BaseInput v-model="keyword" search clearable placeholder="搜索订单、客户、设备" />
         <BaseSelect v-model="risk" label="风险" :options="['全部风险', '低', '中', '高']" />
-        <BaseSelect v-model="reviewStatus" label="审核状态" :options="['全部状态', '待审核', '待复核', '已通过', '已拒绝']" />
+        <BaseSelect v-model="reviewStatus" label="审核状态" :options="reviewTabs" />
       </div>
     </FilterBar>
     <DataTable
@@ -38,7 +53,7 @@
       row-key="id"
       :selected-key="selectedReview?.id || ''"
       compact
-      :empty-title="loading ? '免押本地缓存读取中' : '暂无免押记录'"
+      :empty-title="loading ? '免押接口刷新中' : '暂无免押记录'"
       @row-click="openReview"
     >
       <template #orderNo="{ row }"><strong>{{ row.orderNo }}</strong></template>
@@ -47,6 +62,8 @@
       <template #riskLevel="{ row }"><StatusBadge :label="row.riskLevel" size="sm" /></template>
       <template #requestedFreeAmount="{ row }">¥{{ Number(row.requestedFreeAmount || 0).toLocaleString() }}</template>
       <template #depositStatus="{ row }"><StatusBadge :label="row.depositStatus" size="sm" /></template>
+      <template #dataSourceLabel="{ row }">{{ row.dataSourceLabel }}</template>
+      <template #orderLinkedStatus="{ row }"><StatusBadge :label="row.orderLinkedStatus" size="sm" /></template>
     </DataTable>
     <BaseDrawer v-model="drawerOpen" :title="selectedReview?.orderNo || '免押审核详情'" :subtitle="selectedReview?.customerName || ''" width="620" test-id="deposit-review-drawer">
       <div v-if="selectedReview" class="ui-v2-stack">
@@ -89,9 +106,14 @@
           <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
           <div><span>押金状态</span><strong>{{ selectedReview.depositStatus }}</strong></div>
           <div><span>风险状态</span><strong>{{ selectedReview.riskLevel }}</strong></div>
-          <div><span>负责人</span><strong>{{ selectedReview.assignee }}</strong></div>
+          <div><span>数据来源</span><strong>{{ selectedReview.dataSourceLabel }}</strong></div>
+          <div><span>同步时间</span><strong>{{ selectedReview.syncedAtLabel }}</strong></div>
+          <div><span>本地缓存</span><strong>{{ selectedReview.localCacheStatus }}</strong></div>
+          <div><span>订单关联</span><strong>{{ selectedReview.orderLinkedStatus }}</strong></div>
+          <div><span>真实外部</span><strong>未开放</strong></div>
         </section>
         <UiV2Section title="审核判断"><p>{{ selectedReview.riskReason }}</p></UiV2Section>
+        <UiV2Section title="状态时间线"><TrackingTimeline :steps="selectedReview.timeline" /></UiV2Section>
         <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；真实外部已关闭；不会调用免押服务；不会改变外部信用或资金相关状态。</p></UiV2Section>
       </div>
     </BaseDrawer>
@@ -107,7 +129,7 @@ import BaseSelect from '../../../components/BaseSelect.vue'
 import DataTable from '../../../components/DataTable.vue'
 import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
-import { DrawerSummary, MetricCard } from '../../../components/ui'
+import { DrawerSummary, MetricCard, TrackingTimeline } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
@@ -119,7 +141,7 @@ import '../shared/uiV2View.css'
 const reviews = ref([])
 const keyword = ref('')
 const risk = ref('全部风险')
-const reviewStatus = ref('全部状态')
+const reviewStatus = ref('待审核')
 const selectedReview = ref(null)
 const drawerOpen = ref(false)
 const loading = ref(false)
@@ -134,6 +156,7 @@ const depositPreviewModeOptions = [
   { label: '沙盒预览（不发送请求）', value: 'sandbox' },
   { label: '真实模式（已关闭）', value: 'real' },
 ]
+const reviewTabs = ['待审核', '已通过', '已拒绝', '已取消', '已完结', '同步异常', '全部状态']
 const columns = [
   { key: 'orderNo', label: '订单号' },
   { key: 'customerName', label: '客户/渠道' },
@@ -141,23 +164,31 @@ const columns = [
   { key: 'riskLevel', label: '风险' },
   { key: 'requestedFreeAmount', label: '免押金额' },
   { key: 'depositStatus', label: '押金状态' },
-  { key: 'assignee', label: '负责人' },
+  { key: 'dataSourceLabel', label: '数据来源' },
+  { key: 'orderLinkedStatus', label: '订单关联' },
   { key: 'nextAction', label: '下一步' },
 ]
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '本地数据库'
+  const firstSource = reviews.value.find((item) => item?.meta?.source)?.meta?.source || ''
+  if (firstSource === 'deposit-api-sync') return '免押接口同步'
+  if (firstSource === 'deposit-local-cache-stale') return '接口失败回退本地缓存'
+  if (firstSource === 'deposit-local-cache') return '本地缓存'
+  if (sourceMeta.value.source === 'real') return '免押接口 / 本地 DB'
   return '本地演示数据'
 })
 const depositMetrics = computed(() => [
   { key: 'queue', label: '审核队列', value: reviews.value.filter((item) => ['待审核', '待复核'].includes(item.reviewStatus)).length, unit: '单', trend: '只读统计', tone: 'warning' },
   { key: 'approved', label: '已通过', value: reviews.value.filter((item) => item.reviewStatus === '已通过').length, unit: '单', trend: sourceLabel.value, tone: 'success' },
+  { key: 'finished', label: '已完结', value: reviews.value.filter((item) => item.reviewStatus === '已完结').length, unit: '单', trend: '本地缓存', tone: 'info' },
   { key: 'risk', label: '高风险', value: reviews.value.filter((item) => item.riskLevel === '高').length, unit: '单', trend: '需人工判断', tone: 'danger' },
-  { key: 'amount', label: '免押金额', value: reviews.value.reduce((sum, item) => sum + Number(item.requestedFreeAmount || 0), 0).toLocaleString(), unit: '元', trend: '本地缓存', tone: 'info' },
 ])
 const filteredReviews = computed(() => reviews.value.filter((review) => {
   const text = `${review.orderNo}${review.customerName}${review.model}${review.phoneMasked}`
+  const matchStatus = reviewStatus.value === '全部状态'
+    || review.reviewStatus === reviewStatus.value
+    || (reviewStatus.value === '同步异常' && String(review.dataSourceLabel || '').includes('失败'))
   return (risk.value === '全部风险' || review.riskLevel === risk.value)
-    && (reviewStatus.value === '全部状态' || review.reviewStatus === reviewStatus.value)
+    && matchStatus
     && (!keyword.value || text.includes(keyword.value))
 }))
 const depositPreviewStatusLabel = computed(() => {
@@ -235,7 +266,7 @@ async function loadDepositReviews() {
   } catch (error) {
     reviews.value = []
     sourceMeta.value = uiV2Adapter.getMeta()
-    loadError.value = error?.message || '免押本地缓存读取失败'
+    loadError.value = error?.message || '免押接口刷新失败，且本地缓存不可用'
   } finally {
     loading.value = false
   }

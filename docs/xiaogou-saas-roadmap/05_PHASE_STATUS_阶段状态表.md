@@ -58,12 +58,13 @@
 - [x] 阶段 5 最小 Demo 已完成：本地 health check / readiness checklist 接入 Settings / Dashboard
 - [x] 阶段 6 本地 Demo 产品闭环已完成：核心页面显示安全预览、权限上下文、上线准备状态与阶段边界
 - [x] 本地配置中心已完成：Settings / Dashboard 接入 `stores` / `config` 非敏感配置读取保存，敏感凭证仅展示 configured / missing 状态
+- [x] Desktop 产品语义与信息架构加固已完成：Orders / Devices / Schedule / Customers / Logistics / Deposit / Reports / Dashboard / Settings 按运营实体、默认视图、真实数据缺失表达和 Drawer 层级重构
 - [ ] 真实外部 write 开关经用户单独确认
 
 ## 当前下一步
 
 ```text
-Phase 04 Operation Safe Mode：本地完整 Demo 收口版完成。safeOps preview 已接入本地 DB persistence；阶段 1B `order.internal_note.update`、阶段 2A `device.basic.update`、阶段 2B `schedule.block.create` / `schedule.block.cancel`、阶段 2C `logistics.local_record.create` 已开放为受控内部写 operation；`logistics.sf.create_order`、`deposit.create`、`deposit.finish`、`xianyu.order.sync` 仅支持 disabled / mock / sandbox preview，外部 gateway real mode 仍 disabled。阶段 4/5/6 以本地 Demo 方式接入 actor/role/merchant context、permission gating、health readiness、配置中心和页面状态展示，不引入真实账号、外部 API 或生产上线能力。
+Phase 04 Operation Safe Mode：本地完整 Demo 收口版完成，并已完成 Desktop Product Semantics & Information Architecture Hardening。safeOps preview 已接入本地 DB persistence；阶段 1B `order.internal_note.update`、阶段 2A `device.basic.update`、阶段 2B `schedule.block.create` / `schedule.block.cancel`、阶段 2C `logistics.local_record.create` 已开放为受控内部写 operation；`logistics.sf.create_order`、`deposit.create`、`deposit.finish`、`xianyu.order.sync` 仅支持 disabled / mock / sandbox preview，外部 gateway real mode 仍 disabled。阶段 4/5/6 以本地 Demo 方式接入 actor/role/merchant context、permission gating、health readiness、配置中心和页面状态展示；桌面端页面已按运营实体、默认视图、真实数据口径和详情 Drawer 加固，不引入真实账号、外部 API 或生产上线能力。
 ```
 
 Phase 04 已进入逐项 gated 内部写模式。当前仅以下 operationType 可通过 safeOps execute 写入本地 DB：

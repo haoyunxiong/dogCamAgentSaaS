@@ -19,35 +19,39 @@
 
     <DataTable
       :columns="columns"
-      :rows="filteredCustomers"
+      :rows="pagedCustomers"
       row-key="id"
       :selected-key="selectedCustomer?.id || ''"
       compact
       :empty-title="loading ? '客户只读数据读取中' : '暂无匹配客户'"
       @row-click="openCustomer"
     >
-      <template #name="{ row }"><div class="ui-v2-cell-stack"><strong>{{ row.name }}</strong><small>{{ row.phoneMasked || row.maskedPhone }} · {{ row.city }}</small></div></template>
-      <template #riskLevel="{ row }"><StatusBadge :label="row.riskLevel" size="sm" /></template>
+      <template #name="{ row }"><div class="ui-v2-cell-stack"><strong>{{ row.name }}</strong><small>{{ row.sourceLabel }}</small></div></template>
+      <template #phoneLabel="{ row }">{{ row.phoneLabel }}</template>
+      <template #riskDisplay="{ row }"><StatusBadge :label="row.riskDisplay" size="sm" /></template>
       <template #tags="{ row }"><div class="ui-v2-tag-row"><StatusBadge v-for="tag in row.tags" :key="tag" :label="tag" variant="neutral" size="sm" /></div></template>
-      <template #totalRent="{ row }">¥{{ Number(row.totalRent || row.totalAmount || 0).toLocaleString() }}</template>
+      <template #totalRent="{ row }">{{ row.totalRentLabel }}</template>
     </DataTable>
+    <Pagination v-model:page="page" :total="filteredCustomers.length" :page-size="pageSize" />
     <BaseDrawer v-model="drawerOpen" :title="selectedCustomer?.name || '客户详情'" :subtitle="selectedCustomer?.phoneMasked || selectedCustomer?.maskedPhone || ''" width="600" test-id="customer-detail-drawer">
       <div v-if="selectedCustomer" class="ui-v2-stack">
-        <DrawerSummary :status="selectedCustomer.riskLevel" :title="selectedCustomer.name" :description="`${selectedCustomer.city} · ${selectedCustomer.depositPreference}`" :meta="`${selectedCustomer.channel || selectedCustomer.source} · ${selectedCustomer.phoneMasked || selectedCustomer.maskedPhone}`" primary-label="查看最近订单" secondary-label="标记已联系" />
+        <DrawerSummary :status="selectedCustomer.riskDisplay" :title="selectedCustomer.name" :description="`${selectedCustomer.city} · ${selectedCustomer.depositPreference}`" :meta="`${selectedCustomer.sourceLabel} · ${selectedCustomer.phoneLabel}`" primary-label="查看最近订单" secondary-label="标记已联系" />
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>累计订单</span><strong>{{ selectedCustomer.orderCount }} 单</strong></div>
-          <div><span>累计租金</span><strong>¥{{ Number(selectedCustomer.totalRent || selectedCustomer.totalAmount || 0).toLocaleString() }}</strong></div>
-          <div><span>最近订单</span><strong>{{ selectedCustomer.lastOrderNo }}</strong></div>
+          <div><span>累计租金</span><strong>{{ selectedCustomer.totalRentLabel }}</strong></div>
+          <div><span>最近订单</span><strong>{{ selectedCustomer.lastOrderLabel }}</strong></div>
+          <div><span>最近活跃</span><strong>{{ selectedCustomer.lastOrderAtLabel }}</strong></div>
+          <div><span>设备偏好</span><strong>{{ selectedCustomer.devicePreference }}</strong></div>
           <div><span>下一步</span><strong>{{ selectedCustomer.nextAction }}</strong></div>
         </section>
-        <UiV2Section title="风险备注"><p>{{ selectedCustomer.note || selectedCustomer.notes }}</p></UiV2Section>
+        <UiV2Section title="派生风险依据"><p>{{ selectedCustomer.profileNote }}</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BaseDrawer from '../../../components/BaseDrawer.vue'
 import BaseInput from '../../../components/BaseInput.vue'
@@ -55,8 +59,13 @@ import BaseSelect from '../../../components/BaseSelect.vue'
 import DataTable from '../../../components/DataTable.vue'
 import FilterBar from '../../../components/FilterBar.vue'
 import StatusBadge from '../../../components/StatusBadge.vue'
-import { DrawerSummary, MetricCard } from '../../../components/ui'
+import { DrawerSummary, MetricCard, Pagination } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
+import {
+  buildCustomerMetrics,
+  filterCustomerProfiles,
+  paginateCustomerProfiles,
+} from '../../../adapters/uiV2/customerProfileMapper.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -66,6 +75,8 @@ const options = ref({ channels: [] })
 const keyword = ref('')
 const risk = ref('全部风险')
 const channel = ref('全部渠道')
+const page = ref(1)
+const pageSize = 20
 const selectedCustomer = ref(null)
 const drawerOpen = ref(false)
 const loading = ref(false)
@@ -73,12 +84,14 @@ const loadError = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const columns = [
   { key: 'name', label: '客户' },
+  { key: 'phoneLabel', label: '联系方式' },
+  { key: 'city', label: '城市' },
   { key: 'channel', label: '来源渠道' },
-  { key: 'riskLevel', label: '风险' },
-  { key: 'tags', label: '标签' },
   { key: 'orderCount', label: '订单数' },
   { key: 'totalRent', label: '累计租金' },
-  { key: 'lastOrderNo', label: '最近订单' },
+  { key: 'lastOrderLabel', label: '最近订单' },
+  { key: 'riskDisplay', label: '派生风险' },
+  { key: 'tags', label: '标签' },
   { key: 'nextAction', label: '下一步' },
 ]
 
@@ -87,31 +100,13 @@ const sourceLabel = computed(() => {
   return '本地演示数据'
 })
 
-const customerMetrics = computed(() => [
-  { key: 'customers', label: '客户总数', value: customers.value.length, unit: '', trend: sourceLabel.value, tone: 'info' },
-  { key: 'active', label: '活跃客户', value: activeCustomers.value, unit: '', trend: '只读派生', tone: 'success' },
-  { key: 'repeat', label: '复购客户', value: repeatCustomers.value, unit: '', trend: '订单聚合', tone: 'warning' },
-  { key: 'risk', label: '风险客户', value: riskCustomers.value, unit: '', trend: '启发式派生', tone: 'danger' },
-  { key: 'deposit', label: '免押客户', value: depositFreeCustomers.value, unit: '', trend: '本地缓存补充', tone: 'success' },
-  { key: 'price', label: '平均客单价', value: `¥${averageCustomerAmount.value.toLocaleString()}`, unit: '', trend: '只读汇总', tone: 'info' },
-])
-
-const activeCustomers = computed(() => customers.value.filter((customer) => Number(customer.orderCount || 0) > 0).length)
-const repeatCustomers = computed(() => customers.value.filter((customer) => Number(customer.orderCount || 0) >= 2).length)
-const riskCustomers = computed(() => customers.value.filter((customer) => ['中', '高'].includes(customer.riskLevel)).length)
-const depositFreeCustomers = computed(() => customers.value.filter((customer) => String(customer.depositStatus || customer.depositPreference || '').includes('免押')).length)
-const averageCustomerAmount = computed(() => {
-  if (!customers.value.length) return 0
-  const total = customers.value.reduce((sum, customer) => sum + Number(customer.totalRent || customer.totalAmount || 0), 0)
-  return Math.round(total / customers.value.length)
-})
-
-const filteredCustomers = computed(() => customers.value.filter((customer) => {
-  const text = `${customer.name}${customer.phoneMasked || customer.maskedPhone}${customer.lastOrderNo}${customer.city}`
-  return (risk.value === '全部风险' || customer.riskLevel === risk.value)
-    && (channel.value === '全部渠道' || customer.channel === channel.value || customer.source === channel.value)
-    && (!keyword.value || text.includes(keyword.value))
+const customerMetrics = computed(() => buildCustomerMetrics(customers.value))
+const filteredCustomers = computed(() => filterCustomerProfiles(customers.value, {
+  keyword: keyword.value,
+  risk: risk.value,
+  channel: channel.value,
 }))
+const pagedCustomers = computed(() => paginateCustomerProfiles(filteredCustomers.value, page.value, pageSize))
 
 async function loadCustomers() {
   loading.value = true
@@ -138,6 +133,10 @@ function openCustomer(customer) {
 }
 
 onMounted(loadCustomers)
+
+watch([keyword, risk, channel], () => {
+  page.value = 1
+})
 </script>
 
 <style scoped>

@@ -20,7 +20,7 @@
         <Bell class="tb-svg" aria-hidden="true" />
         <span class="tb-badge">12</span>
       </button>
-      <button class="tb-uiv2-primary" type="button">
+      <button class="tb-uiv2-primary" type="button" data-testid="topbar-create-order-button" @click="goCreateOrder">
         <Plus class="tb-svg" aria-hidden="true" />
         新建订单
         <ChevronDown class="tb-svg" aria-hidden="true" />
@@ -160,6 +160,10 @@ function goInbox() {
   else if (ui.badges.pending > 0) router.push('/pending')
   else if (ui.badges.learning > 0) router.push('/learning')
   else ui.toast('暂无待办', 'info')
+}
+
+function goCreateOrder() {
+  router.push({ path: '/ui-v2/orders', query: { intent: 'create-order-preview' } })
 }
 
 function openPalette() {

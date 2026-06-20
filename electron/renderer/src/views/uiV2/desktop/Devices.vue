@@ -27,6 +27,19 @@
       <MetricCard v-for="metric in deviceMetrics" :key="metric.key" :metric="metric" />
     </section>
 
+    <div class="final-tabs" data-testid="devices-view-switch">
+      <button
+        v-for="item in viewModes"
+        :key="item.value"
+        type="button"
+        class="final-tab"
+        :class="{ 'is-active': viewMode === item.value }"
+        @click="switchViewMode(item.value)"
+      >
+        {{ item.label }}
+      </button>
+    </div>
+
     <FilterBar title="资产筛选" hint="点击设备行查看右侧资产详情">
       <StatusTabs v-model="status" :items="statusTabs" />
       <div class="filter-row">
@@ -41,6 +54,27 @@
     <div v-if="loading" class="adapter-state">设备数据读取中...</div>
 
     <DataTable
+      v-if="viewMode === 'model'"
+      :columns="modelColumns"
+      :rows="pagedModelGroups"
+      row-key="id"
+      :selected-key="selectedModelGroup?.id || ''"
+      compact
+      min-width="980px"
+      :empty-title="loading ? '设备数据读取中' : '暂无匹配型号'"
+      @row-click="openModelGroup"
+    >
+      <template #model="{ row }"><strong class="asset-link">{{ row.model }}</strong></template>
+      <template #free="{ row }"><StatusBadge :label="`${row.free} 台可租`" size="sm" variant="success" /></template>
+      <template #rented="{ row }">{{ row.rented }}</template>
+      <template #reserved="{ row }">{{ row.reserved }}</template>
+      <template #repair="{ row }">{{ row.repair }}</template>
+      <template #offline="{ row }">{{ row.offline }}</template>
+      <template #riskLabel="{ row }"><StatusBadge :label="row.riskLabel" size="sm" /></template>
+    </DataTable>
+
+    <DataTable
+      v-else
       :columns="columns"
       :rows="pagedDevices"
       row-key="id"
@@ -63,10 +97,43 @@
       <template #utilization="{ row }">{{ row.utilization }}%</template>
       <template #action>...</template>
     </DataTable>
-    <Pagination v-model:page="page" :total="filteredDevices.length" :page-size="pageSize" />
+    <Pagination v-model:page="page" :total="activeTotal" :page-size="pageSize" />
 
-    <BaseDrawer v-model="drawerOpen" :title="selectedDevice?.assetNo || '设备详情'" :subtitle="selectedDevice?.model || ''" width="640" test-id="device-detail-drawer">
-      <div v-if="selectedDevice" class="ui-v2-stack">
+    <BaseDrawer v-model="drawerOpen" :title="drawerTitle" :subtitle="drawerSubtitle" width="720" test-id="device-detail-drawer">
+      <div v-if="selectedModelGroup" class="ui-v2-stack">
+        <DrawerSummary
+          :status="selectedModelGroup.riskLabel"
+          :title="selectedModelGroup.model"
+          :description="`总 ${selectedModelGroup.total} 台 · 可租 ${selectedModelGroup.free} 台 · 在租 ${selectedModelGroup.rented} 台`"
+          :meta="`最近可用：${selectedModelGroup.recentlyAvailableAt} · 近30天收入：${selectedModelGroup.revenue30dLabel}`"
+          primary-label="查看首台设备"
+          @primary="openDeviceFromGroup(selectedModelGroup.units[0])"
+        />
+        <section class="final-drawer-card ui-v2-detail-grid">
+          <div><span>型号</span><strong>{{ selectedModelGroup.model }}</strong></div>
+          <div><span>总台数</span><strong>{{ selectedModelGroup.total }} 台</strong></div>
+          <div><span>可租</span><strong>{{ selectedModelGroup.free }} 台</strong></div>
+          <div><span>在租</span><strong>{{ selectedModelGroup.rented }} 台</strong></div>
+          <div><span>已预订</span><strong>{{ selectedModelGroup.reserved }} 台</strong></div>
+          <div><span>维修/停用</span><strong>{{ selectedModelGroup.repair + selectedModelGroup.offline }} 台</strong></div>
+        </section>
+        <DataTable
+          :columns="unitColumns"
+          :rows="selectedModelGroup.units"
+          row-key="id"
+          compact
+          min-width="760px"
+          empty-title="暂无单机记录"
+          @row-click="openDeviceFromGroup"
+        >
+          <template #assetNo="{ row }"><strong class="asset-link">{{ row.assetNo }}</strong></template>
+          <template #status="{ row }"><StatusBadge :label="row.status" size="sm" /></template>
+          <template #currentOrderId="{ row }">{{ row.currentOrderId || '暂无记录' }}</template>
+        </DataTable>
+        <p class="safeops-note">型号视图用于库存管理；单机安全更新需进入具体设备详情后执行。</p>
+      </div>
+
+      <div v-else-if="selectedDevice" class="ui-v2-stack">
         <div v-if="detailLoading" class="adapter-state is-compact">设备详情读取中...</div>
         <DrawerSummary
           :status="selectedDevice.status"
@@ -128,8 +195,8 @@
           <div><span>下一预约</span><strong>{{ selectedDevice.nextBookingDate }}</strong></div>
           <div><span>维护状态</span><strong>{{ selectedDevice.maintenanceStatus }}</strong></div>
           <div><span>最近检查</span><strong>{{ selectedDevice.lastCheckedAt }}</strong></div>
-          <div><span>买入成本</span><strong>¥{{ Number(selectedDevice.purchaseCost || 0).toLocaleString() }}</strong></div>
-          <div><span>残值</span><strong>¥{{ Number(selectedDevice.residualValue || 0).toLocaleString() }}</strong></div>
+          <div><span>买入成本</span><strong>{{ selectedDevice.purchaseCostLabel || (selectedDevice.purchaseCost ? `¥${Number(selectedDevice.purchaseCost).toLocaleString()}` : '无法判断') }}</strong></div>
+          <div><span>残值</span><strong>{{ selectedDevice.residualValueLabel || '无法判断' }}</strong></div>
         </section>
         <UiV2Section title="未来档期">
           <TrackingTimeline :steps="deviceTimeline" />
@@ -157,6 +224,14 @@ import { uiV2Adapter } from '../../../adapters/uiV2'
 import { safeOpsAdapter } from '../../../adapters/uiV2/safeOpsAdapter.js'
 import { createSafeOpsPreviewState, runSafeOpsPreview, toSafeOpsPreviewView } from '../../../adapters/uiV2/safeOpsPreviewHelpers.js'
 import { buildSafeOpsActor } from '../../../adapters/uiV2/actorContextAdapter.js'
+import {
+  buildDeviceGroupMetrics,
+  buildDeviceModelGroups,
+  decorateDeviceUnit,
+  filterDeviceModelGroups,
+  filterDeviceUnits,
+  paginateDeviceRows,
+} from '../../../adapters/uiV2/deviceModelGroupMapper.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import UiV2Section from '../shared/UiV2Section.vue'
 import '../shared/uiV2View.css'
@@ -169,9 +244,11 @@ const model = ref('全部型号')
 const location = ref('全部门店')
 const keyword = ref('')
 const page = ref(1)
-const pageSize = 10
+const pageSize = 20
 const selectedDevice = ref(null)
+const selectedModelGroup = ref(null)
 const drawerOpen = ref(false)
+const viewMode = ref('model')
 const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
@@ -181,13 +258,31 @@ const deviceBasicForm = ref({ city: '', note: '', status: 'idle' })
 const deviceBasicPreviewPatch = ref(null)
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const safeOpsActor = buildSafeOpsActor('ui-v2-devices')
+const viewModes = [
+  { label: '型号视图', value: 'model' },
+  { label: '单机视图', value: 'unit' },
+  { label: '维修/停用', value: 'maintenance' },
+]
 const deviceStatusOptions = [
   { label: '可租', value: 'idle' },
   { label: '维护中', value: 'repair' },
   { label: '停用', value: 'offline' },
 ]
-const deviceStatusFilterOptions = ['全部', '可租', '在租', '待清洁', '维修中', '异常', '停用']
+const deviceStatusFilterOptions = ['全部状态', '可租', '在租', '待清洁', '维修中', '异常', '停用']
 const locations = computed(() => [...new Set(devices.value.map((device) => device.location).filter(Boolean))])
+const modelColumns = [
+  { key: 'model', label: '型号' },
+  { key: 'total', label: '总台数' },
+  { key: 'free', label: '可租' },
+  { key: 'rented', label: '在租' },
+  { key: 'reserved', label: '已预订' },
+  { key: 'repair', label: '维修' },
+  { key: 'offline', label: '停用' },
+  { key: 'recentlyAvailableAt', label: '最近可用日期' },
+  { key: 'utilization30d', label: '近30天利用率' },
+  { key: 'revenue30dLabel', label: '近30天收入' },
+  { key: 'riskLabel', label: '库存状态' },
+]
 const columns = [
   { key: 'assetNo', label: '设备编号' },
   { key: 'model', label: '设备名称 / 型号' },
@@ -201,30 +296,45 @@ const columns = [
   { key: 'revenue30d', label: '近30天收益' },
   { key: 'action', label: '操作', width: '64px' },
 ]
+const unitColumns = [
+  { key: 'assetNo', label: '设备编号' },
+  { key: 'serialNo', label: '序列号' },
+  { key: 'status', label: '状态' },
+  { key: 'location', label: '所在门店' },
+  { key: 'currentOrderId', label: '当前订单' },
+  { key: 'nextBookingDate', label: '下一预约' },
+  { key: 'lastCheckedAt', label: '最近维护' },
+  { key: 'noteLabel', label: '内部备注' },
+]
 
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '本地数据库'
   return '本地演示数据'
 })
 
-const deviceMetrics = computed(() => [
-  { key: 'total', label: '总设备', value: devices.value.length, unit: '台', trend: sourceLabel.value, tone: 'info' },
-  { key: 'free', label: '可租', value: countStatus('可租'), unit: '台', trend: '可立即分配', tone: 'success' },
-  { key: 'rent', label: '在租', value: countStatus('在租'), unit: '台', trend: '履约中', tone: 'info' },
-  { key: 'clean', label: '待清洁', value: countStatus('待清洁'), unit: '台', trend: '归还后处理', tone: 'warning' },
-  { key: 'repair', label: '维修', value: countStatus('维修中'), unit: '台', trend: '暂不可租', tone: 'warning' },
-  { key: 'error', label: '异常', value: countStatus('异常'), unit: '台', trend: '优先复核', tone: 'danger' },
-])
+const modelGroups = computed(() => buildDeviceModelGroups(devices.value))
+const deviceMetrics = computed(() => buildDeviceGroupMetrics(modelGroups.value))
 
-const filteredDevices = computed(() => devices.value.filter((device) => {
-  const text = `${device.assetNo}${device.model}${device.location}${device.serialNo}`
-  return (status.value === '全部' || device.status === status.value)
-    && (model.value === '全部型号' || device.model === model.value)
-    && (location.value === '全部门店' || device.location === location.value)
-    && (!keyword.value || text.includes(keyword.value))
+const filteredModelGroups = computed(() => filterDeviceModelGroups(modelGroups.value, {
+  keyword: keyword.value,
+  model: model.value,
+  status: status.value,
 }))
-
-const pagedDevices = computed(() => filteredDevices.value.slice((page.value - 1) * pageSize, page.value * pageSize))
+const filteredDevices = computed(() => {
+  const base = filterDeviceUnits(devices.value, {
+    keyword: keyword.value,
+    model: model.value,
+    location: location.value,
+    status: status.value,
+  })
+  if (viewMode.value !== 'maintenance') return base
+  return base.filter((device) => ['维修中', '维修', '异常', '停用'].includes(device.status))
+})
+const pagedModelGroups = computed(() => paginateDeviceRows(filteredModelGroups.value, page.value, pageSize))
+const pagedDevices = computed(() => paginateDeviceRows(filteredDevices.value, page.value, pageSize))
+const activeTotal = computed(() => viewMode.value === 'model' ? filteredModelGroups.value.length : filteredDevices.value.length)
+const drawerTitle = computed(() => selectedModelGroup.value?.model || selectedDevice.value?.assetNo || '设备详情')
+const drawerSubtitle = computed(() => selectedModelGroup.value ? '型号库存与单机清单' : selectedDevice.value?.model || '')
 
 const deviceTimeline = computed(() => {
   if (!selectedDevice.value) return []
@@ -256,10 +366,11 @@ function countStatus(nextStatus) {
 }
 
 function resetFilters() {
-  status.value = '全部'
+  status.value = '全部状态'
   model.value = '全部型号'
   location.value = '全部门店'
   keyword.value = ''
+  page.value = 1
 }
 
 function getRawDeviceStatus(device = {}) {
@@ -333,14 +444,15 @@ async function loadDevices() {
 }
 
 async function openDevice(device) {
-  selectedDevice.value = device
+  selectedModelGroup.value = null
+  selectedDevice.value = decorateDeviceUnit(device)
   syncDeviceBasicForm(device)
   drawerOpen.value = true
   detailLoading.value = true
   try {
     const detail = await uiV2Adapter.getDevice(device.id)
     if (detail) {
-      selectedDevice.value = { ...device, ...detail }
+      selectedDevice.value = decorateDeviceUnit({ ...device, ...detail })
       syncDeviceBasicForm(selectedDevice.value)
     }
     sourceMeta.value = uiV2Adapter.getLastMeta('getDevice') || sourceMeta.value
@@ -351,17 +463,37 @@ async function openDevice(device) {
   }
 }
 
+function openModelGroup(group) {
+  selectedDevice.value = null
+  selectedModelGroup.value = group
+  drawerOpen.value = true
+}
+
+function openDeviceFromGroup(device) {
+  if (!device) return
+  selectedModelGroup.value = null
+  openDevice(device)
+}
+
+function switchViewMode(nextMode) {
+  viewMode.value = nextMode
+  page.value = 1
+  if (nextMode === 'maintenance') {
+    status.value = '全部状态'
+  }
+}
+
 async function refreshSelectedDeviceAfterWrite() {
   const selectedId = selectedDevice.value?.id
   await loadDevices()
   const refreshed = devices.value.find((device) => device.id === selectedId)
   if (refreshed) {
-    selectedDevice.value = refreshed
+    selectedDevice.value = decorateDeviceUnit(refreshed)
     try {
       const detail = await uiV2Adapter.getDevice(refreshed.id)
-      if (detail) selectedDevice.value = { ...refreshed, ...detail }
+      if (detail) selectedDevice.value = decorateDeviceUnit({ ...refreshed, ...detail })
     } catch {
-      selectedDevice.value = refreshed
+      selectedDevice.value = decorateDeviceUnit(refreshed)
     }
     syncDeviceBasicForm(selectedDevice.value)
   }

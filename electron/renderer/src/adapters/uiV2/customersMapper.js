@@ -110,7 +110,7 @@ function resolveOrderDate(row = {}) {
 function identityKey({ name, phone, city, lastOrderAt, orderNo }) {
   const normalizedPhone = normalizePhone(phone)
   if (normalizedPhone) return `phone:${normalizedPhone}`
-  return `weak:${name || '未填写客户'}|${city || '未填写城市'}|${normalizeDate(lastOrderAt) || orderNo || 'unknown'}`
+  return `weak:${name || '未填写客户'}|${city || '未填写城市'}`
 }
 
 function isAfter(left, right) {
@@ -195,14 +195,16 @@ function finalizeCustomer(customer) {
   const total = Number(customer.totalAmount || 0)
 
   if (customer.orderCount >= 2) tags.unshift('复租客户')
-  if (total >= 5000) tags.push('高价值')
-  if (['中', '高'].includes(customer.riskLevel)) tags.push('人工复核')
+  if (total >= 5000) tags.push('高价值客户')
+  if (['中', '高'].includes(customer.riskLevel)) tags.push('逾期历史')
+  if (!customer.phone || customer.city === '未填写城市') tags.push('信息不完整')
 
-  const uniqueTags = Array.from(new Set(tags)).slice(0, 5)
+  const reliableTags = new Set(['复租客户', '高价值客户', '逾期历史', '信息不完整'])
+  const uniqueTags = Array.from(new Set(tags)).filter((tag) => reliableTags.has(tag)).slice(0, 5)
   const primarySource = sources[0] || customer.source || '手工'
   const note = customer.riskLevel === '高'
-    ? '从订单、询单和免押本地缓存只读派生，存在逾期或异常信号，接高价值设备前建议人工复核。'
-    : '从订单、询单和免押本地缓存只读派生，不包含客户主表写入。'
+    ? '系统派生：从订单、询单和免押本地缓存只读派生，存在逾期或异常信号，接高价值设备前建议人工复核。'
+    : '系统派生：从订单、询单和免押本地缓存只读派生，不包含客户主表写入，不代表权威风控结论。'
 
   return {
     ...customer,
@@ -210,7 +212,7 @@ function finalizeCustomer(customer) {
     totalRent: total,
     source: primarySource,
     channel: primarySource,
-    tags: uniqueTags.length ? uniqueTags : ['只读派生'],
+    tags: uniqueTags.length ? uniqueTags : ['信息不完整'],
     notes: note,
     note,
     devices,
