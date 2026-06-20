@@ -5,6 +5,7 @@ const {
   getSafeOpsPolicy,
 } = require('./safeOpsPolicy')
 const { getSafeOpsPersistenceStatus } = require('./safeOpsPersistence')
+const { getConfigOverview } = require('./safeOpsConfigCenter')
 
 const UI_V2_ROUTE_CHECKS = Object.freeze([
   '/#/ui-v2/dashboard',
@@ -25,11 +26,15 @@ async function getSafeOpsHealthCheck(input = {}) {
     const policy = getSafeOpsPolicy()
     const external = getExternalPolicy()
     const persistence = await getSafeOpsPersistenceStatus()
+    const configOverview = await getConfigOverview()
     const safeOpsTablesReady = Boolean(persistence?.available)
     const migrationReady = Boolean(persistence?.migration && persistence.migration.status === 'applied')
     const externalRealDisabled = external.realEnabled === false && external.externalWritesEnabled === false
     const rollbackUnavailable = policy.operations.every((operation) => operation.rollbackExecutable !== true)
     const actorContext = getDemoActorContext(input.actor || {}).current
+    const configCenterReady = Boolean(configOverview?.ok)
+    const storesReady = Number(configOverview?.stores?.count || 0) > 0
+    const sensitiveRedacted = configOverview?.redaction?.sensitiveValuesReturned === false
 
     const checks = [
       {
@@ -61,6 +66,24 @@ async function getSafeOpsHealthCheck(input = {}) {
         label: '自动回滚执行器',
         status: normalizeStatus(rollbackUnavailable),
         detail: rollbackUnavailable ? '自动回滚执行器按设计未开放' : '自动回滚执行器异常开启',
+      },
+      {
+        key: 'config_center',
+        label: '本地配置中心',
+        status: normalizeStatus(configCenterReady),
+        detail: configCenterReady ? 'stores/config 已接入，只返回非敏感配置和敏感状态' : (configOverview?.message || '本地配置中心不可用'),
+      },
+      {
+        key: 'stores',
+        label: '门店配置',
+        status: normalizeStatus(storesReady),
+        detail: storesReady ? `stores 表可用，共 ${configOverview.stores.count} 个门店` : 'stores 表无可用门店',
+      },
+      {
+        key: 'sensitive_redaction',
+        label: '敏感配置脱敏',
+        status: normalizeStatus(sensitiveRedacted),
+        detail: sensitiveRedacted ? '敏感配置仅返回 configured/missing 状态' : '敏感配置脱敏状态异常',
       },
     ]
 
@@ -109,6 +132,31 @@ async function getSafeOpsHealthCheck(input = {}) {
         })),
         realEnabled: false,
         externalWritesEnabled: false,
+      },
+      configCenter: {
+        source: configOverview?.source || 'unknown',
+        stores: {
+          count: Number(configOverview?.stores?.count || 0),
+        },
+        config: configOverview?.config || {
+          totalCount: 0,
+          nonSensitiveCount: 0,
+          sensitiveCount: 0,
+          sensitiveConfiguredCount: 0,
+        },
+        externalCredentials: (configOverview?.externalCredentials || []).map((group) => ({
+          provider: group.provider,
+          label: group.label,
+          configuredCount: Number(group.configuredCount || 0),
+          totalCount: Number(group.totalCount || 0),
+          mode: group.mode || 'status-only',
+          valueReturned: false,
+        })),
+        relatedData: configOverview?.relatedData || {},
+        redaction: {
+          sensitiveValuesReturned: false,
+          rule: configOverview?.redaction?.rule || 'status-only',
+        },
       },
       renderer: {
         routes: UI_V2_ROUTE_CHECKS.map((route) => ({

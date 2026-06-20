@@ -1,5 +1,5 @@
 <template>
-  <UiV2Page title="系统设置" description="全局配置租赁业务相关规则与功能；本页只保存本地演示设置，不写业务数据库。">
+  <UiV2Page title="系统设置" description="读取本地 MySQL stores/config 的非敏感配置；敏感凭证只显示状态，不返回明文。">
     <section class="settings-layout">
       <div class="settings-main">
         <div class="final-panel">
@@ -12,6 +12,46 @@
           <div class="settings-list">
             <SettingsCard v-for="item in settings" :key="item.id" :group="item.group" :title="item.title" :desc="item.desc" :status="item.status" :variant="item.variant" @click="selectedId = item.id" />
           </div>
+        </div>
+
+        <div class="final-panel">
+          <div class="final-panel__head">
+            <div>
+              <h2>本地配置中心</h2>
+              <p>stores/config 真实读取，敏感配置仅状态化展示</p>
+            </div>
+            <BaseButton size="sm" variant="secondary" @click="loadConfigCenter">刷新</BaseButton>
+          </div>
+          <div class="config-center-grid">
+            <div class="config-center-card">
+              <span>配置来源</span>
+              <strong>{{ configSourceLabel }}</strong>
+              <small>{{ configLoading ? '正在读取配置中心' : configCenterSummary }}</small>
+            </div>
+            <div class="config-center-card">
+              <span>门店</span>
+              <strong>{{ configStores.length }}</strong>
+              <small>来自 stores 表；默认门店可安全保存。</small>
+            </div>
+            <div class="config-center-card">
+              <span>非敏感配置</span>
+              <strong>{{ configStats.nonSensitiveCount }}</strong>
+              <small>只允许白名单配置写入 config 表。</small>
+            </div>
+            <div class="config-center-card">
+              <span>敏感配置</span>
+              <strong>{{ configStats.sensitiveConfiguredCount }}/{{ configStats.sensitiveCount }}</strong>
+              <small>仅展示 configured/missing，不返回值。</small>
+            </div>
+          </div>
+          <div class="credential-grid">
+            <div v-for="group in credentialGroups" :key="group.provider" class="credential-card">
+              <span>{{ group.label }}</span>
+              <strong>{{ group.configuredCount }}/{{ group.totalCount }} 已配置</strong>
+              <small>状态可见，真实值不可见；外部 real 仍关闭。</small>
+            </div>
+          </div>
+          <p v-if="configCenterError" class="settings-note is-error">{{ configCenterError }}</p>
         </div>
 
         <div class="final-panel">
@@ -50,6 +90,7 @@
             <div><span>演示版本</span><strong>Phase 04 → 06</strong></div>
             <div><span>安全操作</span><strong>{{ healthSafeModeLabel }}</strong></div>
             <div><span>服务状态</span><strong class="ok">{{ healthStatusLabel(healthStatus) }}</strong></div>
+            <div><span>配置中心</span><strong>{{ configSourceLabel }}</strong></div>
             <div><span>自动回滚</span><strong class="warn">未开放</strong></div>
             <div><span>当前环境</span><strong>本地演示</strong></div>
           </div>
@@ -62,20 +103,19 @@
             <h2>门店设置</h2>
             <p>基础信息、联系信息与营业设置</p>
           </div>
-          <BaseButton size="sm" :disabled="!settingsDirty" @click="saveLocalSettings">保存设置</BaseButton>
+          <BaseButton size="sm" :disabled="!settingsDirty || configSaving" @click="saveStoreSettings">{{ configSaving ? '保存中' : '保存设置' }}</BaseButton>
         </div>
         <div class="final-panel__body form-stack">
           <h3>基础信息</h3>
+          <BaseSelect v-if="storeOptions.length" v-model="settingsForm.defaultStoreId" label="默认门店" :options="storeOptions" @change="handleDefaultStoreChange" />
           <BaseInput v-model="settingsForm.storeName" label="门店名称" />
-          <BaseInput v-model="settingsForm.storeCode" label="门店编码" />
+          <BaseInput v-model="settingsForm.storeCode" label="门店编码" disabled hint="门店编码只读，本轮不保存编码变更。" />
           <BaseSelect v-model="settingsForm.storeType" label="门店类型" :options="storeTypeOptions" />
           <BaseSelect v-model="settingsForm.region" label="所属区域" :options="regionOptions" />
-          <BaseInput v-model="settingsForm.address" label="详细地址" />
           <h3>联系信息</h3>
           <div class="form-grid">
             <BaseInput v-model="settingsForm.contactName" label="联系人" />
-            <BaseInput v-model="settingsForm.contactPhone" label="联系电话" />
-            <BaseInput v-model="settingsForm.backupPhone" label="备用电话" />
+            <BaseInput v-model="settingsForm.contactPhone" label="联系电话（脱敏展示）" hint="保存时仅保留脱敏展示值。" />
             <BaseInput v-model="settingsForm.email" label="联系邮箱" />
           </div>
           <h3>营业设置</h3>
@@ -85,7 +125,7 @@
             <BaseInput v-model="settingsForm.closeAt" label="结束时间" />
           </div>
           <button type="button" class="toggle-row" :class="{ 'is-on': settingsForm.weekendOpen }" @click="settingsForm.weekendOpen = !settingsForm.weekendOpen"><span>周末营业</span><strong>{{ settingsForm.weekendOpen ? '开启' : '关闭' }}</strong><i></i></button>
-          <p class="settings-note">{{ saveMessage || '配置项只保存到本地浏览器演示状态，不读取或写入真实商家配置。' }}</p>
+          <p class="settings-note">{{ saveMessage || '非敏感配置优先保存到本地 MySQL；浏览器预览无 IPC 时回退 localStorage。敏感凭证不会读取或写入。' }}</p>
         </div>
       </aside>
     </section>
@@ -100,6 +140,7 @@ import BaseSelect from '../../../components/BaseSelect.vue'
 import { SettingsCard } from '../../../components/ui'
 import { uiV2MockAdapter } from '../../../adapters/uiV2'
 import { actorContextAdapter, getCurrentActorContext } from '../../../adapters/uiV2/actorContextAdapter.js'
+import { configCenterAdapter } from '../../../adapters/uiV2/configCenterAdapter.js'
 import { healthCheckAdapter } from '../../../adapters/uiV2/healthCheckAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
@@ -110,35 +151,39 @@ const actorContext = ref(actorContextAdapter.getLocalActorContext())
 const selectedRole = ref(actorContext.value.role)
 const health = ref(null)
 const healthError = ref('')
-const SETTINGS_STORAGE_KEY = 'ui-v2-local-demo-settings'
+const configOverview = ref(null)
+const configStores = ref([])
+const configCenterError = ref('')
+const configLoading = ref(false)
+const configSaving = ref(false)
 const defaultSettingsForm = Object.freeze({
-  storeName: '深圳南山店',
-  storeCode: 'SZ-NS-001',
-  storeType: '直营门店',
-  region: '广东省 / 深圳市 / 南山区',
-  address: '深圳市南山区科技园南区科苑路8号讯美科技广场B座8楼',
-  contactName: '林小姐',
-  contactPhone: '138 **** 8899',
-  backupPhone: '0755-**** 1234',
-  email: 'linxiaoxu@zuling.com',
+  storeName: '小狗相机租赁',
+  storeCode: '',
+  storeType: 'camera-rental',
+  region: 'local-demo',
+  contactName: '运营负责人',
+  contactPhone: '',
+  email: '',
   businessOpen: true,
   weekendOpen: true,
-  openAt: '10:00',
-  closeAt: '18:00',
+  openAt: '09:30',
+  closeAt: '21:30',
+  defaultStoreId: '',
 })
 const roleOptions = [
   { label: '店主', value: 'owner' },
   { label: '运营员', value: 'operator' },
   { label: '只读查看', value: 'viewer' },
 ]
-const storeTypeOptions = ['直营门店', '加盟门店', '仓储点', '临时展点']
+const storeTypeOptions = ['camera-rental', '直营门店', '加盟门店', '仓储点', '临时展点']
 const regionOptions = [
+  'local-demo',
   '广东省 / 深圳市 / 南山区',
   '广东省 / 广州市 / 天河区',
   '上海市 / 上海市 / 徐汇区',
   '北京市 / 北京市 / 朝阳区',
 ]
-const settingsForm = ref(loadLocalSettings())
+const settingsForm = ref({ ...defaultSettingsForm })
 const savedSettingsSnapshot = ref(JSON.stringify(settingsForm.value))
 const saveMessage = ref('')
 
@@ -153,24 +198,53 @@ const healthSafeMode = computed(() => health.value?.safeOps?.safeMode || 'gated-
 const healthSafeModeLabel = computed(() => healthSafeModeLabelText(healthSafeMode.value))
 const actorRoleLabel = computed(() => actorContext.value?.roleLabel || actorContextAdapter.getRoleLabel(actorContext.value?.role))
 const settingsDirty = computed(() => JSON.stringify(settingsForm.value) !== savedSettingsSnapshot.value)
+const configStats = computed(() => ({
+  totalCount: Number(configOverview.value?.config?.totalCount || 0),
+  nonSensitiveCount: Number(configOverview.value?.config?.nonSensitiveCount || 0),
+  sensitiveCount: Number(configOverview.value?.config?.sensitiveCount || 0),
+  sensitiveConfiguredCount: Number(configOverview.value?.config?.sensitiveConfiguredCount || 0),
+}))
+const credentialGroups = computed(() => Array.isArray(configOverview.value?.externalCredentials)
+  ? configOverview.value.externalCredentials
+  : [])
+const configSourceLabel = computed(() => {
+  const source = configOverview.value?.source || ''
+  if (source === 'mysql') return '本地 MySQL'
+  if (source === 'localStorage') return '浏览器本地预览'
+  return configLoading.value ? '读取中' : '未连接'
+})
+const configCenterSummary = computed(() => {
+  if (!configOverview.value?.ok) return configOverview.value?.message || '配置中心尚未就绪。'
+  return `stores ${configOverview.value.stores?.count || 0}，config ${configStats.value.totalCount}，外部真实调用关闭。`
+})
+const storeOptions = computed(() => configStores.value.map((store) => ({
+  label: `${store.name || store.code || store.id}${store.isDefault ? '（默认）' : ''}`,
+  value: String(store.id),
+})))
 
-function loadLocalSettings() {
+async function saveStoreSettings() {
+  configSaving.value = true
+  saveMessage.value = ''
   try {
-    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY)
-    const parsed = raw ? JSON.parse(raw) : {}
-    return { ...defaultSettingsForm, ...(parsed && typeof parsed === 'object' ? parsed : {}) }
-  } catch {
-    return { ...defaultSettingsForm }
-  }
-}
-
-function saveLocalSettings() {
-  try {
-    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsForm.value))
+    const result = await configCenterAdapter.saveStoreSettings(settingsForm.value)
+    if (!result?.ok) {
+      saveMessage.value = result?.message || '保存失败；未写入敏感配置。'
+      return
+    }
+    settingsForm.value = {
+      ...defaultSettingsForm,
+      ...(result.settings || settingsForm.value),
+    }
+    if (Array.isArray(result.stores)) configStores.value = result.stores
     savedSettingsSnapshot.value = JSON.stringify(settingsForm.value)
-    saveMessage.value = '设置已保存（本地演示），不会写入业务数据库。'
-  } catch {
-    saveMessage.value = '本地保存失败；未写入业务数据库。'
+    saveMessage.value = result.persisted === 'mysql'
+      ? '非敏感配置已保存到本地 MySQL；敏感凭证未读取、未写入。'
+      : '浏览器预览已保存到 localStorage；未访问 IPC 或外部服务。'
+    await loadConfigCenter()
+  } catch (error) {
+    saveMessage.value = error?.message || '保存失败；未执行危险写入。'
+  } finally {
+    configSaving.value = false
   }
 }
 
@@ -201,6 +275,9 @@ function healthCheckLabel(check = {}) {
     safeops_tables: '安全操作表',
     external_gateway: '外部真实调用',
     rollback: '自动回滚执行器',
+    config_center: '本地配置中心',
+    stores: '门店配置',
+    sensitive_redaction: '敏感配置脱敏',
   }
   return labels[check.key] || check.label || '本地检查'
 }
@@ -226,6 +303,43 @@ async function loadHealth() {
   if (!result?.ok) healthError.value = result?.message || '健康检查返回阻断状态'
 }
 
+async function loadConfigCenter() {
+  configLoading.value = true
+  configCenterError.value = ''
+  try {
+    const [settingsResult, overviewResult] = await Promise.all([
+      configCenterAdapter.getStoreSettings(),
+      configCenterAdapter.getOverview(),
+    ])
+    configOverview.value = overviewResult
+    configStores.value = Array.isArray(settingsResult?.stores) ? settingsResult.stores : []
+    if (settingsResult?.settings) {
+      settingsForm.value = {
+        ...defaultSettingsForm,
+        ...settingsResult.settings,
+      }
+      savedSettingsSnapshot.value = JSON.stringify(settingsForm.value)
+    }
+    if (!settingsResult?.ok) {
+      configCenterError.value = settingsResult?.message || '配置中心设置读取失败，已降级。'
+    } else if (!overviewResult?.ok) {
+      configCenterError.value = overviewResult?.message || '配置中心概览读取失败，已降级。'
+    }
+  } catch (error) {
+    configCenterError.value = error?.message || '配置中心读取失败；未执行写入。'
+  } finally {
+    configLoading.value = false
+  }
+}
+
+function handleDefaultStoreChange() {
+  const selectedStore = configStores.value.find((store) => String(store.id) === String(settingsForm.value.defaultStoreId))
+  if (!selectedStore) return
+  settingsForm.value.storeName = selectedStore.name || settingsForm.value.storeName
+  settingsForm.value.storeCode = selectedStore.code || settingsForm.value.storeCode
+  settingsForm.value.businessOpen = String(selectedStore.status || '').toLowerCase() === 'active'
+}
+
 async function changeRole() {
   actorContext.value = actorContextAdapter.setDemoRole(selectedRole.value)
   await loadActorContext()
@@ -233,6 +347,7 @@ async function changeRole() {
 }
 
 onMounted(async () => {
+  await loadConfigCenter()
   await loadActorContext()
   await loadHealth()
 })
@@ -312,6 +427,48 @@ watch(settingsForm, () => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.config-center-grid,
+.credential-grid {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.credential-grid {
+  padding-top: 0;
+}
+
+.config-center-card,
+.credential-card {
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-8);
+  background: var(--ui-surface);
+  display: grid;
+  gap: 6px;
+}
+
+.config-center-card span,
+.credential-card span {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.config-center-card strong,
+.credential-card strong {
+  color: var(--ui-text);
+  font-size: 16px;
+}
+
+.config-center-card small,
+.credential-card small {
+  color: var(--ui-text-muted);
+  line-height: 1.5;
 }
 
 .readiness-card {
@@ -453,7 +610,9 @@ watch(settingsForm, () => {
   }
 
   .settings-inline-form,
-  .readiness-grid {
+  .readiness-grid,
+  .config-center-grid,
+  .credential-grid {
     grid-template-columns: 1fr;
   }
 }

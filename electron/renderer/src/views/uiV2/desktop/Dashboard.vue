@@ -22,9 +22,14 @@
         <small>{{ healthSummary }}</small>
       </div>
       <div>
+        <span>配置中心</span>
+        <strong>{{ configSourceLabel }}</strong>
+        <small>{{ configSummary }}</small>
+      </div>
+      <div>
         <span>阶段状态</span>
         <strong>3D → 6 本地演示收口</strong>
-        <small>安全预览、权限门禁、健康检查已接入</small>
+        <small>安全预览、权限门禁、配置中心、健康检查已接入</small>
       </div>
       <RouterLink to="/ui-v2/settings">系统健康 / 上线准备</RouterLink>
     </section>
@@ -145,6 +150,7 @@ import StatusBadge from '../../../components/StatusBadge.vue'
 import { MetricCard } from '../../../components/ui'
 import { uiV2Adapter } from '../../../adapters/uiV2'
 import { actorContextAdapter } from '../../../adapters/uiV2/actorContextAdapter.js'
+import { configCenterAdapter } from '../../../adapters/uiV2/configCenterAdapter.js'
 import { healthCheckAdapter } from '../../../adapters/uiV2/healthCheckAdapter.js'
 import UiV2Page from '../shared/UiV2Page.vue'
 import '../shared/uiV2View.css'
@@ -162,6 +168,7 @@ const loadError = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const actorContext = ref(actorContextAdapter.getLocalActorContext())
 const health = ref(null)
+const configOverview = ref(null)
 
 const sourceLabel = computed(() => {
   if (sourceMeta.value.source === 'real') return '本地数据库'
@@ -198,6 +205,19 @@ const healthSummary = computed(() => {
   const readyCount = health.value.checks?.filter((check) => check.status === 'ready').length || 0
   const totalCount = health.value.checks?.length || 0
   return `${readyCount}/${totalCount} 项检查就绪`
+})
+const configSourceLabel = computed(() => {
+  const source = configOverview.value?.source || ''
+  if (source === 'mysql') return '本地 MySQL'
+  if (source === 'localStorage') return '浏览器本地预览'
+  return '读取中'
+})
+const configSummary = computed(() => {
+  if (!configOverview.value?.ok) return configOverview.value?.message || '配置中心待检查'
+  const storesCount = configOverview.value?.stores?.count || 0
+  const configured = configOverview.value?.config?.sensitiveConfiguredCount || 0
+  const total = configOverview.value?.config?.sensitiveCount || 0
+  return `门店 ${storesCount} 个，敏感状态 ${configured}/${total}，真实外部关闭`
 })
 
 function countStatus(status) {
@@ -257,7 +277,12 @@ async function loadDashboard() {
     customers.value = Array.isArray(nextCustomers) ? nextCustomers : []
     sourceMeta.value = resolveDashboardMeta()
     actorContext.value = actorContextAdapter.getLocalActorContext()
-    health.value = await healthCheckAdapter.getLocalDemoHealthCheck()
+    const [nextHealth, nextConfigOverview] = await Promise.all([
+      healthCheckAdapter.getLocalDemoHealthCheck(),
+      configCenterAdapter.getOverview(),
+    ])
+    health.value = nextHealth
+    configOverview.value = nextConfigOverview
   } catch (error) {
     metrics.value = []
     orders.value = []
@@ -283,7 +308,7 @@ onMounted(loadDashboard)
 <style scoped>
 .demo-status-band {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 12px;
   align-items: stretch;
 }

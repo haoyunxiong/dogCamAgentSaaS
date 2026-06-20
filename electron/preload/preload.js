@@ -23,6 +23,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getActorContext: (payload) => ipcRenderer.invoke('safeOps:actorContext', payload || {}),
     healthCheck: (payload) => ipcRenderer.invoke('safeOps:healthCheck', payload || {}),
   },
+  configCenter: {
+    getOverview: () => ipcRenderer.invoke('configCenter:getOverview'),
+    getStoreSettings: () => ipcRenderer.invoke('configCenter:getStoreSettings'),
+    saveStoreSettings: (payload) => ipcRenderer.invoke('configCenter:saveStoreSettings', payload || {}),
+  },
 
   // Prompts
   getPrompts: () => ipcRenderer.invoke('prompts:get'),

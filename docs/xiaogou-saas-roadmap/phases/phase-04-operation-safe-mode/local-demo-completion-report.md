@@ -9,6 +9,7 @@
 - 阶段 4：本地 actor / role / merchant / store context 与 permission gating 完成；
 - 阶段 5：本地 health check / readiness checklist 完成；
 - 阶段 6：Dashboard / Orders / Devices / Schedule / Logistics / Deposit / Settings 本地 Demo 页面闭环完成。
+- 本地配置中心：Settings / Dashboard 已接入本地 MySQL `stores` / `config` 非敏感配置读取保存，敏感凭证只显示 configured / missing 状态。
 
 ## 当前内部写 operationTypes
 
@@ -61,7 +62,29 @@
 - external real disabled；
 - rollback executor unavailable；
 - gated internal operations；
+- 本地配置中心 `stores` / `config` 可用性；
+- 敏感配置脱敏状态；
 - UI-V2 Demo route 配置状态。
+
+## 本地配置中心
+
+配置中心当前用于本地 Demo 的安全设置页，不是生产凭证中心。
+
+当前已接入：
+
+- `stores`：读取门店列表、默认门店、营业状态；允许保存门店名称、营业状态、默认门店；
+- `config`：允许保存白名单内的非敏感配置，例如门店类型、区域、联系人、脱敏联系电话、邮箱、营业时间；
+- `deposit_exemption_rules`：只读计数，用于显示免押规则数据状态；
+- `sf_shipments` / `sf_shipment_events`：只读计数，用于显示顺丰本地数据状态；
+- Settings / Dashboard：显示配置来源、门店数量、非敏感配置数量、敏感配置状态和外部真实调用关闭状态。
+
+安全边界：
+
+- 不返回敏感配置明文；
+- 不保存 token / secret / cookie / password / webhook / card / auth / session 等敏感 key；
+- 联系电话只保存脱敏展示值；
+- 外部 API real execute 仍 disabled；
+- 后续真实凭证接入必须通过 CredentialService 或等价加密存储方案。
 
 ## 页面入口
 

@@ -43,6 +43,9 @@ function buildLocalHealthFallback(policy = {}) {
       { key: 'safeops_tables', label: '安全操作表', status: policy.persistence?.available ? 'ready' : 'preview-only', detail: policy.persistence?.reason || '已通过安全策略降级检查。' },
       { key: 'external_gateway', label: '外部真实调用', status: external.realEnabled === false ? 'ready' : 'blocked', detail: '真实模式和外部写入必须保持关闭。' },
       { key: 'rollback', label: '自动回滚执行器', status: 'ready', detail: '自动回滚执行器按设计未开放。' },
+      { key: 'config_center', label: '本地配置中心', status: 'preview-only', detail: '浏览器预览使用 localStorage fallback；Electron 桌面环境读取 stores/config。' },
+      { key: 'stores', label: '门店配置', status: 'preview-only', detail: '浏览器预览不直接访问 MySQL，门店配置由配置中心 adapter 降级提供。' },
+      { key: 'sensitive_redaction', label: '敏感配置脱敏', status: 'ready', detail: '敏感配置只展示 configured/missing 状态，不返回明文。' },
     ],
     safeOps: {
       safeMode: policy.safeMode || 'gated-internal-write',
