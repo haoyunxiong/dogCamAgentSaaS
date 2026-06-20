@@ -7,24 +7,23 @@
 
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
     <section class="demo-status-band">
       <div>
-        <span>本地 Demo</span>
-        <strong>{{ actorContext.role }} · {{ actorContext.merchantId }}</strong>
-        <small>{{ actorContext.storeId }} / real external disabled</small>
+        <span>本地演示</span>
+        <strong>{{ actorRoleLabel }} · {{ actorContext.merchantName || actorContext.merchantId }}</strong>
+        <small>{{ actorContext.storeName || actorContext.storeId }} / 外部真实调用关闭</small>
       </div>
       <div>
-        <span>safeOps</span>
-        <strong>{{ healthStatus }}</strong>
+        <span>安全操作</span>
+        <strong>{{ healthStatusLabel }}</strong>
         <small>{{ healthSummary }}</small>
       </div>
       <div>
         <span>阶段状态</span>
-        <strong>3D → 6 Demo 收口</strong>
+        <strong>3D → 6 本地演示收口</strong>
         <small>安全预览、权限门禁、健康检查已接入</small>
       </div>
       <RouterLink to="/ui-v2/settings">系统健康 / 上线准备</RouterLink>
@@ -165,9 +164,8 @@ const actorContext = ref(actorContextAdapter.getLocalActorContext())
 const health = ref(null)
 
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 
 const todayActionTotal = computed(() => countStatus('待发货') + countStatus('待归还') + countStatus('待押金') + countStatus('异常'))
@@ -185,11 +183,21 @@ const overviewItems = computed(() => [
 const topModel = computed(() => topBy(orders.value, (order) => order.model || '未填写型号'))
 const topSource = computed(() => topBy(orders.value, (order) => order.channel || order.source || '手工'))
 const healthStatus = computed(() => health.value?.status || 'checking')
+const actorRoleLabel = computed(() => actorContext.value?.roleLabel || actorContextAdapter.getRoleLabel(actorContext.value?.role))
+const healthStatusLabel = computed(() => {
+  const labels = {
+    checking: '检查中',
+    'ready-for-local-demo': '本地演示就绪',
+    ready: '就绪',
+    blocked: '已阻断',
+  }
+  return labels[healthStatus.value] || healthStatus.value
+})
 const healthSummary = computed(() => {
   if (!health.value?.ok) return '本地检查待完成'
   const readyCount = health.value.checks?.filter((check) => check.status === 'ready').length || 0
   const totalCount = health.value.checks?.length || 0
-  return `${readyCount}/${totalCount} readiness checks ready`
+  return `${readyCount}/${totalCount} 项检查就绪`
 })
 
 function countStatus(status) {

@@ -16,6 +16,7 @@ export function hasUiV2RuntimeBridge() {
 
 function getStoredMode() {
   if (memoryMode) return memoryMode
+  if (typeof window === 'undefined') return ''
 
   try {
     return window.localStorage.getItem(ADAPTER_MODE_KEY) || ''
@@ -25,9 +26,6 @@ function getStoredMode() {
 }
 
 export function getUiV2AdapterMode() {
-  if (isUiV2PreviewMode()) return 'mock'
-  if (!hasUiV2RuntimeBridge()) return 'mock'
-
   return normalizeUiV2AdapterMode(getStoredMode() || 'auto')
 }
 

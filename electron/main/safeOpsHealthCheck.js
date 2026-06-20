@@ -34,40 +34,40 @@ async function getSafeOpsHealthCheck(input = {}) {
     const checks = [
       {
         key: 'db',
-        label: 'Local MySQL connection',
+        label: '本地数据库连接',
         status: normalizeStatus(Boolean(persistence?.available)),
-        detail: persistence?.available ? 'safeOps DB persistence is available' : (persistence?.reason || 'safeOps DB persistence unavailable'),
+        detail: persistence?.available ? '安全操作持久化可用' : (persistence?.reason || '安全操作持久化不可用'),
       },
       {
         key: 'schema_migrations',
-        label: 'schema_migrations ledger',
+        label: '迁移记录',
         status: normalizeStatus(migrationReady),
-        detail: migrationReady ? `migration ${persistence.migration.version} applied` : 'safeOps migration ledger is missing or not applied',
+        detail: migrationReady ? `迁移 ${persistence.migration.version} 已应用` : '迁移记录缺失或尚未应用',
       },
       {
         key: 'safeops_tables',
-        label: 'safeOps tables',
+        label: '安全操作表',
         status: normalizeStatus(safeOpsTablesReady),
-        detail: safeOpsTablesReady ? 'operation audit/token/idempotency/rollback tables ready' : 'safeOps tables are not fully available',
+        detail: safeOpsTablesReady ? '审计、确认令牌、幂等、回滚占位表可用' : '安全操作表尚未全部可用',
       },
       {
         key: 'external_gateway',
-        label: 'External real APIs',
+        label: '外部真实调用',
         status: normalizeStatus(externalRealDisabled),
-        detail: externalRealDisabled ? 'real mode and external writes are disabled' : 'external real mode is not fully disabled',
+        detail: externalRealDisabled ? '真实模式和外部写入已关闭' : '外部真实模式未完全关闭',
       },
       {
         key: 'rollback',
-        label: 'Rollback executor',
+        label: '自动回滚执行器',
         status: normalizeStatus(rollbackUnavailable),
-        detail: rollbackUnavailable ? 'rollback executor unavailable by design' : 'rollback executor unexpectedly enabled',
+        detail: rollbackUnavailable ? '自动回滚执行器按设计未开放' : '自动回滚执行器异常开启',
       },
     ]
 
     const ok = checks.every((check) => check.status === 'ready')
     return {
       ok,
-      mode: 'local-demo-readiness',
+      mode: '本地演示健康检查',
       status: ok ? 'ready-for-local-demo' : 'blocked',
       environment: {
         label: process.env.XIANYU_ENV_LABEL || 'local',
@@ -115,24 +115,24 @@ async function getSafeOpsHealthCheck(input = {}) {
           route,
           configured: true,
           httpCheckedByMain: false,
-          reason: 'main health check does not make HTTP requests; route availability is verified by external smoke commands',
+          reason: 'main 健康检查不发起 HTTP 请求；页面可达性由本地冒烟命令验证',
         })),
       },
       checklist: [
-        'Local DB only; production DB writes are not allowed.',
-        'External real APIs remain disabled.',
-        'Rollback executor remains unavailable.',
-        'Migration backup/rollback must be confirmed before any future production rollout.',
-        'Logs and previews must keep sensitive fields redacted.',
+        '仅允许本地数据库；不允许写生产库。',
+        '外部真实调用保持关闭。',
+        '自动回滚执行器保持未开放。',
+        '未来生产发布前必须先确认迁移备份和回滚流程。',
+        '日志和预览必须保持敏感字段脱敏。',
       ],
     }
   } catch (error) {
     return {
       ok: false,
-      mode: 'local-demo-readiness',
+      mode: '本地演示健康检查',
       status: 'blocked',
       code: 'SAFE_OP_HEALTH_CHECK_ERROR',
-      message: error?.message || 'safeOps health check failed safely',
+      message: error?.message || '安全操作健康检查失败，未执行任何写入。',
     }
   }
 }

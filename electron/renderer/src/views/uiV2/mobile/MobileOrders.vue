@@ -17,7 +17,6 @@
       </MobileAppBar>
       <div class="mobile-source-row">
         <span class="mobile-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-        <span v-if="sourceMeta.fallbackReason" class="mobile-source__reason">{{ sourceMeta.fallbackReason }}</span>
       </div>
       <section class="mobile-dark-hero orders-hero">
         <div class="mobile-stat-grid is-four">
@@ -84,9 +83,8 @@ const loading = ref(false)
 const loadError = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 const filteredOrders = computed(() => orders.value.filter((order) => {
   const text = `${order.orderNo}${order.customerName}${order.model}`

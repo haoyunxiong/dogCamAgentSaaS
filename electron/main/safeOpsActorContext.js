@@ -3,11 +3,16 @@ const OPERATOR_ROLE = 'operator'
 const VIEWER_ROLE = 'viewer'
 
 const DEMO_ROLES = Object.freeze([OWNER_ROLE, OPERATOR_ROLE, VIEWER_ROLE])
+const ROLE_LABELS = Object.freeze({
+  [OWNER_ROLE]: '店主',
+  [OPERATOR_ROLE]: '运营员',
+  [VIEWER_ROLE]: '只读查看',
+})
 const DEMO_MERCHANT_CONTEXT = Object.freeze({
-  merchantId: 'demo-merchant-xiaogou-camera',
-  merchantName: '小狗相机租赁 Demo 商户',
-  storeId: 'demo-store-main',
-  storeName: '本地 Demo 总店',
+  merchantId: 'xiaogou-camera-rental',
+  merchantName: '小狗相机租赁',
+  storeId: 'shenzhen-nanshan-store',
+  storeName: '深圳南山店',
 })
 
 const DEFAULT_ACTOR_CONTEXT = Object.freeze({
@@ -50,6 +55,7 @@ function normalizeActorContext(actor = {}) {
   return {
     id,
     role,
+    roleLabel: ROLE_LABELS[role],
     source,
     sessionId: actor.sessionId ? String(actor.sessionId) : DEFAULT_ACTOR_CONTEXT.sessionId,
     merchantId: normalizeText(actor.merchantId) || DEMO_MERCHANT_CONTEXT.merchantId,
@@ -78,7 +84,7 @@ function evaluateSafeOpsPermission({ actor = {}, operationType, action = 'previe
       return {
         allowed: false,
         code: 'SAFE_OP_EXTERNAL_DISABLED',
-        reason: 'External execute remains disabled for every role in local demo.',
+        reason: '外部真实执行在本地演示中始终关闭。',
         actorContext,
       }
     }
@@ -86,7 +92,7 @@ function evaluateSafeOpsPermission({ actor = {}, operationType, action = 'previe
       return {
         allowed: false,
         code: 'SAFE_OP_EXECUTE_DISABLED',
-        reason: 'Only explicitly gated internal operations can execute in local demo.',
+        reason: '本地演示只允许已加入安全门禁的内部操作执行。',
         actorContext,
       }
     }
@@ -94,14 +100,14 @@ function evaluateSafeOpsPermission({ actor = {}, operationType, action = 'previe
       return {
         allowed: false,
         code: 'SAFE_OP_PERMISSION_DENIED',
-        reason: 'Viewer role is read-only and cannot execute safeOps writes.',
+        reason: '只读查看角色只能查看，不能执行安全写操作。',
         actorContext,
       }
     }
     return {
       allowed: true,
       code: 'SAFE_OP_PERMISSION_ALLOWED',
-      reason: `${actorContext.role} can execute gated internal safeOps operations.`,
+      reason: `${actorContext.roleLabel}可以执行已加入门禁的内部安全操作。`,
       actorContext,
     }
   }
@@ -111,7 +117,7 @@ function evaluateSafeOpsPermission({ actor = {}, operationType, action = 'previe
       return {
         allowed: false,
         code: 'SAFE_OP_PERMISSION_DENIED',
-        reason: 'External gateway preview is owner-only in local demo.',
+        reason: '外部网关预览在本地演示中仅店主可查看。',
         actorContext,
       }
     }
@@ -121,8 +127,8 @@ function evaluateSafeOpsPermission({ actor = {}, operationType, action = 'previe
     allowed: true,
     code: 'SAFE_OP_PERMISSION_ALLOWED',
     reason: actorContext.role === VIEWER_ROLE
-      ? 'Viewer can inspect previews but cannot execute writes.'
-      : `${actorContext.role} can inspect this safeOps preview.`,
+      ? '只读查看角色可以查看预览，但不能执行写操作。'
+      : `${actorContext.roleLabel}可以查看该安全操作预览。`,
     actorContext,
   }
 }
@@ -134,6 +140,7 @@ function getDemoActorContext(input = {}) {
     current: normalizeActorContext(input.actor || input),
     roles: DEMO_ROLES.map((role) => ({
       role,
+      label: ROLE_LABELS[role],
       canExecuteInternal: role === OWNER_ROLE || role === OPERATOR_ROLE,
       canPreviewExternal: role === OWNER_ROLE,
       canExecuteExternal: false,

@@ -5,6 +5,7 @@
       <select
         class="base-select__native"
         :value="modelValue"
+        :aria-label="label || placeholder || '选择项'"
         :disabled="disabled"
         @change="handleChange"
         @focus="emit('focus', $event)"
@@ -20,7 +21,7 @@
           {{ option.label }}
         </option>
       </select>
-      <span class="base-select__chevron" aria-hidden="true">v</span>
+      <span class="base-select__chevron" aria-hidden="true">⌄</span>
     </span>
     <span v-if="hasError" class="base-select__message">{{ errorMessage }}</span>
     <span v-else-if="hint" class="base-select__hint">{{ hint }}</span>

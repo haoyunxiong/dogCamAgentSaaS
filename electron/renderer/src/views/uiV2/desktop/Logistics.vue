@@ -6,25 +6,24 @@
     </template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
     <section v-if="sfPreview?.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-page-sf-preview">
       <div><span>顺丰预览</span><strong>不真实下单</strong></div>
       <div><span>模式</span><strong>{{ sfPreview.view.mode }}</strong></div>
       <div><span>预览模式</span><strong>{{ sfPreview.view.externalPreviewModeLabel }}</strong></div>
-      <div><span>persistence</span><strong>{{ sfPreview.view.persistenceLabel }}</strong></div>
-      <div><span>execute</span><strong>{{ sfPreview.view.executeLabel }}</strong></div>
-      <div><span>writeWillExecute</span><strong>{{ sfPreview.view.writeWillExecute }}</strong></div>
-      <div><span>externalCallWillExecute</span><strong>{{ sfPreview.view.externalCallWillExecute }}</strong></div>
-      <div><span>audit</span><strong>{{ sfPreview.view.auditLabel }}</strong></div>
-      <div><span>confirm</span><strong>{{ sfPreview.view.confirmLabel }}</strong></div>
-      <div><span>idempotency</span><strong>{{ sfPreview.view.idempotencyLabel }}</strong></div>
-      <div><span>external gateway</span><strong>{{ sfPreview.view.externalGatewayLabel }}</strong></div>
-      <div><span>mock waybill</span><strong>{{ sfPreview.view.mockWaybillLabel }}</strong></div>
-      <div><span>sandbox payload</span><strong>{{ sfPreview.view.sandboxPayloadLabel }}</strong></div>
+      <div><span>持久化</span><strong>{{ sfPreview.view.persistenceLabel }}</strong></div>
+      <div><span>执行门禁</span><strong>{{ sfPreview.view.executeLabel }}</strong></div>
+      <div><span>数据写入</span><strong>{{ sfPreview.view.writeWillExecute }}</strong></div>
+      <div><span>外部调用</span><strong>{{ sfPreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>审计记录</span><strong>{{ sfPreview.view.auditLabel }}</strong></div>
+      <div><span>确认令牌</span><strong>{{ sfPreview.view.confirmLabel }}</strong></div>
+      <div><span>幂等保护</span><strong>{{ sfPreview.view.idempotencyLabel }}</strong></div>
+      <div><span>外部网关</span><strong>{{ sfPreview.view.externalGatewayLabel }}</strong></div>
+      <div><span>模拟运单</span><strong>{{ sfPreview.view.mockWaybillLabel }}</strong></div>
+      <div><span>沙盒报文</span><strong>{{ sfPreview.view.sandboxPayloadLabel }}</strong></div>
       <div><span>开放状态</span><strong>{{ sfPreviewStatusLabel }}</strong></div>
-      <div><span>说明</span><strong>外部真实调用未开放 / mock-sandbox only</strong></div>
+      <div><span>说明</span><strong>外部真实调用未开放 / 模拟/沙盒预览</strong></div>
     </section>
     <section class="ui-v2-metric-grid"><MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" /></section>
     <div v-if="loading" class="adapter-state">物流只读数据读取中...</div>
@@ -69,7 +68,7 @@
           <div class="sf-preview-gateway__head">
             <div>
               <span>顺丰预览</span>
-              <strong>gateway disabled or mock/sandbox only</strong>
+              <strong>真实外部已关闭，仅支持模拟/沙盒预览</strong>
             </div>
             <span>不真实下单 · 不调用外部服务</span>
           </div>
@@ -78,33 +77,33 @@
             <BaseButton size="sm" :loading="sfPreview?.loading || false" @click="previewShipment('drawer-mode-action')">生成顺丰预览</BaseButton>
             <BaseButton size="sm" variant="secondary" disabled>真实下单未开放</BaseButton>
           </div>
-          <p class="safeops-note">当前仅 mock/sandbox payload 预览；real 永远返回 disabled；不会写 shipping_records；不会更新订单或档期。</p>
+          <p class="safeops-note">当前仅生成模拟/沙盒预览；真实模式始终关闭；不会写本地发货记录；不会更新订单或档期。</p>
         </section>
         <section v-if="sfPreview?.view" class="final-drawer-card ui-v2-detail-grid" data-testid="logistics-sf-safeops-preview">
           <div><span>顺丰预览</span><strong>不真实下单</strong></div>
           <div><span>模式</span><strong>{{ sfPreview.view.mode }}</strong></div>
           <div><span>预览模式</span><strong>{{ sfPreview.view.externalPreviewModeLabel }}</strong></div>
-          <div><span>persistence</span><strong>{{ sfPreview.view.persistenceLabel }}</strong></div>
-          <div><span>execute</span><strong>{{ sfPreview.view.executeLabel }}</strong></div>
-          <div><span>writeWillExecute</span><strong>{{ sfPreview.view.writeWillExecute }}</strong></div>
-          <div><span>externalCallWillExecute</span><strong>{{ sfPreview.view.externalCallWillExecute }}</strong></div>
-          <div><span>audit</span><strong>{{ sfPreview.view.auditLabel }}</strong></div>
+          <div><span>持久化</span><strong>{{ sfPreview.view.persistenceLabel }}</strong></div>
+          <div><span>执行门禁</span><strong>{{ sfPreview.view.executeLabel }}</strong></div>
+          <div><span>数据写入</span><strong>{{ sfPreview.view.writeWillExecute }}</strong></div>
+          <div><span>外部调用</span><strong>{{ sfPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>审计记录</span><strong>{{ sfPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ sfPreview.view.riskLevel }}</strong></div>
-          <div><span>confirm</span><strong>{{ sfPreview.view.confirmLabel }}</strong></div>
-          <div><span>idempotency</span><strong>{{ sfPreview.view.idempotencyLabel }}</strong></div>
-          <div><span>external gateway</span><strong>{{ sfPreview.view.externalGatewayLabel }}</strong></div>
-          <div><span>request preview</span><strong>{{ sfPreview.view.requestPayloadPreviewLabel }}</strong></div>
-          <div><span>mock waybill</span><strong>{{ sfPreview.view.mockWaybillLabel }}</strong></div>
-          <div><span>sandbox payload</span><strong>{{ sfPreview.view.sandboxPayloadLabel }}</strong></div>
+          <div><span>确认令牌</span><strong>{{ sfPreview.view.confirmLabel }}</strong></div>
+          <div><span>幂等保护</span><strong>{{ sfPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>外部网关</span><strong>{{ sfPreview.view.externalGatewayLabel }}</strong></div>
+          <div><span>请求预览</span><strong>{{ sfPreview.view.requestPayloadPreviewLabel }}</strong></div>
+          <div><span>模拟运单</span><strong>{{ sfPreview.view.mockWaybillLabel }}</strong></div>
+          <div><span>沙盒报文</span><strong>{{ sfPreview.view.sandboxPayloadLabel }}</strong></div>
           <div><span>开放状态</span><strong>{{ sfPreviewStatusLabel }}</strong></div>
         </section>
         <section class="final-drawer-card logistics-local-record" data-testid="logistics-local-record-safeops">
           <div class="logistics-local-record__head">
             <div>
               <span>本地发货记录</span>
-              <strong>shipping_records</strong>
+              <strong>本地发货记录</strong>
             </div>
-            <span>需要确认 · 已审计 · rollback 暂不可自动执行</span>
+            <span>需要确认 · 已审计 · 自动回滚暂不可执行</span>
           </div>
           <div class="logistics-local-record__grid">
             <BaseInput v-model="localRecordForm.orderId" label="订单 ID / 订单号" />
@@ -128,7 +127,7 @@
               确认创建本地记录
             </BaseButton>
           </div>
-          <p class="safeops-note">只写本地 shipping_records；不调用顺丰；不调用外部接口；不更新订单状态。</p>
+          <p class="safeops-note">只写本地发货记录；不调用顺丰；不调用外部接口；不更新订单状态。</p>
           <p v-if="shipmentPreview?.view?.blockedReason" class="adapter-source__error">{{ shipmentPreview.view.blockedReason }}</p>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
@@ -138,7 +137,7 @@
           <div><span>下一步</span><strong>{{ selectedWaybill.nextAction }}</strong></div>
         </section>
         <UiV2Section title="物流时间线"><TrackingTimeline :steps="selectedWaybill.timeline" /></UiV2Section>
-        <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；gateway disabled；不会调用顺丰；不会产生外部费用。</p></UiV2Section>
+        <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；真实外部已关闭；不会调用顺丰；不会产生外部费用。</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
@@ -191,10 +190,10 @@ const sourceMeta = ref(uiV2Adapter.getMeta())
 const logisticsTabs = ['全部', '待下单', '待揽收', '运输中', '已签收', '异常', '已取消']
 const safeOpsActor = buildSafeOpsActor('ui-v2-logistics')
 const sfPreviewModeOptions = [
-  { label: 'disabled（默认）', value: 'disabled' },
-  { label: 'mock（不真实下单）', value: 'mock' },
-  { label: 'sandbox payload（不发送请求）', value: 'sandbox' },
-  { label: 'real（禁用）', value: 'real' },
+  { label: '默认关闭', value: 'disabled' },
+  { label: '模拟预览（不真实下单）', value: 'mock' },
+  { label: '沙盒预览（不发送请求）', value: 'sandbox' },
+  { label: '真实模式（已关闭）', value: 'real' },
 ]
 const carrierOptions = [
   { label: '手工记录', value: 'manual' },
@@ -237,9 +236,8 @@ const metrics = computed(() => [
   { key: 'total', label: '物流记录', value: waybills.value.length, unit: '', trend: '订单派生', tone: 'info' },
 ])
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 const filteredWaybills = computed(() => waybills.value.filter((item) => {
   const text = `${item.orderId}${item.customerName}${item.model}${item.trackingNo}`
@@ -262,11 +260,11 @@ const logisticsPreviewStatusLabel = computed(() => {
 })
 const sfPreviewStatusLabel = computed(() => {
   const result = sfPreview.value?.result || {}
-  if (!result.operationType) return 'gateway disabled / 默认关闭'
-  if (result.externalPreviewMode === 'mock') return 'mock preview only / 不真实下单'
-  if (result.externalPreviewMode === 'sandbox') return 'sandbox payload only / 不发送请求'
-  if (result.externalPreviewMode === 'real') return 'real disabled / 禁止真实调用'
-  return 'gateway disabled / 不真实下单'
+  if (!result.operationType) return '默认关闭'
+  if (result.externalPreviewMode === 'mock') return '模拟预览，不真实下单'
+  if (result.externalPreviewMode === 'sandbox') return '沙盒预览，不发送请求'
+  if (result.externalPreviewMode === 'real') return '真实模式已关闭，禁止真实调用'
+  return '真实外部已关闭 / 不真实下单'
 })
 function countStatus(nextStatus) {
   return waybills.value.filter((item) => item.shippingStatus === nextStatus).length

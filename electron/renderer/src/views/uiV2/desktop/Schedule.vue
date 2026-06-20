@@ -7,21 +7,20 @@
 
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
     <section v-if="schedulePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="schedule-safeops-preview">
-      <div><span>操作预览</span><strong>dry-run only</strong></div>
+      <div><span>操作预览</span><strong>仅预览，不写入</strong></div>
       <div><span>模式</span><strong>{{ schedulePreview.view.mode }}</strong></div>
-      <div><span>persistence</span><strong>{{ schedulePreview.view.persistenceLabel }}</strong></div>
-      <div><span>execute</span><strong>{{ schedulePreview.view.executeLabel }}</strong></div>
-      <div><span>writeWillExecute</span><strong>{{ schedulePreview.view.writeWillExecute }}</strong></div>
-      <div><span>externalCallWillExecute</span><strong>{{ schedulePreview.view.externalCallWillExecute }}</strong></div>
-      <div><span>audit</span><strong>{{ schedulePreview.view.auditLabel }}</strong></div>
-      <div><span>confirm</span><strong>{{ schedulePreview.view.confirmLabel }}</strong></div>
-      <div><span>idempotency</span><strong>{{ schedulePreview.view.idempotencyLabel }}</strong></div>
-      <div><span>conflictCheck</span><strong>{{ schedulePreview.view.conflictLabel }}</strong></div>
+      <div><span>持久化</span><strong>{{ schedulePreview.view.persistenceLabel }}</strong></div>
+      <div><span>执行门禁</span><strong>{{ schedulePreview.view.executeLabel }}</strong></div>
+      <div><span>数据写入</span><strong>{{ schedulePreview.view.writeWillExecute }}</strong></div>
+      <div><span>外部调用</span><strong>{{ schedulePreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>审计记录</span><strong>{{ schedulePreview.view.auditLabel }}</strong></div>
+      <div><span>确认令牌</span><strong>{{ schedulePreview.view.confirmLabel }}</strong></div>
+      <div><span>幂等保护</span><strong>{{ schedulePreview.view.idempotencyLabel }}</strong></div>
+      <div><span>冲突检查</span><strong>{{ schedulePreview.view.conflictLabel }}</strong></div>
       <div><span>开放状态</span><strong>{{ schedulePreviewStatusLabel }}</strong></div>
       <div><span>说明</span><strong>本地安全操作 / 不调用外部服务</strong></div>
     </section>
@@ -45,10 +44,10 @@
 
     <FilterBar title="档期筛选" hint="按最终图保留日期、型号、门店和状态筛选">
       <div class="filter-row">
-        <BaseInput model-value="2025-06-14 ~ 2025-06-20" label="日期范围" readonly />
+        <BaseSelect v-model="scheduleRange" label="日期范围" :options="scheduleRangeOptions" />
         <BaseInput v-model="keyword" search clearable placeholder="搜索资产编号 / 型号" />
         <BaseSelect v-model="model" label="型号" :options="['全部型号', ...options.deviceModels]" />
-        <BaseSelect model-value="深圳南山店" label="门店" :options="['深圳南山店']" />
+        <BaseSelect v-model="scheduleStore" label="门店" :options="scheduleStoreOptions" />
       </div>
     </FilterBar>
 
@@ -113,9 +112,9 @@
             <div class="schedule-safe-update__head">
               <div>
                 <span>单条档期安全操作</span>
-                <strong>本地 safeOps</strong>
+                <strong>本地安全操作</strong>
               </div>
-              <span>需要确认 · 已审计 · rollback 暂不可自动执行</span>
+              <span>需要确认 · 已审计 · 自动回滚暂不可执行</span>
             </div>
             <div class="schedule-safe-update__grid">
               <BaseInput v-model="scheduleCreateForm.startDate" label="开始日期" type="date" />
@@ -156,7 +155,7 @@
             <BaseButton variant="secondary" size="sm" @click="previewScheduleBlock('batch-lock')">批量锁库预览</BaseButton>
             <BaseButton size="sm">查看设备详情</BaseButton>
           </div>
-          <p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p>
+          <p class="safeops-note">仅生成安全预览；不会写入；不会调用外部服务。</p>
         </div>
       </aside>
     </section>
@@ -184,6 +183,8 @@ const sevenDates = ref([])
 const options = ref({ deviceModels: [] })
 const keyword = ref('')
 const model = ref('全部型号')
+const scheduleRange = ref('未来 7 天')
+const scheduleStore = ref('全部门店')
 const status = ref('全部型号')
 const selectedSlot = ref(null)
 const loading = ref(false)
@@ -208,11 +209,12 @@ const scheduleBlockTypeOptions = [
   { label: '缓冲', value: 'buffer' },
 ]
 const safeOpsActor = buildSafeOpsActor('ui-v2-schedule')
+const scheduleRangeOptions = ['今日', '未来 7 天', '本月', '下月', '自定义演示范围']
+const scheduleStoreOptions = ['全部门店', '深圳南山店', '广州天河店', '上海徐汇店']
 
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 
 const modelMetrics = computed(() => options.value.deviceModels.slice(0, 5).map((item) => {
@@ -223,6 +225,7 @@ const modelMetrics = computed(() => options.value.deviceModels.slice(0, 5).map((
 
 const filteredDevices = computed(() => devices.value.filter((device) => {
   const matchModel = model.value === '全部型号' || device.model === model.value
+  const matchStore = scheduleStore.value === '全部门店' || device.location === scheduleStore.value
   const matchKeyword = !keyword.value || `${device.assetNo}${device.model}`.includes(keyword.value)
   const matchStatus = status.value === '全部状态' || status.value === '全部型号' || sevenDates.value.some((date) => {
     const slotStatus = slotFor(device.id, date)?.status
@@ -232,7 +235,7 @@ const filteredDevices = computed(() => devices.value.filter((device) => {
       : status.value === '即将归还' ? slotStatus === '占用'
       : slotStatus === status.value
   })
-  return matchModel && matchKeyword && matchStatus
+  return matchModel && matchStore && matchKeyword && matchStatus
 }))
 
 const groupedDevices = computed(() => options.value.deviceModels.map((item) => ({

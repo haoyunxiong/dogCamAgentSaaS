@@ -170,7 +170,7 @@ export function mapDashboardMetrics(sources = {}) {
   const repairDevices = devices.filter(isRepairDevice).length
 
   return [
-    { key: 'todayOrders', label: '今日订单', value: orders.filter((order) => orderDate(order) === today).length, unit: '单', trend: '真实只读', tone: 'info' },
+    { key: 'todayOrders', label: '今日订单', value: orders.filter((order) => orderDate(order) === today).length, unit: '单', trend: '本地数据库', tone: 'info' },
     { key: 'monthOrders', label: '本月订单', value: orders.filter((order) => orderDate(order).startsWith(month)).length, unit: '单', trend: month, tone: 'info' },
     { key: 'pendingOrders', label: '待处理订单', value: orders.filter(isPendingOrder).length, unit: '单', trend: '只读汇总', tone: 'warning' },
     { key: 'activeOrders', label: '租赁中订单', value: orders.filter(isActiveOrder).length, unit: '单', trend: '履约中', tone: 'success' },

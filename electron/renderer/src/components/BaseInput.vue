@@ -3,12 +3,13 @@
     <span v-if="label" class="base-input__label">{{ label }}</span>
     <span class="base-input__control">
       <span v-if="$slots.prefix || prefixIcon || search" class="base-input__affix" aria-hidden="true">
-        <slot name="prefix">{{ search ? 'search' : prefixIcon }}</slot>
+        <slot name="prefix">{{ search ? '搜索' : prefixIcon }}</slot>
       </span>
       <input
         :value="modelValue"
         :type="type"
         :placeholder="placeholder"
+        :aria-label="label || placeholder || (search ? '搜索' : '输入框')"
         :disabled="disabled"
         :autocomplete="autocomplete"
         class="base-input__native"
@@ -24,7 +25,7 @@
         aria-label="清空"
         @click="clear"
       >
-        x
+        ×
       </button>
       <span v-else-if="$slots.suffix || suffixIcon" class="base-input__affix" aria-hidden="true">
         <slot name="suffix">{{ suffixIcon }}</slot>

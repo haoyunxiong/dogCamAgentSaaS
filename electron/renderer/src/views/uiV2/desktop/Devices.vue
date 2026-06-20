@@ -7,20 +7,19 @@
 
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
     <section v-if="devicePreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-page-safeops-preview">
-      <div><span>操作预览</span><strong>dry-run only</strong></div>
+      <div><span>操作预览</span><strong>仅预览，不写入</strong></div>
       <div><span>开放状态</span><strong>{{ devicePreviewStatusLabel }}</strong></div>
-      <div><span>persistence</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
-      <div><span>execute</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
-      <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
-      <div><span>externalCallWillExecute</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
-      <div><span>audit</span><strong>{{ devicePreview.view.auditLabel }}</strong></div>
-      <div><span>confirm</span><strong>{{ devicePreview.view.confirmLabel }}</strong></div>
-      <div><span>idempotency</span><strong>{{ devicePreview.view.idempotencyLabel }}</strong></div>
+      <div><span>持久化</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
+      <div><span>执行门禁</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
+      <div><span>数据写入</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
+      <div><span>外部调用</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>审计记录</span><strong>{{ devicePreview.view.auditLabel }}</strong></div>
+      <div><span>确认令牌</span><strong>{{ devicePreview.view.confirmLabel }}</strong></div>
+      <div><span>幂等保护</span><strong>{{ devicePreview.view.idempotencyLabel }}</strong></div>
       <div><span>说明</span><strong>不会写入 / 不会调用外部服务</strong></div>
     </section>
 
@@ -32,9 +31,10 @@
       <StatusTabs v-model="status" :items="statusTabs" />
       <div class="filter-row">
         <BaseInput v-model="keyword" search clearable placeholder="搜索资产编号、型号、位置" />
+        <BaseSelect v-model="status" label="设备状态" :options="deviceStatusFilterOptions" />
         <BaseSelect v-model="model" label="型号" :options="['全部型号', ...options.deviceModels]" />
         <BaseSelect v-model="location" label="门店" :options="['全部门店', ...locations]" />
-        <BaseButton variant="secondary">重置</BaseButton>
+        <BaseButton variant="secondary" @click="resetFilters">重置</BaseButton>
       </div>
     </FilterBar>
 
@@ -84,9 +84,9 @@
           <div class="device-safe-update__header">
             <div>
               <span>设备基础信息安全更新</span>
-              <strong>本地 safeOps</strong>
+              <strong>本地安全操作</strong>
             </div>
-            <span>需要确认 · 可审计 · rollback 暂不可自动执行</span>
+            <span>需要确认 · 可审计 · 自动回滚暂不可执行</span>
           </div>
           <div class="device-safe-update__grid">
             <BaseInput v-model="deviceBasicForm.city" label="所在城市" placeholder="填写城市" />
@@ -107,20 +107,20 @@
               确认执行
             </BaseButton>
           </div>
-          <p class="safeops-note">dry-run first；不调用外部接口；只允许 city / note / status。</p>
+          <p class="safeops-note">先预览再确认；不调用外部接口；只允许更新城市、内部备注和受限状态。</p>
           <p v-if="devicePreview.view?.blockedReason" class="adapter-source__error">{{ devicePreview.view.blockedReason }}</p>
         </section>
         <section v-if="devicePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="devices-safeops-preview">
-          <div><span>操作预览</span><strong>dry-run only</strong></div>
+          <div><span>操作预览</span><strong>仅预览，不写入</strong></div>
           <div><span>开放状态</span><strong>{{ devicePreviewStatusLabel }}</strong></div>
-          <div><span>persistence</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
-          <div><span>execute</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
-          <div><span>writeWillExecute</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
-          <div><span>externalCallWillExecute</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
-          <div><span>audit</span><strong>{{ devicePreview.view.auditLabel }}</strong></div>
+          <div><span>持久化</span><strong>{{ devicePreview.view.persistenceLabel }}</strong></div>
+          <div><span>执行门禁</span><strong>{{ devicePreview.view.executeLabel }}</strong></div>
+          <div><span>数据写入</span><strong>{{ devicePreview.view.writeWillExecute }}</strong></div>
+          <div><span>外部调用</span><strong>{{ devicePreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>审计记录</span><strong>{{ devicePreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ devicePreview.view.riskLevel }}</strong></div>
-          <div><span>confirm</span><strong>{{ devicePreview.view.confirmLabel }}</strong></div>
-          <div><span>idempotency</span><strong>{{ devicePreview.view.idempotencyLabel }}</strong></div>
+          <div><span>确认令牌</span><strong>{{ devicePreview.view.confirmLabel }}</strong></div>
+          <div><span>幂等保护</span><strong>{{ devicePreview.view.idempotencyLabel }}</strong></div>
         </section>
         <p v-if="devicePreview.error" class="adapter-source__error">{{ devicePreview.error }}</p>
         <section class="final-drawer-card ui-v2-detail-grid">
@@ -136,7 +136,7 @@
         </UiV2Section>
         <UiV2Section title="操作建议">
           <p>{{ selectedDevice.conditionNote || '状态正常，可继续分配给符合租期的新订单。' }}</p>
-          <p class="safeops-note">dry-run only；暂未开放；不会写入；不会调用外部服务。</p>
+          <p class="safeops-note">仅生成安全预览；不会写入；不会调用外部服务。</p>
         </UiV2Section>
       </div>
     </BaseDrawer>
@@ -186,6 +186,7 @@ const deviceStatusOptions = [
   { label: '维护中', value: 'repair' },
   { label: '停用', value: 'offline' },
 ]
+const deviceStatusFilterOptions = ['全部', '可租', '在租', '待清洁', '维修中', '异常', '停用']
 const locations = computed(() => [...new Set(devices.value.map((device) => device.location).filter(Boolean))])
 const columns = [
   { key: 'assetNo', label: '设备编号' },
@@ -202,9 +203,8 @@ const columns = [
 ]
 
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 
 const deviceMetrics = computed(() => [
@@ -253,6 +253,13 @@ const devicePreviewStatusLabel = computed(() => {
 
 function countStatus(nextStatus) {
   return devices.value.filter((device) => device.status === nextStatus).length
+}
+
+function resetFilters() {
+  status.value = '全部'
+  model.value = '全部型号'
+  location.value = '全部门店'
+  keyword.value = ''
 }
 
 function getRawDeviceStatus(device = {}) {
@@ -398,7 +405,7 @@ async function executeDeviceBasicUpdate() {
       message: error?.message || '设备基础信息更新失败',
       writeWillExecute: false,
       externalCallWillExecute: false,
-      blockers: [error?.message || 'safeOps execute failed safely'],
+      blockers: [error?.message || '安全执行失败，未执行任何写入'],
       audit: { mode: 'noop', persisted: false },
       execute: { enabled: false, code: 'SAFE_OP_EXECUTE_ERROR' },
     })
@@ -451,7 +458,7 @@ onMounted(loadDevices)
 <style scoped>
 .filter-row {
   display: grid;
-  grid-template-columns: 1.2fr repeat(2, minmax(180px, 0.6fr)) auto;
+  grid-template-columns: 1.2fr repeat(3, minmax(150px, 0.6fr)) auto;
   gap: 10px;
   align-items: end;
 }

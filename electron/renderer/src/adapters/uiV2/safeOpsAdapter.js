@@ -52,24 +52,24 @@ const SAFE_OP_POLICIES = Object.freeze([
 const POLICY_BY_OPERATION = new Map(SAFE_OP_POLICIES.map((policy) => [policy.operationType, policy]))
 
 const LOCAL_PREVIEW_SUMMARIES = Object.freeze({
-  'order.internal_note.update': 'Renderer noop internal note preview. Real local write requires Electron safeOps execute and will not call external services.',
-  'device.basic.update': 'Renderer noop device basic update preview. Real local write requires Electron safeOps execute and will only update city, note, status.',
-  'schedule.block.create': 'Renderer noop schedule block create preview. Real local write requires Electron safeOps execute and will only insert one local schedule block.',
-  'schedule.block.cancel': 'Renderer noop schedule block cancel preview. Real local write requires Electron safeOps execute and will only soft-cancel one local schedule block.',
-  'logistics.local_record.create': 'Renderer noop local logistics record preview. Real local write requires Electron safeOps execute and will only insert one local shipping_records row.',
-  'order.status.transition.preview': 'Renderer noop order status preview. This is dry-run only and will not change order state, schedule, logistics, or notifications.',
-  'order.edit.preview': 'Renderer noop order edit preview. This is dry-run only and will not change order fields, fees, devices, schedule, or logistics.',
-  'device.update.preview': 'Renderer noop device update preview. This is dry-run only and will not change device profile, inventory, or availability.',
-  'device.delete.preview': 'Renderer noop device delete preview. This is dry-run only and will not delete device data, schedule blocks, or order relations.',
-  'schedule.block.preview': 'Renderer noop schedule block preview. This is dry-run only and will not write schedule data or lock inventory.',
-  'logistics.shipment.preview': 'Renderer noop shipment preview. This is dry-run only and will not save shipment drafts, create waybills, charge fees, or call carrier services.',
-  'deposit.create.preview': 'Renderer noop deposit create preview. This is dry-run only and will not create deposit orders or change local cache.',
-  'deposit.finish.preview': 'Renderer noop deposit finish preview. This is dry-run only and will not finish deposit orders or change local cache.',
-  'logistics.sf.create_order': 'External gateway disabled. SF Express real order creation is not open and no external call will run.',
-  'logistics.sf.cancel_order': 'External gateway disabled. SF Express real cancellation is not open and no external call will run.',
-  'deposit.create': 'External gateway disabled. Deposit real creation is not open and no external call will run.',
-  'deposit.finish': 'External gateway disabled. Deposit real finish is not open and no external call will run.',
-  'xianyu.order.sync': 'External gateway disabled. Xianyu real order sync is not open and no external call will run.',
+  'order.internal_note.update': '内部备注安全预览：真实写入只在 Electron 桌面 safeOps 中执行，不会调用外部服务。',
+  'device.basic.update': '设备基础字段安全预览：真实写入只允许更新城市、备注和受限状态，不会调用外部服务。',
+  'schedule.block.create': '档期占用创建安全预览：真实写入只会新增一条本地档期占用。',
+  'schedule.block.cancel': '档期占用取消安全预览：真实写入只会软取消一条本地档期占用。',
+  'logistics.local_record.create': '本地发货记录安全预览：真实写入只会新增一条本地发货记录，不会调用顺丰。',
+  'order.status.transition.preview': '订单状态流转预览：本轮只预览，不会改变订单、档期、物流或通知状态。',
+  'order.edit.preview': '订单编辑预览：本轮只预览，不会改变订单字段、金额、设备、档期或物流。',
+  'device.update.preview': '设备维护预览：本轮只预览，不会改变设备资料、库存或可租状态。',
+  'device.delete.preview': '设备删除预览：本轮只预览，不会删除设备、档期占用或订单关联。',
+  'schedule.block.preview': '档期占用预览：本轮只预览，不会写入档期，也不会锁库。',
+  'logistics.shipment.preview': '发货预览：本轮只预览，不会保存寄件草稿、生成运单、产生费用或调用承运商。',
+  'deposit.create.preview': '免押创建预览：本轮只预览，不会创建免押单或修改本地缓存。',
+  'deposit.finish.preview': '免押完结预览：本轮只预览，不会完结免押单或修改本地缓存。',
+  'logistics.sf.create_order': '顺丰真实下单默认关闭，不会发起外部调用。',
+  'logistics.sf.cancel_order': '顺丰真实取消默认关闭，不会发起外部调用。',
+  'deposit.create': '免押真实创建默认关闭，不会发起外部调用。',
+  'deposit.finish': '免押真实完结默认关闭，不会发起外部调用。',
+  'xianyu.order.sync': '闲鱼真实同步默认关闭，不会发起外部调用。',
 })
 
 function cloneJson(value) {
@@ -455,7 +455,7 @@ function buildLocalPolicy() {
         { providerName: 'xianyu_platform', currentMode: 'disabled', realEnabled: false, sandboxEnabled: true, mockEnabled: true, externalWritesEnabled: false, status: 'disabled', previewModes: ['disabled', 'mock', 'sandbox'] },
       ],
     },
-    persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+    persistence: { mode: 'noop', available: false, reason: '浏览器预览未连接桌面接口' },
     source: 'renderer-noop',
   }
 }
@@ -467,8 +467,8 @@ function buildUnsupportedPreview(operationType) {
     supported: false,
     code: 'SAFE_OP_UNSUPPORTED',
     message: normalizedOperationType
-      ? `Unsupported safe operation: ${normalizedOperationType}`
-      : 'Unsupported safe operation: operationType is required',
+      ? `暂不支持该安全操作：${normalizedOperationType}`
+      : '暂不支持该安全操作：缺少操作类型',
   }
 }
 
@@ -494,18 +494,18 @@ function buildLocalPreview(payload = {}) {
       externalCallWillExecute: false,
       riskLevel: policy.riskLevel,
       warnings: externalPreviewOpen
-        ? ['Renderer SF Express preview only. No external request will be sent.']
-        : ['External gateway is disabled by default.', 'SF Express real order creation is not open.'],
+        ? ['顺丰预览仅生成本地模拟结果，不会发送外部请求。']
+        : ['外部网关默认关闭。', '顺丰真实下单未开放。'],
       blockers: externalPreviewOpen
         ? []
         : [
-            mode === 'real' ? 'Real mode is disabled for SF Express create order.' : 'External gateway mode is disabled.',
-            'External execute is not implemented for this operationType.',
+            mode === 'real' ? '顺丰真实模式已关闭。' : '外部网关当前关闭。',
+            '该操作不开放外部真实执行。',
           ],
       impact: {
         summary: externalPreviewOpen
-          ? `Renderer SF Express ${mode} preview. No waybill will be created and no external service will be called.`
-          : 'Renderer SF Express preview is disabled. No waybill will be created and no external service will be called.',
+          ? `顺丰${mode === 'sandbox' ? '沙盒' : '模拟'}预览已生成，不会创建真实运单，也不会调用顺丰。`
+          : '顺丰预览当前关闭，不会创建真实运单，也不会调用顺丰。',
         affectedRecords: [],
         externalEffects: [],
       },
@@ -517,7 +517,7 @@ function buildLocalPreview(payload = {}) {
         impactHash: null,
         status: externalPreviewOpen ? 'previewed' : 'blocked',
       },
-      persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+      persistence: { mode: 'noop', available: false, reason: '浏览器预览未连接桌面接口' },
       requiresConfirm: true,
       requiresIdempotencyKey: true,
       execute: cloneJson(EXTERNAL_EXECUTE_DISABLED_POLICY),
@@ -562,7 +562,7 @@ function buildLocalPreview(payload = {}) {
         token: null,
         tokenHash: null,
         expiresAt: null,
-        reason: externalPreviewOpen ? 'renderer-preview-no-bridge' : 'renderer-preview-execute-disabled',
+        reason: externalPreviewOpen ? '浏览器预览未连接桌面接口' : '外部执行未开放',
       },
       idempotency: {
         mode: 'noop',
@@ -570,7 +570,7 @@ function buildLocalPreview(payload = {}) {
         persisted: false,
         keyHash: null,
         status: externalPreviewOpen ? 'previewed' : 'blocked',
-        reason: 'renderer-preview-no-bridge',
+        reason: '浏览器预览未连接桌面接口',
       },
       rollback: {
         mode: 'noop',
@@ -578,7 +578,7 @@ function buildLocalPreview(payload = {}) {
         persisted: false,
         canRollback: false,
         compensationRequired: true,
-        reason: 'renderer-preview-no-write-executed',
+        reason: '未执行写入，无需自动回滚',
       },
       source: 'renderer-noop',
     }
@@ -600,18 +600,18 @@ function buildLocalPreview(payload = {}) {
       externalCallWillExecute: false,
       riskLevel: policy.riskLevel,
       warnings: externalPreviewOpen
-        ? [`Renderer deposit service ${action} preview only. No external request will be sent.`]
-        : ['External gateway is disabled by default.', `Deposit service ${action} real operation is not open.`],
+        ? ['免押服务预览仅生成本地模拟结果，不会发送外部请求。']
+        : ['外部网关默认关闭。', '免押真实操作未开放。'],
       blockers: externalPreviewOpen
         ? []
         : [
-            mode === 'real' ? `Real mode is disabled for deposit service ${action}.` : 'External gateway mode is disabled.',
-            'External execute is not implemented for this operationType.',
+            mode === 'real' ? '免押服务真实模式已关闭。' : '外部网关当前关闭。',
+            '该操作不开放外部真实执行。',
           ],
       impact: {
         summary: externalPreviewOpen
-          ? `Renderer deposit service ${action} ${mode} preview. No deposit order will be created or finished and no external service will be called.`
-          : `Renderer deposit service ${action} preview is disabled. No deposit order will be created or finished and no external service will be called.`,
+          ? `免押服务${mode === 'sandbox' ? '沙盒' : '模拟'}预览已生成，不会创建或完结真实免押单，也不会调用外部服务。`
+          : '免押服务预览当前关闭，不会创建或完结真实免押单，也不会调用外部服务。',
         affectedRecords: [],
         externalEffects: [],
       },
@@ -623,7 +623,7 @@ function buildLocalPreview(payload = {}) {
         impactHash: null,
         status: externalPreviewOpen ? 'previewed' : 'blocked',
       },
-      persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+      persistence: { mode: 'noop', available: false, reason: '浏览器预览未连接桌面接口' },
       requiresConfirm: true,
       requiresIdempotencyKey: true,
       execute: cloneJson(EXTERNAL_EXECUTE_DISABLED_POLICY),
@@ -669,7 +669,7 @@ function buildLocalPreview(payload = {}) {
         token: null,
         tokenHash: null,
         expiresAt: null,
-        reason: externalPreviewOpen ? 'renderer-preview-no-bridge' : 'renderer-preview-execute-disabled',
+        reason: externalPreviewOpen ? '浏览器预览未连接桌面接口' : '外部执行未开放',
       },
       idempotency: {
         mode: 'noop',
@@ -677,7 +677,7 @@ function buildLocalPreview(payload = {}) {
         persisted: false,
         keyHash: null,
         status: externalPreviewOpen ? 'previewed' : 'blocked',
-        reason: 'renderer-preview-no-bridge',
+        reason: '浏览器预览未连接桌面接口',
       },
       rollback: {
         mode: 'noop',
@@ -685,7 +685,7 @@ function buildLocalPreview(payload = {}) {
         persisted: false,
         canRollback: false,
         compensationRequired: true,
-        reason: 'renderer-preview-no-write-executed',
+        reason: '未执行写入，无需自动回滚',
       },
       source: 'renderer-noop',
     }
@@ -706,18 +706,18 @@ function buildLocalPreview(payload = {}) {
       externalCallWillExecute: false,
       riskLevel: policy.riskLevel,
       warnings: externalPreviewOpen
-        ? ['Renderer Xianyu order sync preview only. No external request will be sent.']
-        : ['External gateway is disabled by default.', 'Xianyu real order sync is not open.'],
+        ? ['闲鱼同步预览仅生成本地模拟结果，不会发送外部请求。']
+        : ['外部网关默认关闭。', '闲鱼真实同步未开放。'],
       blockers: externalPreviewOpen
         ? []
         : [
-            mode === 'real' ? 'Real mode is disabled for Xianyu order sync.' : 'External gateway mode is disabled.',
-            'External execute is not implemented for this operationType.',
+            mode === 'real' ? '闲鱼真实模式已关闭。' : '外部网关当前关闭。',
+            '该操作不开放外部真实执行。',
           ],
       impact: {
         summary: externalPreviewOpen
-          ? `Renderer Xianyu order sync ${mode} preview. No Xianyu sync will run and no local order will be changed.`
-          : 'Renderer Xianyu order sync preview is disabled. No Xianyu sync will run and no local order will be changed.',
+          ? `闲鱼订单同步${mode === 'sandbox' ? '沙盒' : '模拟'}预览已生成，不会同步闲鱼，也不会修改本地订单。`
+          : '闲鱼同步预览当前关闭，不会同步闲鱼，也不会修改本地订单。',
         affectedRecords: [],
         externalEffects: [],
       },
@@ -729,7 +729,7 @@ function buildLocalPreview(payload = {}) {
         impactHash: null,
         status: externalPreviewOpen ? 'previewed' : 'blocked',
       },
-      persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+      persistence: { mode: 'noop', available: false, reason: '浏览器预览未连接桌面接口' },
       requiresConfirm: true,
       requiresIdempotencyKey: true,
       execute: cloneJson(EXTERNAL_EXECUTE_DISABLED_POLICY),
@@ -776,7 +776,7 @@ function buildLocalPreview(payload = {}) {
         token: null,
         tokenHash: null,
         expiresAt: null,
-        reason: externalPreviewOpen ? 'renderer-preview-no-bridge' : 'renderer-preview-execute-disabled',
+        reason: externalPreviewOpen ? '浏览器预览未连接桌面接口' : '外部执行未开放',
       },
       idempotency: {
         mode: 'noop',
@@ -784,7 +784,7 @@ function buildLocalPreview(payload = {}) {
         persisted: false,
         keyHash: null,
         status: externalPreviewOpen ? 'previewed' : 'blocked',
-        reason: 'renderer-preview-no-bridge',
+        reason: '浏览器预览未连接桌面接口',
       },
       rollback: {
         mode: 'noop',
@@ -792,7 +792,7 @@ function buildLocalPreview(payload = {}) {
         persisted: false,
         canRollback: false,
         compensationRequired: true,
-        reason: 'renderer-preview-no-write-executed',
+        reason: '未执行写入，无需自动回滚',
       },
       source: 'renderer-noop',
     }
@@ -806,10 +806,10 @@ function buildLocalPreview(payload = {}) {
     writeWillExecute: false,
     externalCallWillExecute: false,
     riskLevel: policy.riskLevel,
-    warnings: isExternalOperation ? ['External gateway is disabled by default.'] : [],
-    blockers: isExternalOperation ? ['External real call is disabled.', 'External execute is not implemented for this operationType.'] : [],
+    warnings: isExternalOperation ? ['外部网关默认关闭。'] : [],
+    blockers: isExternalOperation ? ['外部真实调用已关闭。', '该操作不开放外部真实执行。'] : [],
     impact: {
-      summary: LOCAL_PREVIEW_SUMMARIES[operationType] || 'Renderer noop safeOps preview. This action is dry-run only and will not write data or call external services.',
+      summary: LOCAL_PREVIEW_SUMMARIES[operationType] || '本次仅生成安全预览，不会写入数据，也不会调用外部服务。',
       affectedRecords: [],
       externalEffects: [],
     },
@@ -821,7 +821,7 @@ function buildLocalPreview(payload = {}) {
       impactHash: null,
       status: 'previewed',
     },
-    persistence: { mode: 'noop', available: false, reason: 'renderer-preview-no-bridge' },
+    persistence: { mode: 'noop', available: false, reason: '浏览器预览未连接桌面接口' },
     requiresConfirm: true,
     requiresIdempotencyKey: true,
     execute: cloneJson(isExternalOperation ? EXTERNAL_EXECUTE_DISABLED_POLICY : EXECUTE_DISABLED_POLICY),
@@ -866,7 +866,7 @@ function buildLocalPreview(payload = {}) {
       token: null,
       tokenHash: null,
       expiresAt: null,
-      reason: 'renderer-preview-execute-disabled',
+      reason: '浏览器预览未执行真实写入',
     },
     idempotency: {
       mode: 'noop',
@@ -874,7 +874,7 @@ function buildLocalPreview(payload = {}) {
       persisted: false,
       keyHash: null,
       status: 'not-claimed',
-      reason: 'renderer-preview-execute-disabled',
+      reason: '浏览器预览未执行真实写入',
     },
     rollback: {
       mode: 'noop',
@@ -882,7 +882,7 @@ function buildLocalPreview(payload = {}) {
       persisted: false,
       canRollback: false,
       compensationRequired: false,
-      reason: 'no-write-executed',
+      reason: '未执行写入',
     },
     source: 'renderer-noop',
   }
@@ -896,8 +896,8 @@ function buildLocalExecuteDisabled(operationType) {
     supported: true,
     code: isExternalOperation ? 'SAFE_OP_EXTERNAL_DISABLED' : 'SAFE_OP_EXECUTE_DISABLED',
     message: isExternalOperation
-      ? 'External gateway real execution is disabled. No external call will run.'
-      : 'safeOps execute is unavailable in renderer preview mode.',
+      ? '外部真实执行已关闭，不会发起外部调用。'
+      : '当前浏览器预览没有桌面执行接口，未执行任何写入。',
     operationType: normalizedOperationType,
     mode: isExternalOperation ? 'external-execute-disabled' : 'execute-disabled',
     writeWillExecute: false,
@@ -916,7 +916,7 @@ function buildLocalExecuteDisabled(operationType) {
       persisted: false,
       canRollback: false,
       compensationRequired: false,
-      reason: 'renderer-preview-no-execute',
+      reason: '浏览器预览未执行真实写入',
     },
     source: 'renderer-noop',
   }
@@ -927,15 +927,15 @@ function buildLocalPermissionDenied(operationType, actor = {}) {
     ok: false,
     supported: true,
     code: 'SAFE_OP_PERMISSION_DENIED',
-    message: 'Current demo role cannot execute this safeOps operation.',
+    message: '当前演示角色无权执行该安全操作。',
     operationType: normalizeOperationType(operationType),
     mode: 'execute-disabled',
     writeWillExecute: false,
     externalCallWillExecute: false,
     actorContext: actor,
     blockers: [
-      'Viewer role is read-only in local demo.',
-      'No business write was executed.',
+      '只读查看角色不能执行写操作。',
+      '本次没有执行任何业务写入。',
     ],
     rollback: {
       mode: 'noop',
@@ -943,7 +943,7 @@ function buildLocalPermissionDenied(operationType, actor = {}) {
       persisted: false,
       canRollback: false,
       compensationRequired: false,
-      reason: 'renderer-demo-permission-denied',
+      reason: '演示角色权限不足',
     },
     source: 'renderer-noop',
   }
@@ -954,7 +954,7 @@ function buildSafeError(code, message) {
     ok: false,
     supported: false,
     code,
-    message: message || 'safeOps request failed safely',
+    message: message || '安全操作请求失败，未执行任何写入。',
   }
 }
 
@@ -978,7 +978,7 @@ async function preview(payload = {}) {
     const result = await bridge.preview(payload || {})
     return result && typeof result === 'object'
       ? result
-      : buildSafeError('SAFE_OP_PREVIEW_ERROR', 'safeOps preview returned an invalid response')
+      : buildSafeError('SAFE_OP_PREVIEW_ERROR', '安全预览返回格式异常')
   } catch (error) {
     return buildSafeError('SAFE_OP_PREVIEW_ERROR', error?.message)
   }
@@ -1003,7 +1003,7 @@ async function execute(payload = {}) {
     const result = await bridge.execute(payload || {})
     return result && typeof result === 'object'
       ? result
-      : buildSafeError('SAFE_OP_EXECUTE_ERROR', 'safeOps execute returned an invalid response')
+      : buildSafeError('SAFE_OP_EXECUTE_ERROR', '安全执行返回格式异常')
   } catch (error) {
     return buildSafeError('SAFE_OP_EXECUTE_ERROR', error?.message)
   }

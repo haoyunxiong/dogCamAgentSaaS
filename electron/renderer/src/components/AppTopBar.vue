@@ -2,14 +2,20 @@
   <header v-if="isUiV2" class="app-topbar app-topbar--uiv2">
     <div class="tb-uiv2-spacer" aria-hidden="true"></div>
     <div class="tb-uiv2-controls">
-      <button class="tb-uiv2-select" type="button">
-        <span>深圳南山店</span>
+      <label class="tb-uiv2-select">
+        <span class="tb-uiv2-field-label">门店</span>
+        <select v-model="topbarStore" aria-label="顶部门店">
+          <option v-for="store in topbarStores" :key="store" :value="store">{{ store }}</option>
+        </select>
         <ChevronDown class="tb-svg" aria-hidden="true" />
-      </button>
-      <button class="tb-uiv2-date" type="button">
+      </label>
+      <label class="tb-uiv2-date">
         <CalendarDays class="tb-svg" aria-hidden="true" />
-        <span>2025-06-14 ~ 2025-06-14</span>
-      </button>
+        <span class="tb-uiv2-field-label">日期</span>
+        <select v-model="topbarDateRange" aria-label="顶部日期范围">
+          <option v-for="range in topbarDateRanges" :key="range" :value="range">{{ range }}</option>
+        </select>
+      </label>
       <button class="tb-icon-btn badge-btn" title="通知中心" type="button" @click="goInbox">
         <Bell class="tb-svg" aria-hidden="true" />
         <span class="tb-badge">12</span>
@@ -89,17 +95,21 @@ const router = useRouter()
 const bot = useBotStore()
 const ui = useUiStore()
 const pending = ref(false)
+const topbarStore = ref('深圳南山店')
+const topbarDateRange = ref('今日')
+const topbarStores = ['深圳南山店', '广州天河店', '上海徐汇店', '北京朝阳店']
+const topbarDateRanges = ['今日', '近 7 天', '本月', '下月', '自定义演示范围']
 
 const META = {
-  '/ui-v2': { section: 'UI-V2 Mock', page: '经营工作台' },
-  '/ui-v2/orders': { section: 'UI-V2 Mock', page: '订单中心' },
-  '/ui-v2/schedule': { section: 'UI-V2 Mock', page: '档期中心' },
-  '/ui-v2/devices': { section: 'UI-V2 Mock', page: '设备中心' },
-  '/ui-v2/customers': { section: 'UI-V2 Mock', page: '客户中心' },
-  '/ui-v2/deposit': { section: 'UI-V2 Mock', page: '免押管理' },
-  '/ui-v2/logistics': { section: 'UI-V2 Mock', page: '物流发货' },
-  '/ui-v2/reports': { section: 'UI-V2 Mock', page: '报表中心' },
-  '/ui-v2/settings': { section: 'UI-V2 Mock', page: '系统设置' },
+  '/ui-v2': { section: '租赁运营', page: '经营工作台' },
+  '/ui-v2/orders': { section: '租赁运营', page: '订单中心' },
+  '/ui-v2/schedule': { section: '租赁运营', page: '档期中心' },
+  '/ui-v2/devices': { section: '租赁运营', page: '设备中心' },
+  '/ui-v2/customers': { section: '租赁运营', page: '客户中心' },
+  '/ui-v2/deposit': { section: '租赁运营', page: '免押管理' },
+  '/ui-v2/logistics': { section: '租赁运营', page: '物流发货' },
+  '/ui-v2/reports': { section: '租赁运营', page: '报表中心' },
+  '/ui-v2/settings': { section: '租赁运营', page: '系统设置' },
   '/':            { section: '核心运营',   page: '控制台 / 工作台' },
   '/orders':      { section: '核心运营',   page: '订单履约' },
   '/schedule':    { section: '核心运营',   page: '租赁档期' },
@@ -207,6 +217,39 @@ function openPalette() {
   font-size: 13px;
   font-weight: 720;
   white-space: nowrap;
+}
+
+.tb-uiv2-select,
+.tb-uiv2-date {
+  position: relative;
+}
+
+.tb-uiv2-field-label {
+  color: #667085;
+  font-weight: 680;
+}
+
+.tb-uiv2-select select,
+.tb-uiv2-date select {
+  min-width: 0;
+  max-width: 156px;
+  padding: 0 20px 0 0;
+  border: 0;
+  outline: none;
+  appearance: none;
+  background: transparent;
+  color: #344054;
+  font: inherit;
+  font-weight: 760;
+}
+
+.tb-uiv2-date select {
+  max-width: 180px;
+}
+
+.tb-uiv2-select .tb-svg:last-child {
+  margin-left: -16px;
+  pointer-events: none;
 }
 
 .tb-uiv2-select,

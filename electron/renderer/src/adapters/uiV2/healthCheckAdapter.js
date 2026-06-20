@@ -35,14 +35,14 @@ function buildLocalHealthFallback(policy = {}) {
   ]
   return {
     ok: true,
-    mode: 'renderer-local-demo-readiness',
+    mode: '本地演示健康检查',
     status: 'ready-for-local-demo',
     actorContext: actor,
     checks: [
-      { key: 'db', label: 'Local MySQL connection', status: 'preview-only', detail: 'Renderer preview cannot inspect DB directly.' },
-      { key: 'safeops_tables', label: 'safeOps tables', status: policy.persistence?.available ? 'ready' : 'preview-only', detail: policy.persistence?.reason || 'Checked through safeOps policy fallback.' },
-      { key: 'external_gateway', label: 'External real APIs', status: external.realEnabled === false ? 'ready' : 'blocked', detail: 'real mode and external writes must remain disabled.' },
-      { key: 'rollback', label: 'Rollback executor', status: 'ready', detail: 'rollback executor unavailable by design.' },
+      { key: 'db', label: '本地数据库连接', status: 'preview-only', detail: '浏览器预览不能直接检查数据库，Electron 桌面环境会通过 preload 检查。' },
+      { key: 'safeops_tables', label: '安全操作表', status: policy.persistence?.available ? 'ready' : 'preview-only', detail: policy.persistence?.reason || '已通过安全策略降级检查。' },
+      { key: 'external_gateway', label: '外部真实调用', status: external.realEnabled === false ? 'ready' : 'blocked', detail: '真实模式和外部写入必须保持关闭。' },
+      { key: 'rollback', label: '自动回滚执行器', status: 'ready', detail: '自动回滚执行器按设计未开放。' },
     ],
     safeOps: {
       safeMode: policy.safeMode || 'gated-internal-write',
@@ -62,13 +62,13 @@ function buildLocalHealthFallback(policy = {}) {
         route,
         configured: true,
         httpCheckedByMain: false,
-        reason: 'Route is configured in UI-V2 local demo.',
+        reason: '该页面已纳入本地演示路由。',
       })),
     },
     checklist: [
-      '本地 Demo 可查看。',
+      '本地演示可查看。',
       '外部真实调用未开放。',
-      'rollback executor 未开放。',
+      '自动回滚执行器未开放。',
       '生产上线尚未开启。',
     ],
   }
@@ -87,10 +87,10 @@ export async function getLocalDemoHealthCheck() {
   } catch (error) {
     return {
       ok: false,
-      mode: 'renderer-local-demo-readiness',
+      mode: '本地演示健康检查',
       status: 'blocked',
       code: 'SAFE_OP_HEALTH_CHECK_ERROR',
-      message: error?.message || 'health check fallback failed safely',
+      message: error?.message || '健康检查降级失败，未执行任何写入。',
     }
   }
 }

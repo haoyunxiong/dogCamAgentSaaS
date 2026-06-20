@@ -54,10 +54,10 @@ function buildExternalIdempotencyShape(operationPolicy) {
 
 function buildExternalImpact(operationPolicy, mode = 'disabled') {
   const modeLabel = mode === 'mock'
-    ? 'mock preview'
-    : (mode === 'sandbox' ? 'sandbox payload preview' : 'disabled preview')
+    ? '模拟预览'
+    : (mode === 'sandbox' ? '沙盒预览' : '默认关闭')
   return {
-    summary: `${operationPolicy.operationType} ${modeLabel}: real external action "${operationPolicy.externalAction || 'external_write'}" is disabled. No external request, shipping record write, order status update, schedule change, or fee charge will run.`,
+    summary: `${operationPolicy.operationType} ${modeLabel}：外部真实动作已关闭，不会发送外部请求，不会写发货记录、订单状态、档期或费用。`,
     affectedRecords: [],
     externalEffects: [],
   }
@@ -68,7 +68,7 @@ function normalizeMode(operationInput = {}, provider = {}, operationPolicy = {})
   if (!EXTERNAL_MODES.includes(requestedMode)) {
     return {
       mode: DEFAULT_EXTERNAL_MODE,
-      warnings: [`Unsupported external gateway mode "${requestedMode}" was downgraded to disabled.`],
+      warnings: ['不支持的外部网关模式已降级为默认关闭。'],
     }
   }
   if (requestedMode === 'real') {
@@ -83,7 +83,7 @@ function normalizeMode(operationInput = {}, provider = {}, operationPolicy = {})
   if (!previewModes.includes(requestedMode)) {
     return {
       mode: DEFAULT_EXTERNAL_MODE,
-      warnings: [`External gateway mode "${requestedMode}" is not allowed for preview and was downgraded to disabled.`],
+      warnings: ['当前外部网关模式不允许预览，已降级为默认关闭。'],
     }
   }
   return {
@@ -495,8 +495,8 @@ function buildXianyuOrderSyncPreview(operationInput, operationPolicy, provider) 
       mode: 'external-preview-mock',
       warnings: [
         ...normalizedMode.warnings,
-        'Xianyu order sync mock preview only. No external request will be sent.',
-        'Buyer, seller, item title, address, phone, cookie, session, token, and API key fields are redacted before preview persistence.',
+        '闲鱼订单同步仅生成模拟预览，不会发送外部请求。',
+        '买家、卖家、商品标题、地址、电话、cookie、session、token 和 API key 字段会在预览持久化前脱敏。',
       ],
       blockers: [],
       impact: buildExternalImpact(operationPolicy, mode),
@@ -516,8 +516,8 @@ function buildXianyuOrderSyncPreview(operationInput, operationPolicy, provider) 
       mode: 'external-preview-sandbox',
       warnings: [
         ...normalizedMode.warnings,
-        'Xianyu order sync sandbox payload preview only. No sandbox or real HTTP request will be sent.',
-        'Buyer, seller, item title, address, phone, cookie, session, token, and API key fields are redacted before preview persistence.',
+        '闲鱼订单同步仅生成沙盒预览，不会发送沙盒或真实 HTTP 请求。',
+        '买家、卖家、商品标题、地址、电话、cookie、session、token 和 API key 字段会在预览持久化前脱敏。',
       ],
       blockers: [],
       impact: buildExternalImpact(operationPolicy, mode),
@@ -536,14 +536,14 @@ function buildXianyuOrderSyncPreview(operationInput, operationPolicy, provider) 
     mode: mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled',
     warnings: [
       ...normalizedMode.warnings,
-      'External gateway is disabled by default.',
-      'Xianyu real order sync is not open.',
+      '外部网关默认关闭。',
+      '闲鱼真实同步未开放。',
     ],
     blockers: [
       mode === 'real'
-        ? 'Real mode is disabled for Xianyu order sync.'
-        : 'External gateway mode is disabled.',
-      'External execute is not implemented for this operationType.',
+        ? '闲鱼真实模式已关闭。'
+        : '外部网关当前关闭。',
+      '该操作不开放外部真实执行。',
     ],
     impact: buildExternalImpact(operationPolicy, mode),
     requestPayloadPreview: buildXianyuRequestPayloadPreview(payload, 'disabled', operationPolicy),
@@ -589,8 +589,8 @@ function buildDepositOperationPreview(operationInput, operationPolicy, provider)
       mode: 'external-preview-mock',
       warnings: [
         ...normalizedMode.warnings,
-        `Deposit service ${action} mock preview only. No external request will be sent.`,
-        'Sensitive customer, identity, and payment fields are redacted before preview persistence.',
+        '免押服务仅生成模拟预览，不会发送外部请求。',
+        '客户、身份和支付相关敏感字段会在预览持久化前脱敏。',
       ],
       blockers: [],
       impact: buildExternalImpact(operationPolicy, mode),
@@ -608,8 +608,8 @@ function buildDepositOperationPreview(operationInput, operationPolicy, provider)
       mode: 'external-preview-sandbox',
       warnings: [
         ...normalizedMode.warnings,
-        `Deposit service ${action} sandbox payload preview only. No sandbox or real HTTP request will be sent.`,
-        'Sensitive customer, identity, and payment fields are redacted before preview persistence.',
+        '免押服务仅生成沙盒预览，不会发送沙盒或真实 HTTP 请求。',
+        '客户、身份和支付相关敏感字段会在预览持久化前脱敏。',
       ],
       blockers: [],
       impact: buildExternalImpact(operationPolicy, mode),
@@ -626,14 +626,14 @@ function buildDepositOperationPreview(operationInput, operationPolicy, provider)
     mode: mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled',
     warnings: [
       ...normalizedMode.warnings,
-      'External gateway is disabled by default.',
-      `Deposit service ${action} real operation is not open.`,
+      '外部网关默认关闭。',
+      '免押真实操作未开放。',
     ],
     blockers: [
       mode === 'real'
-        ? `Real mode is disabled for deposit service ${action}.`
-        : 'External gateway mode is disabled.',
-      'External execute is not implemented for this operationType.',
+        ? '免押真实模式已关闭。'
+        : '外部网关当前关闭。',
+      '该操作不开放外部真实执行。',
     ],
     impact: buildExternalImpact(operationPolicy, mode),
     requestPayloadPreview: buildDepositRequestPayloadPreview(payload, 'disabled', operationPolicy),
@@ -676,8 +676,8 @@ function buildSfCreateOrderPreview(operationInput, operationPolicy, provider) {
       mode: 'external-preview-mock',
       warnings: [
         ...normalizedMode.warnings,
-        'SF Express mock preview only. No external request will be sent.',
-        'Sensitive sender/receiver fields are redacted before preview persistence.',
+        '顺丰仅生成模拟预览，不会发送外部请求。',
+        '寄件人和收件人敏感字段会在预览持久化前脱敏。',
       ],
       blockers: [],
       impact: buildExternalImpact(operationPolicy, mode),
@@ -694,8 +694,8 @@ function buildSfCreateOrderPreview(operationInput, operationPolicy, provider) {
       mode: 'external-preview-sandbox',
       warnings: [
         ...normalizedMode.warnings,
-        'SF Express sandbox payload preview only. No sandbox or real HTTP request will be sent.',
-        'Sensitive sender/receiver fields are redacted before preview persistence.',
+        '顺丰仅生成沙盒预览，不会发送沙盒或真实 HTTP 请求。',
+        '寄件人和收件人敏感字段会在预览持久化前脱敏。',
       ],
       blockers: [],
       impact: buildExternalImpact(operationPolicy, mode),
@@ -711,14 +711,14 @@ function buildSfCreateOrderPreview(operationInput, operationPolicy, provider) {
     mode: mode === 'real' ? 'external-preview-real-disabled' : 'external-preview-disabled',
     warnings: [
       ...normalizedMode.warnings,
-      'External gateway is disabled by default.',
-      'SF Express real order creation is not open.',
+      '外部网关默认关闭。',
+      '顺丰真实下单未开放。',
     ],
     blockers: [
       mode === 'real'
-        ? 'Real mode is disabled for SF Express create order.'
-        : 'External gateway mode is disabled.',
-      'External execute is not implemented for this operationType.',
+        ? '顺丰真实模式已关闭。'
+        : '外部网关当前关闭。',
+      '该操作不开放外部真实执行。',
     ],
     impact: buildExternalImpact(operationPolicy, mode),
     requestPayloadPreview: buildSfRequestPayloadPreview(payload, 'disabled'),
@@ -752,12 +752,12 @@ function previewExternalOperation(operationInput = {}) {
     externalCallWillExecute: false,
     riskLevel: operationPolicy.riskLevel,
     warnings: [
-      'External gateway is disabled by default.',
-      'Mock, sandbox, and real external execution are not open in Phase 3A.',
+      '外部网关默认关闭。',
+      '该外部操作尚未开放模拟、沙盒或真实执行。',
     ],
     blockers: [
-      'External real call is disabled.',
-      'External execute is not implemented for this operationType.',
+      '外部真实调用已关闭。',
+      '该操作不开放外部真实执行。',
     ],
     impact: buildExternalImpact(operationPolicy),
     externalGateway: buildExternalGatewayDescriptor(operationPolicy, provider, provider.currentMode || 'disabled'),
@@ -776,7 +776,7 @@ function executeExternalOperation(operationInput = {}) {
     ok: false,
     supported: true,
     code: 'SAFE_OP_EXTERNAL_DISABLED',
-    message: 'External gateway real execution is disabled by default. No external call was made.',
+    message: '外部真实执行默认关闭，本次没有发起外部调用。',
     operationType,
     mode: 'external-execute-disabled',
     writeWillExecute: false,
@@ -784,8 +784,8 @@ function executeExternalOperation(operationInput = {}) {
     riskLevel: operationPolicy.riskLevel,
     warnings: [],
     blockers: [
-      'External writes are disabled.',
-      'Real mode requires separate policy, credentials, idempotency, audit, compensation, and user confirmation.',
+      '外部写入已关闭。',
+      '真实模式需要单独策略、凭证、幂等、审计、补偿和用户确认。',
     ],
     impact: buildExternalImpact(operationPolicy),
     externalGateway: {

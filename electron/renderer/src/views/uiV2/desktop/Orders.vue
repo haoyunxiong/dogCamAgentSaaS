@@ -7,20 +7,19 @@
 
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
     <section v-if="orderPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-page-safeops-preview">
       <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
       <div><span>开放状态</span><strong>暂未开放</strong></div>
-      <div><span>persistence</span><strong>{{ orderPreview.view.persistenceLabel }}</strong></div>
-      <div><span>execute</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
-      <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
-      <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
-      <div><span>audit</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
-      <div><span>confirm</span><strong>{{ orderPreview.view.confirmLabel }}</strong></div>
-      <div><span>idempotency</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
+      <div><span>持久化</span><strong>{{ orderPreview.view.persistenceLabel }}</strong></div>
+      <div><span>执行门禁</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
+      <div><span>数据写入</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
+      <div><span>外部调用</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>审计记录</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
+      <div><span>确认令牌</span><strong>{{ orderPreview.view.confirmLabel }}</strong></div>
+      <div><span>幂等保护</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
     </section>
 
     <section class="ui-v2-metric-grid">
@@ -100,14 +99,14 @@
         <section v-if="orderPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-action-safeops-preview">
           <div><span>操作预览</span><strong>{{ orderPreview.view.title }}</strong></div>
           <div><span>开放状态</span><strong>暂未开放</strong></div>
-          <div><span>persistence</span><strong>{{ orderPreview.view.persistenceLabel }}</strong></div>
-          <div><span>execute</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
-          <div><span>writeWillExecute</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
-          <div><span>externalCallWillExecute</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
-          <div><span>audit</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
+          <div><span>持久化</span><strong>{{ orderPreview.view.persistenceLabel }}</strong></div>
+          <div><span>执行门禁</span><strong>{{ orderPreview.view.executeLabel }}</strong></div>
+          <div><span>数据写入</span><strong>{{ orderPreview.view.writeWillExecute }}</strong></div>
+          <div><span>外部调用</span><strong>{{ orderPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>审计记录</span><strong>{{ orderPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ orderPreview.view.riskLevel }}</strong></div>
-          <div><span>confirm</span><strong>{{ orderPreview.view.confirmLabel }}</strong></div>
-          <div><span>idempotency</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>确认令牌</span><strong>{{ orderPreview.view.confirmLabel }}</strong></div>
+          <div><span>幂等保护</span><strong>{{ orderPreview.view.idempotencyLabel }}</strong></div>
         </section>
         <p v-if="orderPreview.error" class="adapter-source__error">{{ orderPreview.error }}</p>
         <section class="final-drawer-card ui-v2-detail-grid">
@@ -118,10 +117,10 @@
           <div><span>负责人</span><strong>{{ selectedOrder.assignee }}</strong></div>
           <div><span>下一步</span><strong>{{ selectedOrder.nextAction }}</strong></div>
         </section>
-        <UiV2Section title="履约步骤" hint="mock 时间线">
+        <UiV2Section title="履约步骤" hint="履约时间线">
           <TrackingTimeline :steps="orderSteps" />
         </UiV2Section>
-        <UiV2Section title="内部备注/标记" hint="本地 safeOps 操作">
+        <UiV2Section title="内部备注/标记" hint="本地安全操作">
           <div class="internal-note-editor">
             <textarea
               v-model="internalNoteDraft"
@@ -138,32 +137,32 @@
                 确认写入
               </BaseButton>
             </div>
-            <p class="drawer-note">本地安全操作；不调用外部接口；需要确认；可审计；rollback 暂不可自动执行。</p>
+            <p class="drawer-note">本地安全操作；不调用外部接口；需要确认；可审计；自动回滚暂不可执行。</p>
           </div>
           <section v-if="internalNotePreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-internal-note-preview">
             <div><span>操作预览</span><strong>{{ internalNotePreview.view.title }}</strong></div>
             <div><span>开放状态</span><strong>{{ internalNotePreview.view.status }}</strong></div>
-            <div><span>persistence</span><strong>{{ internalNotePreview.view.persistenceLabel }}</strong></div>
-            <div><span>execute</span><strong>{{ internalNotePreview.view.executeLabel }}</strong></div>
-            <div><span>writeWillExecute</span><strong>{{ internalNotePreview.view.writeWillExecute }}</strong></div>
-            <div><span>externalCallWillExecute</span><strong>{{ internalNotePreview.view.externalCallWillExecute }}</strong></div>
-            <div><span>audit</span><strong>{{ internalNotePreview.view.auditLabel }}</strong></div>
-            <div><span>confirm</span><strong>{{ internalNotePreview.view.confirmLabel }}</strong></div>
-            <div><span>idempotency</span><strong>{{ internalNotePreview.view.idempotencyLabel }}</strong></div>
-            <div><span>rollback</span><strong>{{ internalNotePreview.view.rollbackLabel }}</strong></div>
+            <div><span>持久化</span><strong>{{ internalNotePreview.view.persistenceLabel }}</strong></div>
+            <div><span>执行门禁</span><strong>{{ internalNotePreview.view.executeLabel }}</strong></div>
+            <div><span>数据写入</span><strong>{{ internalNotePreview.view.writeWillExecute }}</strong></div>
+            <div><span>外部调用</span><strong>{{ internalNotePreview.view.externalCallWillExecute }}</strong></div>
+            <div><span>审计记录</span><strong>{{ internalNotePreview.view.auditLabel }}</strong></div>
+            <div><span>确认令牌</span><strong>{{ internalNotePreview.view.confirmLabel }}</strong></div>
+            <div><span>幂等保护</span><strong>{{ internalNotePreview.view.idempotencyLabel }}</strong></div>
+            <div><span>自动回滚</span><strong>{{ internalNotePreview.view.rollbackLabel }}</strong></div>
           </section>
           <section v-if="internalNoteExecute.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-internal-note-execute">
             <div><span>执行结果</span><strong>{{ internalNoteExecute.view.title }}</strong></div>
             <div><span>状态</span><strong>{{ internalNoteExecute.view.status }}</strong></div>
-            <div><span>writeWillExecute</span><strong>{{ internalNoteExecute.view.writeWillExecute }}</strong></div>
-            <div><span>externalCallWillExecute</span><strong>{{ internalNoteExecute.view.externalCallWillExecute }}</strong></div>
-            <div><span>audit</span><strong>{{ internalNoteExecute.view.auditLabel }}</strong></div>
-            <div><span>idempotency</span><strong>{{ internalNoteExecute.view.idempotencyLabel }}</strong></div>
-            <div><span>rollback</span><strong>{{ internalNoteExecute.view.rollbackLabel }}</strong></div>
+            <div><span>数据写入</span><strong>{{ internalNoteExecute.view.writeWillExecute }}</strong></div>
+            <div><span>外部调用</span><strong>{{ internalNoteExecute.view.externalCallWillExecute }}</strong></div>
+            <div><span>审计记录</span><strong>{{ internalNoteExecute.view.auditLabel }}</strong></div>
+            <div><span>幂等保护</span><strong>{{ internalNoteExecute.view.idempotencyLabel }}</strong></div>
+            <div><span>自动回滚</span><strong>{{ internalNoteExecute.view.rollbackLabel }}</strong></div>
           </section>
           <p v-if="internalNoteError" class="adapter-source__error">{{ internalNoteError }}</p>
         </UiV2Section>
-        <UiV2Section title="闲鱼同步预览" hint="mock/sandbox only">
+        <UiV2Section title="闲鱼同步预览" hint="模拟/沙盒预览">
           <div class="internal-note-editor">
             <div class="filter-row">
               <BaseSelect v-model="xianyuSyncMode" label="预览模式" :options="xianyuSyncModeOptions" />
@@ -177,7 +176,7 @@
                 真实同步未开放
               </BaseButton>
             </div>
-            <p class="drawer-note">不真实同步；外部真实调用未开放；当前仅 mock/sandbox payload 预览；不会写入订单、不会调用闲鱼。</p>
+            <p class="drawer-note">不真实同步；外部真实调用未开放；当前仅生成模拟/沙盒预览；不会写入订单、不会调用闲鱼。</p>
           </div>
         </UiV2Section>
         <UiV2Section title="风险提醒">
@@ -196,25 +195,25 @@
     <BaseDrawer v-model="shippingOpen" title="顺丰网关预览" :subtitle="selectedOrder?.orderNo || ''" width="520" test-id="shipping-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
         <DrawerSummary
-          status="dry-run only"
+          status="仅预览，不写入"
           :title="selectedOrder.customerName"
           :description="selectedOrder.address"
-          :meta="`${selectedOrder.model} · gateway disabled · 不会写入`"
+          :meta="`${selectedOrder.model} · 真实外部已关闭 · 不会写入`"
           primary-label="重新预览"
           @primary="openShippingPreview"
         />
         <section v-if="shippingPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-safeops-preview">
           <div><span>操作预览</span><strong>{{ shippingPreview.view.title }}</strong></div>
-          <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
-          <div><span>persistence</span><strong>{{ shippingPreview.view.persistenceLabel }}</strong></div>
-          <div><span>execute</span><strong>{{ shippingPreview.view.executeLabel }}</strong></div>
-          <div><span>writeWillExecute</span><strong>{{ shippingPreview.view.writeWillExecute }}</strong></div>
-          <div><span>externalCallWillExecute</span><strong>{{ shippingPreview.view.externalCallWillExecute }}</strong></div>
-          <div><span>audit</span><strong>{{ shippingPreview.view.auditLabel }}</strong></div>
+          <div><span>开放状态</span><strong>外部真实调用未开放 / 真实外部已关闭</strong></div>
+          <div><span>持久化</span><strong>{{ shippingPreview.view.persistenceLabel }}</strong></div>
+          <div><span>执行门禁</span><strong>{{ shippingPreview.view.executeLabel }}</strong></div>
+          <div><span>数据写入</span><strong>{{ shippingPreview.view.writeWillExecute }}</strong></div>
+          <div><span>外部调用</span><strong>{{ shippingPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>审计记录</span><strong>{{ shippingPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ shippingPreview.view.riskLevel }}</strong></div>
-          <div><span>confirm</span><strong>{{ shippingPreview.view.confirmLabel }}</strong></div>
-          <div><span>idempotency</span><strong>{{ shippingPreview.view.idempotencyLabel }}</strong></div>
-          <div><span>external gateway</span><strong>{{ shippingPreview.view.externalGatewayLabel }}</strong></div>
+          <div><span>确认令牌</span><strong>{{ shippingPreview.view.confirmLabel }}</strong></div>
+          <div><span>幂等保护</span><strong>{{ shippingPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>外部网关</span><strong>{{ shippingPreview.view.externalGatewayLabel }}</strong></div>
         </section>
         <p v-if="shippingPreview.error" class="adapter-source__error">{{ shippingPreview.error }}</p>
         <UiV2Section title="寄件信息">
@@ -226,7 +225,7 @@
           </div>
         </UiV2Section>
         <UiV2Section title="安全说明">
-          <p class="drawer-note">外部真实调用未开放；gateway disabled；不会调用顺丰；不会生成真实运单或费用。</p>
+          <p class="drawer-note">外部真实调用未开放；真实外部已关闭；不会调用顺丰；不会生成真实运单或费用。</p>
           <p v-if="shippingPreview.view" class="drawer-note">{{ shippingPreview.view.summary }}</p>
         </UiV2Section>
       </div>
@@ -235,27 +234,27 @@
     <BaseDrawer v-model="xianyuOpen" title="闲鱼同步预览" :subtitle="selectedOrder?.orderNo || ''" width="560" test-id="xianyu-sync-drawer">
       <div v-if="selectedOrder" class="ui-v2-stack">
         <DrawerSummary
-          status="mock/sandbox only"
+          status="模拟/沙盒预览"
           :title="selectedOrder.orderNo"
           description="不真实同步 · 外部真实调用未开放"
-          :meta="`${xianyuSyncDirection} · mode=${xianyuSyncMode}`"
+          :meta="`${xianyuDirectionLabel} · ${xianyuModeLabel}`"
           primary-label="重新预览"
           @primary="openXianyuSyncPreview"
         />
         <section v-if="xianyuPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="orders-xianyu-safeops-preview">
           <div><span>操作预览</span><strong>{{ xianyuPreview.view.title }}</strong></div>
-          <div><span>开放状态</span><strong>外部真实调用未开放 / gateway disabled</strong></div>
-          <div><span>persistence</span><strong>{{ xianyuPreview.view.persistenceLabel }}</strong></div>
-          <div><span>execute</span><strong>{{ xianyuPreview.view.executeLabel }}</strong></div>
-          <div><span>writeWillExecute</span><strong>{{ xianyuPreview.view.writeWillExecute }}</strong></div>
-          <div><span>externalCallWillExecute</span><strong>{{ xianyuPreview.view.externalCallWillExecute }}</strong></div>
-          <div><span>audit</span><strong>{{ xianyuPreview.view.auditLabel }}</strong></div>
+          <div><span>开放状态</span><strong>外部真实调用未开放 / 真实外部已关闭</strong></div>
+          <div><span>持久化</span><strong>{{ xianyuPreview.view.persistenceLabel }}</strong></div>
+          <div><span>执行门禁</span><strong>{{ xianyuPreview.view.executeLabel }}</strong></div>
+          <div><span>数据写入</span><strong>{{ xianyuPreview.view.writeWillExecute }}</strong></div>
+          <div><span>外部调用</span><strong>{{ xianyuPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>审计记录</span><strong>{{ xianyuPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ xianyuPreview.view.riskLevel }}</strong></div>
-          <div><span>external gateway</span><strong>{{ xianyuPreview.view.externalGatewayLabel }}</strong></div>
-          <div><span>external action</span><strong>{{ xianyuPreview.view.expectedExternalActionLabel }}</strong></div>
-          <div><span>payload preview</span><strong>{{ xianyuPreview.view.requestPayloadPreviewLabel }}</strong></div>
-          <div><span>mock sync</span><strong>{{ xianyuPreview.view.mockXianyuSyncLabel }}</strong></div>
-          <div><span>sandbox payload</span><strong>{{ xianyuPreview.view.sandboxPayloadLabel }}</strong></div>
+          <div><span>外部网关</span><strong>{{ xianyuPreview.view.externalGatewayLabel }}</strong></div>
+          <div><span>外部动作</span><strong>{{ xianyuPreview.view.expectedExternalActionLabel }}</strong></div>
+          <div><span>请求预览</span><strong>{{ xianyuPreview.view.requestPayloadPreviewLabel }}</strong></div>
+          <div><span>同步模拟</span><strong>{{ xianyuPreview.view.mockXianyuSyncLabel }}</strong></div>
+          <div><span>沙盒报文</span><strong>{{ xianyuPreview.view.sandboxPayloadLabel }}</strong></div>
         </section>
         <p v-if="xianyuPreview.error" class="adapter-source__error">{{ xianyuPreview.error }}</p>
         <UiV2Section title="安全边界">
@@ -343,10 +342,10 @@ const columns = [
   { key: 'nextAction', label: '操作' },
 ]
 const xianyuSyncModeOptions = [
-  { label: 'disabled', value: 'disabled' },
-  { label: 'mock', value: 'mock' },
-  { label: 'sandbox', value: 'sandbox' },
-  { label: 'real disabled', value: 'real' },
+  { label: '默认关闭', value: 'disabled' },
+  { label: '模拟预览', value: 'mock' },
+  { label: '沙盒预览', value: 'sandbox' },
+  { label: '真实模式（已关闭）', value: 'real' },
 ]
 const xianyuSyncDirectionOptions = [
   { label: '拉取远端订单', value: 'pull_remote_order' },
@@ -355,9 +354,8 @@ const xianyuSyncDirectionOptions = [
 ]
 
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 
 const orderMetrics = computed(() => [
@@ -381,6 +379,8 @@ const filteredOrders = computed(() => orders.value.filter((order) => {
 }))
 
 const drawerSubtitle = computed(() => selectedOrder.value ? `${selectedOrder.value.customerName} · ${selectedOrder.value.model}` : '')
+const xianyuModeLabel = computed(() => xianyuSyncModeOptions.find((item) => item.value === xianyuSyncMode.value)?.label || '默认关闭')
+const xianyuDirectionLabel = computed(() => xianyuSyncDirectionOptions.find((item) => item.value === xianyuSyncDirection.value)?.label || '拉取远端订单')
 const selectedOrderInternalNote = computed(() => String(
   selectedOrder.value?.raw?.internal_note
   || selectedOrder.value?.internalNote

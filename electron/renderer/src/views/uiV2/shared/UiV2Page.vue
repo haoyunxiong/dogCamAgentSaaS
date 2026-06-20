@@ -16,7 +16,7 @@
 
 <script setup>
 defineProps({
-  eyebrow: { type: String, default: 'UI-V2 Mock' },
+  eyebrow: { type: String, default: '本地租赁运营' },
   title: { type: String, required: true },
   description: { type: String, default: '' },
 })

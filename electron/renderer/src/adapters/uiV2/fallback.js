@@ -2,23 +2,20 @@ import { createUiV2AdapterMeta, createUiV2MockAdapter, UI_V2_ADAPTER_METHODS } f
 import { createUiV2RealAdapter } from './realAdapter.js'
 import {
   getUiV2AdapterMode,
-  hasUiV2RuntimeBridge,
-  isUiV2PreviewMode,
   normalizeUiV2AdapterMode,
 } from './mode.js'
 
-function getForcedMockReason() {
-  if (isUiV2PreviewMode()) return 'renderer-preview-forced-mock'
-  if (!hasUiV2RuntimeBridge()) return 'runtime-bridge-unavailable'
-  return ''
-}
-
 function getFallbackReason(error) {
   if (error?.code === 'UI_V2_REAL_ADAPTER_NOT_IMPLEMENTED') {
-    return 'real-adapter-not-implemented'
+    return '真实接口暂未覆盖，已使用本地演示数据'
   }
 
-  return error?.message || 'real-adapter-error'
+  const message = error?.message || ''
+  if (message.includes('electronAPI bridge')) {
+    return '当前浏览器没有桌面接口，已使用本地演示数据'
+  }
+
+  return message || '本地数据库读取失败，已使用本地演示数据'
 }
 
 function isPromiseLike(value) {
@@ -71,13 +68,10 @@ export function createUiV2Adapter({ mode } = {}) {
 
   UI_V2_ADAPTER_METHODS.forEach((methodName) => {
     adapter[methodName] = (...args) => {
-      const forcedMockReason = getForcedMockReason()
-      const activeMode = forcedMockReason
-        ? 'mock'
-        : normalizeUiV2AdapterMode(mode || getUiV2AdapterMode())
+      const activeMode = normalizeUiV2AdapterMode(mode || getUiV2AdapterMode())
 
       if (activeMode === 'mock') {
-        return readMock(methodName, args, 'mock', activeMode, forcedMockReason)
+        return readMock(methodName, args, 'mock', activeMode)
       }
 
       try {

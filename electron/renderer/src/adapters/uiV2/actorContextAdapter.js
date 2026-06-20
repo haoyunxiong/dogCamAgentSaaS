@@ -5,15 +5,20 @@ import {
 
 const ROLE_KEY = 'ui-v2-demo-role'
 const ROLES = Object.freeze(['owner', 'operator', 'viewer'])
+const ROLE_LABELS = Object.freeze({
+  owner: '店主',
+  operator: '运营员',
+  viewer: '只读查看',
+})
 const DEFAULT_CONTEXT = Object.freeze({
   id: 'demo-owner',
   role: 'owner',
   source: 'ui-v2-demo',
   sessionId: 'local-demo-session',
-  merchantId: 'demo-merchant-xiaogou-camera',
-  merchantName: '小狗相机租赁 Demo 商户',
-  storeId: 'demo-store-main',
-  storeName: '本地 Demo 总店',
+  merchantId: 'xiaogou-camera-rental',
+  merchantName: '小狗相机租赁',
+  storeId: 'shenzhen-nanshan-store',
+  storeName: '深圳南山店',
   isDemo: true,
 })
 
@@ -44,6 +49,7 @@ export function getLocalActorContext(overrides = {}) {
     ...overrides,
     id: overrides.id || `demo-${role}`,
     role,
+    roleLabel: ROLE_LABELS[role],
     source: overrides.source || DEFAULT_CONTEXT.source,
   }
 }
@@ -95,10 +101,15 @@ export function buildSafeOpsActor(source = 'ui-v2') {
 export function buildRoleMatrix() {
   return ROLES.map((role) => ({
     role,
+    label: ROLE_LABELS[role],
     canExecuteInternal: role === 'owner' || role === 'operator',
     canPreviewExternal: role === 'owner',
     canExecuteExternal: false,
   }))
+}
+
+export function getRoleLabel(role) {
+  return ROLE_LABELS[normalizeRole(role)]
 }
 
 export function canExecuteOperation(actor = getLocalActorContext(), operationType = '') {
@@ -133,5 +144,6 @@ export const actorContextAdapter = {
   canPreviewExternalOperation,
   getCurrentActorContext,
   getLocalActorContext,
+  getRoleLabel,
   setDemoRole,
 }

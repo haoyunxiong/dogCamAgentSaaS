@@ -3,7 +3,6 @@
     <template #actions><BaseButton variant="secondary" :loading="depositPreview.loading" @click="previewDepositCreate('page-action')">免押预览</BaseButton></template>
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
     <section v-if="depositPreview.view && !drawerOpen" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-page-safeops-preview">
@@ -11,17 +10,17 @@
       <div><span>模式</span><strong>{{ depositPreview.view.mode }}</strong></div>
       <div><span>预览模式</span><strong>{{ depositPreview.view.externalPreviewModeLabel }}</strong></div>
       <div><span>开放状态</span><strong>{{ depositPreviewStatusLabel }}</strong></div>
-      <div><span>persistence</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
-      <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
-      <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
-      <div><span>externalCallWillExecute</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
-      <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
-      <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
-      <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
-      <div><span>external gateway</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
-      <div><span>request preview</span><strong>{{ depositPreview.view.requestPayloadPreviewLabel }}</strong></div>
-      <div><span>mock deposit</span><strong>{{ depositPreview.view.mockDepositLabel }}</strong></div>
-      <div><span>sandbox payload</span><strong>{{ depositPreview.view.sandboxPayloadLabel }}</strong></div>
+      <div><span>持久化</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
+      <div><span>执行门禁</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
+      <div><span>数据写入</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
+      <div><span>外部调用</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
+      <div><span>审计记录</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
+      <div><span>确认令牌</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
+      <div><span>幂等保护</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
+      <div><span>外部网关</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
+      <div><span>请求预览</span><strong>{{ depositPreview.view.requestPayloadPreviewLabel }}</strong></div>
+      <div><span>免押模拟单</span><strong>{{ depositPreview.view.mockDepositLabel }}</strong></div>
+      <div><span>沙盒报文</span><strong>{{ depositPreview.view.sandboxPayloadLabel }}</strong></div>
       <div><span>说明</span><strong>不会写入 / 不会调用免押外部服务</strong></div>
     </section>
     <section class="ui-v2-metric-grid is-four"><MetricCard v-for="metric in depositMetrics" :key="metric.key" :metric="metric" /></section>
@@ -56,7 +55,7 @@
           <div class="deposit-preview-gateway__head">
             <div>
               <span>免押预览</span>
-              <strong>gateway disabled or mock/sandbox only</strong>
+              <strong>真实外部已关闭，仅支持模拟/沙盒预览</strong>
             </div>
             <span>不真实创建免押 · 不真实完结免押</span>
           </div>
@@ -66,25 +65,25 @@
             <BaseButton size="sm" variant="secondary" :loading="depositPreview.loading" @click="previewDepositFinish('drawer-mode-finish')">完结预览</BaseButton>
             <BaseButton size="sm" variant="secondary" disabled>真实免押未开放</BaseButton>
           </div>
-          <p class="safeops-note">当前仅 mock/sandbox payload 预览；real 永远返回 disabled；不会新增 deposit_orders；不会写 rental_orders；不会更新订单、档期或资金状态。</p>
+          <p class="safeops-note">当前仅生成模拟/沙盒预览；真实模式始终关闭；不会新增免押订单；不会写订单表；不会更新档期或资金状态。</p>
         </section>
         <section v-if="depositPreview.view" class="final-drawer-card ui-v2-detail-grid" data-testid="deposit-safeops-preview">
           <div><span>免押预览</span><strong>不真实创建/完结</strong></div>
           <div><span>模式</span><strong>{{ depositPreview.view.mode }}</strong></div>
           <div><span>预览模式</span><strong>{{ depositPreview.view.externalPreviewModeLabel }}</strong></div>
           <div><span>开放状态</span><strong>{{ depositPreviewStatusLabel }}</strong></div>
-          <div><span>persistence</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
-          <div><span>execute</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
-          <div><span>writeWillExecute</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
-          <div><span>externalCallWillExecute</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
-          <div><span>audit</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
+          <div><span>持久化</span><strong>{{ depositPreview.view.persistenceLabel }}</strong></div>
+          <div><span>执行门禁</span><strong>{{ depositPreview.view.executeLabel }}</strong></div>
+          <div><span>数据写入</span><strong>{{ depositPreview.view.writeWillExecute }}</strong></div>
+          <div><span>外部调用</span><strong>{{ depositPreview.view.externalCallWillExecute }}</strong></div>
+          <div><span>审计记录</span><strong>{{ depositPreview.view.auditLabel }}</strong></div>
           <div><span>风险等级</span><strong>{{ depositPreview.view.riskLevel }}</strong></div>
-          <div><span>confirm</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
-          <div><span>idempotency</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
-          <div><span>external gateway</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
-          <div><span>request preview</span><strong>{{ depositPreview.view.requestPayloadPreviewLabel }}</strong></div>
-          <div><span>mock deposit</span><strong>{{ depositPreview.view.mockDepositLabel }}</strong></div>
-          <div><span>sandbox payload</span><strong>{{ depositPreview.view.sandboxPayloadLabel }}</strong></div>
+          <div><span>确认令牌</span><strong>{{ depositPreview.view.confirmLabel }}</strong></div>
+          <div><span>幂等保护</span><strong>{{ depositPreview.view.idempotencyLabel }}</strong></div>
+          <div><span>外部网关</span><strong>{{ depositPreview.view.externalGatewayLabel }}</strong></div>
+          <div><span>请求预览</span><strong>{{ depositPreview.view.requestPayloadPreviewLabel }}</strong></div>
+          <div><span>免押模拟单</span><strong>{{ depositPreview.view.mockDepositLabel }}</strong></div>
+          <div><span>沙盒报文</span><strong>{{ depositPreview.view.sandboxPayloadLabel }}</strong></div>
         </section>
         <section class="final-drawer-card ui-v2-detail-grid">
           <div><span>免押金额</span><strong>¥{{ Number(selectedReview.requestedFreeAmount || 0).toLocaleString() }}</strong></div>
@@ -93,7 +92,7 @@
           <div><span>负责人</span><strong>{{ selectedReview.assignee }}</strong></div>
         </section>
         <UiV2Section title="审核判断"><p>{{ selectedReview.riskReason }}</p></UiV2Section>
-        <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；gateway disabled；不会调用免押服务；不会改变外部信用或资金相关状态。</p></UiV2Section>
+        <UiV2Section title="安全说明"><p class="safeops-note">外部真实调用未开放；真实外部已关闭；不会调用免押服务；不会改变外部信用或资金相关状态。</p></UiV2Section>
       </div>
     </BaseDrawer>
   </UiV2Page>
@@ -130,10 +129,10 @@ const depositPreviewMode = ref('disabled')
 const sourceMeta = ref(uiV2Adapter.getMeta())
 const safeOpsActor = buildSafeOpsActor('ui-v2-deposit')
 const depositPreviewModeOptions = [
-  { label: 'disabled（默认）', value: 'disabled' },
-  { label: 'mock（不真实创建/完结）', value: 'mock' },
-  { label: 'sandbox payload（不发送请求）', value: 'sandbox' },
-  { label: 'real（禁用）', value: 'real' },
+  { label: '默认关闭', value: 'disabled' },
+  { label: '模拟预览（不真实创建/完结）', value: 'mock' },
+  { label: '沙盒预览（不发送请求）', value: 'sandbox' },
+  { label: '真实模式（已关闭）', value: 'real' },
 ]
 const columns = [
   { key: 'orderNo', label: '订单号' },
@@ -146,9 +145,8 @@ const columns = [
   { key: 'nextAction', label: '下一步' },
 ]
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 const depositMetrics = computed(() => [
   { key: 'queue', label: '审核队列', value: reviews.value.filter((item) => ['待审核', '待复核'].includes(item.reviewStatus)).length, unit: '单', trend: '只读统计', tone: 'warning' },
@@ -164,11 +162,11 @@ const filteredReviews = computed(() => reviews.value.filter((review) => {
 }))
 const depositPreviewStatusLabel = computed(() => {
   const result = depositPreview.value?.result || {}
-  if (!result.operationType) return 'gateway disabled / 默认关闭'
-  if (result.externalPreviewMode === 'mock') return 'mock preview only / 不真实创建或完结'
-  if (result.externalPreviewMode === 'sandbox') return 'sandbox payload only / 不发送请求'
-  if (result.externalPreviewMode === 'real') return 'real disabled / 禁止真实调用'
-  return 'gateway disabled / 不真实创建或完结'
+  if (!result.operationType) return '默认关闭'
+  if (result.externalPreviewMode === 'mock') return '模拟预览，不真实创建或完结'
+  if (result.externalPreviewMode === 'sandbox') return '沙盒预览，不发送请求'
+  if (result.externalPreviewMode === 'real') return '真实模式已关闭，禁止真实调用'
+  return '真实外部已关闭 / 不真实创建或完结'
 })
 function openReview(review) {
   selectedReview.value = review

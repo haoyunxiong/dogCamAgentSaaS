@@ -119,7 +119,7 @@ const uiV2Groups = [
 
 const groups = [
   {
-    label: 'UI-V2 Mock',
+    label: '租赁运营后台',
     items: [
       { to: '/ui-v2', label: 'V2 工作台', icon: Home, exact: true },
       { to: '/ui-v2/orders', label: 'V2 订单中心', icon: Package },

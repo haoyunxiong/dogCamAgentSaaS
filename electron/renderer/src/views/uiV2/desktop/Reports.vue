@@ -4,7 +4,6 @@
 
     <div class="adapter-source-row">
       <span class="adapter-source" :class="`is-${sourceMeta.source || 'mock'}`">{{ sourceLabel }}</span>
-      <span v-if="sourceMeta.fallbackReason" class="adapter-source__reason">{{ sourceMeta.fallbackReason }}</span>
       <span v-if="loadError" class="adapter-source__error">{{ loadError }}</span>
     </div>
 
@@ -14,11 +13,11 @@
 
     <FilterBar title="报表筛选" hint="基础只读聚合，字段缺失时自动降级">
       <div class="report-filter-row">
-        <BaseSelect model-value="深圳南山店" label="门店" :options="['深圳南山店']" />
-        <BaseSelect model-value="近 7 日 / 本月" label="时间范围" :options="['近 7 日 / 本月']" />
-        <BaseSelect model-value="全部渠道" label="渠道" :options="['全部渠道', '闲鱼', '小红书', '抖音', '私域']" />
-        <BaseSelect model-value="全部类型" label="设备类型" :options="['全部类型', '相机', '稳定器', '补光灯']" />
-        <BaseButton variant="secondary">重置</BaseButton>
+        <BaseSelect v-model="reportStore" label="门店" :options="storeOptions" />
+        <BaseSelect v-model="reportRange" label="时间范围" :options="rangeOptions" />
+        <BaseSelect v-model="reportChannel" label="渠道" :options="channelOptions" />
+        <BaseSelect v-model="reportDeviceType" label="设备类型" :options="deviceTypeOptions" />
+        <BaseButton variant="secondary" @click="resetFilters">重置</BaseButton>
       </div>
     </FilterBar>
 
@@ -97,6 +96,14 @@ const report = ref(emptyReport)
 const loading = ref(false)
 const loadError = ref('')
 const sourceMeta = ref(uiV2Adapter.getMeta())
+const reportStore = ref('深圳南山店')
+const reportRange = ref('近 7 天')
+const reportChannel = ref('全部渠道')
+const reportDeviceType = ref('全部类型')
+const storeOptions = ['深圳南山店', '广州天河店', '上海徐汇店']
+const rangeOptions = ['今日', '近 7 天', '本月', '下月', '自定义演示范围']
+const channelOptions = ['全部渠道', '闲鱼', '小红书', '抖音', '私域']
+const deviceTypeOptions = ['全部类型', '相机', '稳定器', '补光灯']
 
 const columns = [
   { key: 'rank', label: '排名' },
@@ -108,9 +115,8 @@ const columns = [
 ]
 
 const sourceLabel = computed(() => {
-  if (sourceMeta.value.source === 'real') return '真实只读'
-  if (sourceMeta.value.source === 'mock-fallback') return 'Mock fallback'
-  return 'Mock 预览'
+  if (sourceMeta.value.source === 'real') return '本地数据库'
+  return '本地演示数据'
 })
 
 const reportAmountLabel = computed(() => {
@@ -148,6 +154,13 @@ async function loadReport() {
   } finally {
     loading.value = false
   }
+}
+
+function resetFilters() {
+  reportStore.value = '深圳南山店'
+  reportRange.value = '近 7 天'
+  reportChannel.value = '全部渠道'
+  reportDeviceType.value = '全部类型'
 }
 
 onMounted(loadReport)
